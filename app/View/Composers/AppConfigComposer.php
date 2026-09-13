@@ -3,6 +3,7 @@
 namespace App\View\Composers;
 
 use App\Models\User;
+use App\Services\DeviceService;
 use Illuminate\Support\Facades\Route;
 use Illuminate\View\View;
 
@@ -42,6 +43,8 @@ class AppConfigComposer
                 'is_admin' => $user->isAdmin(),
             ] : null,
             'routes' => $routes,
+            // The Android app registers again when this changes (see resources/js/native/app.js).
+            'mobile' => $user && Route::has('devices.store') ? ['configVersion' => app(DeviceService::class)->configVersion()] : null,
             'flash' => array_filter([
                 'status' => session('toast'),
                 'error' => session('toast_error'),

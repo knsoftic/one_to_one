@@ -39,6 +39,27 @@ class PushService
     }
 
     /**
+     * Try to obtain a Firebase access token (used by `chat:doctor`).
+     *
+     * @return string|null error message, or null when push works
+     */
+    public function diagnose(): ?string
+    {
+        if (! $this->enabled()) {
+            return 'Firebase credentials are not configured (FCM_CREDENTIALS).';
+        }
+
+        try {
+            // Fresh token, not cached: the doctor usually runs as root and must not create cache files.
+            $this->accessToken(useCache: false);
+
+            return null;
+        } catch (Throwable $e) {
+            return $e->getMessage();
+        }
+    }
+
+    /**
      * Attach a Firebase token to a device. A token can belong to one device only
      * (the phone may have signed into another account without signing out).
      */
@@ -143,9 +164,9 @@ class PushService
             || ($status === 400 && str_contains((string) ($body['error']['message'] ?? ''), 'registration token'));
     }
 
-    private function accessToken(): string
+    private function accessToken(bool $useCache = true): string
     {
-        $cached = Cache::get(self::TOKEN_CACHE_KEY);
+        $cached = $useCache ? Cache::get(self::TOKEN_CACHE_KEY) : null;
         if (is_string($cached) && $cached !== '') {
             return $cached;
         }
@@ -163,7 +184,9 @@ class PushService
             throw new RuntimeException('Could not obtain a Firebase access token (HTTP '.$response->status().').');
         }
 
-        Cache::put(self::TOKEN_CACHE_KEY, $token, max(60, (int) $response->json('expires_in', 3600) - 300));
+        if ($useCache) {
+            Cache::put(self::TOKEN_CACHE_KEY, $token, max(60, (int) $response->json('expires_in', 3600) - 300));
+        }
 
         return $token;
     }

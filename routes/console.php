@@ -1,9 +1,11 @@
 <?php
 
+use App\Console\Commands\ChatDoctor;
 use App\Models\User;
 use App\Services\CallService;
 use App\Services\PresenceService;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schedule;
 
 /*
@@ -43,5 +45,9 @@ Artisan::command('chat:expire-calls', function (CallService $calls) {
 |--------------------------------------------------------------------------
 */
 
+// Lets `php artisan chat:doctor` confirm the cron task is running.
+Schedule::call(fn () => Cache::put(ChatDoctor::SCHEDULER_HEARTBEAT_KEY, now()->toIso8601String(), now()->addDay()))
+    ->everyMinute()
+    ->name('chat-scheduler-heartbeat');
 Schedule::command('chat:sweep-presence')->everyMinute()->withoutOverlapping();
 Schedule::command('chat:expire-calls')->everyMinute()->withoutOverlapping();

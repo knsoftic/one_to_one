@@ -331,7 +331,7 @@ CREATE DATABASE one_to_one_chat_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unico
 php artisan test
 ```
 
-The suite (171 tests) covers authentication, profiles, conversations, messaging, realtime events, receipts, presence, polling sync, attachments (with real content-type detection), message actions, notifications, blocking, phone contacts, mobile app device notifications, the admin panel and security headers.
+The suite (175 tests) covers authentication, profiles, conversations, messaging, realtime events, receipts, presence, polling sync, attachments (with real content-type detection), message actions, notifications, blocking, phone contacts, mobile app device notifications, the admin panel and security headers.
 
 Code style: `vendor/bin/pint`
 
@@ -435,6 +435,8 @@ Artisan commands:
 | `php artisan chat:make-admin {email}` | Grant admin access to an existing user |
 | `php artisan chat:sweep-presence` | Mark users without recent activity offline (scheduled every minute) |
 | `php artisan chat:expire-calls` | Close unanswered and abandoned calls (scheduled every minute) |
+| `php artisan chat:doctor` | Check WebSockets (Reverb), Firebase push, TURN and the scheduler, with fixes |
+| `scripts/setup-realtime.sh` / `scripts/setup-turn.sh` | aaPanel servers: set up live updates / the TURN server for calls on mobile data |
 | `npm run icons` | Regenerate `resources/icons/icons.json` from Lucide |
 
 ---

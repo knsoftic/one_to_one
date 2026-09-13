@@ -373,6 +373,8 @@ HTTPS is required for secure cookies, WebSockets (`wss://`) and microphone acces
 
 ## 10. Nginx WebSocket proxy for Reverb
 
+> **Shortcut:** `bash /www/wwwroot/chat.hunario.com/scripts/setup-realtime.sh` (as root) does steps 7 (Reverb values), 10 and 11 for you: it sets the public Reverb values in `.env`, adds the proxy below to the site config (backup + `nginx -t`, restored if the test fails), starts Reverb with systemd when nothing runs yet, and finishes with `php artisan chat:doctor`.
+
 **aaPanel → Website → chat.hunario.com → Settings → Config file**
 
 Inside the `server { ... }` block, add the following **just below the line `#SSL-END`** (before the other `location` blocks), then **Save**:
@@ -529,6 +531,12 @@ A message like `chown: changing ownership of '.user.ini': Operation not permitte
    tail -n 50 /www/wwwroot/chat.hunario.com/storage/logs/laravel-$(date +%F).log
    ```
 
+8. Run the built-in check (WebSockets, push, TURN, cron):
+
+   ```bash
+   cd /www/wwwroot/chat.hunario.com && su -s /bin/bash www -c "/www/server/php/82/bin/php artisan chat:doctor"
+   ```
+
 ---
 
 ## 15. Deploying updates
@@ -571,6 +579,12 @@ cd /www/wwwroot/chat.hunario.com
 ---
 
 ## 17. Troubleshooting
+
+**Start here:** run the built-in check — it tests Reverb (from Laravel and through Nginx like a browser), Firebase, the TURN server and the cron task, and prints how to fix each problem:
+
+```bash
+cd /www/wwwroot/chat.hunario.com && su -s /bin/bash www -c "/www/server/php/82/bin/php artisan chat:doctor"
+```
 
 | Problem | Fix |
 |---------|-----|
@@ -655,6 +669,8 @@ phone. Tokens of uninstalled apps are removed automatically.
 ---
 
 ## 19. Voice & video calls (TURN server)
+
+> **Shortcut:** `bash /www/wwwroot/chat.hunario.com/scripts/setup-turn.sh` (as root) does 19.1–19.4 automatically: installs coturn, writes the configuration with a new secret, uses the site certificate for TLS, opens the ports in ufw/firewalld, updates `.env` and runs `php artisan chat:doctor`. Only the hosting provider's firewall (if your VPS panel has one) must still be opened by hand.
 
 Calls work in the browser and in the Android app as soon as the latest code is deployed: the call buttons are in the
 chat header, calls ring on every device of the person called (full-screen ringing on Android, even when the app is

@@ -10,6 +10,23 @@ const OVERLAYS = '.modal, .lightbox:not(.is-closing), .dropdown-menu:not([hidden
 const ROOT_PATHS = ['', '/chat', '/login', '/register'];
 
 const BATTERY_PROMPT_KEY = 'native:battery-prompted';
+const DEVICE_CONFIG_KEY = 'native:device-config';
+
+function storedValue(key) {
+    try {
+        return localStorage.getItem(key);
+    } catch {
+        return null;
+    }
+}
+
+function storeValue(key, value) {
+    try {
+        localStorage.setItem(key, value);
+    } catch {
+        /* storage unavailable: the app simply registers again next time */
+    }
+}
 
 let appConfig = {};
 
@@ -125,15 +142,25 @@ async function enableNotifications() {
 
     const status = await NativeApp.getNotificationStatus();
 
-    // Already set up for this account: the app restarts the background connection by itself.
-    // Settings saved by an older app version lack the call endpoints: register again.
-    if (!status.enabled || Number(status.userId) !== Number(appConfig.user.id) || status.callsReady === false) {
+    // Register again when the phone's saved settings are outdated: another account, an older
+    // app version without call endpoints, or server changes such as Firebase being switched
+    // on or the WebSocket address being fixed (otherwise the phone would stay on the slow
+    // fallback connection and miss calls).
+    const serverVersion = `${appConfig.user.id}:${appConfig.mobile?.configVersion ?? ''}`;
+    const outdated =
+        !status.enabled ||
+        Number(status.userId) !== Number(appConfig.user.id) ||
+        status.callsReady === false ||
+        storedValue(DEVICE_CONFIG_KEY) !== serverVersion;
+
+    if (outdated) {
         const info = await NativeApp.getInfo().catch(() => ({}));
         const { data } = await axios.post(appConfig.routes.devices, {
             platform: 'android',
             app_version: info.version ?? null,
         });
         await NativeApp.enableNotifications(data);
+        storeValue(DEVICE_CONFIG_KEY, `${appConfig.user.id}:${data.config_version ?? ''}`);
     }
 
     // New messages now arrive as phone notifications (also while the app is open),

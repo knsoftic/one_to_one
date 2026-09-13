@@ -259,10 +259,18 @@ export class CallManager {
         try {
             const data = await this.post('callAccept', session.call.id, { client_id: this.clientId });
             this.applyCallData(session, data);
-            if (data.ice_servers?.length) session.pc.setConfiguration?.({ iceServers: data.ice_servers });
         } catch (error) {
             this.teardown(session, errorMessage(error, "Couldn't answer the call."), { error: true });
             return;
+        }
+
+        // Fresh TURN credentials from the answer; keep the rest of the configuration unchanged.
+        if (session.iceServers?.length) {
+            try {
+                session.pc.setConfiguration({ ...session.pc.getConfiguration(), iceServers: session.iceServers });
+            } catch {
+                /* already negotiating: the servers given when ringing are still valid */
+            }
         }
 
         this.emit('active');
@@ -473,6 +481,7 @@ export class CallManager {
             muted: false,
             cameraOff: false,
             noCamera: false,
+            noMicrophone: false,
             facing: 'user',
             canFlip: false,
             speaker: call.type === 'video',
@@ -518,6 +527,10 @@ export class CallManager {
         session.pc = pc;
 
         session.localStream?.getTracks().forEach((track) => pc.addTrack(track, session.localStream));
+        // Still receive what this device can't send (no microphone / no camera).
+        if (!session.localStream?.getAudioTracks().length) {
+            pc.addTransceiver('audio', { direction: 'recvonly' });
+        }
         if (session.type === 'video' && !session.localStream?.getVideoTracks().length) {
             pc.addTransceiver('video', { direction: 'recvonly' });
         }
@@ -898,18 +911,41 @@ export class CallManager {
 
     async getMedia(type, session) {
         const audio = { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
-        if (type !== 'video') return navigator.mediaDevices.getUserMedia({ audio, video: false });
+        const video = type === 'video' ? this.videoConstraints('user') : false;
+        const denied = (error) => ['NotAllowedError', 'SecurityError', 'AbortError'].includes(error?.name);
 
         try {
-            return await navigator.mediaDevices.getUserMedia({ audio, video: this.videoConstraints('user') });
+            return await navigator.mediaDevices.getUserMedia({ audio, video });
         } catch (error) {
-            if (['NotAllowedError', 'SecurityError', 'AbortError'].includes(error?.name)) throw error;
-            // No usable camera: join with audio only, camera off.
-            const stream = await navigator.mediaDevices.getUserMedia({ audio, video: false });
-            session.noCamera = true;
-            session.cameraOff = true;
-            return stream;
+            if (denied(error)) throw error;
         }
+
+        // A device is missing or busy (e.g. a desktop PC without a microphone or webcam):
+        // take whatever works, so the call still connects and you can see and hear the other side.
+        const stream = new MediaStream();
+
+        try {
+            (await navigator.mediaDevices.getUserMedia({ audio })).getTracks().forEach((track) => stream.addTrack(track));
+        } catch (error) {
+            if (denied(error)) throw error;
+            session.noMicrophone = true;
+            session.muted = true;
+        }
+
+        if (type === 'video') {
+            try {
+                (await navigator.mediaDevices.getUserMedia({ video })).getTracks().forEach((track) => stream.addTrack(track));
+            } catch (error) {
+                if (denied(error)) throw error;
+                session.noCamera = true;
+                session.cameraOff = true;
+            }
+        }
+
+        if (session.noMicrophone) {
+            toast.warning('No microphone found. The other person won’t hear you.', { timeout: 6000 });
+        }
+        return stream;
     }
 
     videoConstraints(facing) {
@@ -946,6 +982,10 @@ export class CallManager {
     toggleMute() {
         const session = this.session;
         if (!session || session.status === 'ended') return;
+        if (session.noMicrophone) {
+            toast.info('No microphone found on this device.');
+            return;
+        }
         session.muted = !session.muted;
         session.localStream?.getAudioTracks().forEach((track) => (track.enabled = !session.muted));
         this.sendMediaState(session);
@@ -1291,6 +1331,7 @@ export class CallManager {
         }
 
         const flags = [];
+        if (session?.noMicrophone && view !== 'ended') flags.push('No microphone on this device');
         if (session && view === 'connected') {
             if (session.remoteMuted) flags.push(`${peer.name ?? 'They'} muted their microphone`);
             if (type === 'video' && session.remoteCameraOff) flags.push('Camera off');
@@ -1311,6 +1352,7 @@ export class CallManager {
         root.querySelector('[data-call-camera-icon]').innerHTML = icon(session?.cameraOff ? 'video-off' : 'video');
         button('flip').hidden = type !== 'video' || !session?.canFlip || Boolean(session?.cameraOff);
         button('mute').setAttribute('aria-pressed', String(Boolean(session?.muted)));
+        button('mute').disabled = ended || Boolean(session?.noMicrophone);
         root.querySelector('[data-call-mute-icon]').innerHTML = icon(session?.muted ? 'mic-off' : 'mic');
         root.querySelector('[data-call-accept-icon]').innerHTML = icon(type === 'video' ? 'video' : 'phone');
         button('minimize').style.visibility = !session || ended ? 'hidden' : '';

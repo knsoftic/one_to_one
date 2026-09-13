@@ -383,3 +383,31 @@ WhatsApp-style one-to-one calls in the browser and the Android app. Media is pee
 - ✅ Vite build; call screen rendered in a browser harness (incoming and connected states).
 - ✅ Android debug APK builds; Android lint 0 errors.
 - ⏳ Needs real devices: two accounts calling each other (Wi-Fi and mobile data), and a TURN server on the production server for mobile networks (aaPanel guide step 19).
+
+---
+
+## Fixes — Unreliable calls and phone notifications, TURN setup
+
+Reported: calls sometimes don't go through (never from the PC), phone notifications arrive only sometimes; calls on mobile data needed.
+
+### What the live site showed (chat.hunario.com, checked from outside)
+- `/app/` and `/apps/` answer with Nginx 404 — the Reverb WebSocket proxy is missing — and the CSP still lists `ws://127.0.0.1:8080` (local `REVERB_*` values). Every browser and phone therefore runs on polling. Background browser tabs are throttled to about one poll per minute, so incoming calls (45 s ring) were often missed; the phones' fallback connection checked only every 60 s and never receives calls.
+- The new call code is deployed (`/calls/active` → 401).
+
+### Causes found in the code
+- Phones registered only on first sign-in / account change. A phone that registered before Firebase was configured kept `server_push = false` and stayed on the fallback connection forever (no push, no ringing).
+- Desktop PCs without a microphone could not start or answer calls (`NotFoundError`).
+- Answering could end the call if updating the peer connection's ICE servers threw.
+
+### Changes
+- `DeviceService::configVersion()` (Firebase on/off, WebSocket address, endpoints…) is shared with every page and returned by `POST /devices`; the Android app registers again whenever it differs, so phones switch to Firebase push / the fixed WebSocket address on the next app start — no new APK needed.
+- Calls: join without a microphone or camera (receive-only, "No microphone on this device"), safe ICE server update when answering.
+- `php artisan chat:doctor`: checks APP_URL/secure cookie, migrations, Reverb settings, the Reverb process, Laravel → Reverb publishing, a real WebSocket handshake through Nginx, Firebase credentials, phones not yet on push, TURN (STUN binding to coturn), abandoned calls and the scheduler (new heartbeat task), each with a fix.
+- `scripts/setup-realtime.sh`: public Reverb values in `.env`, Nginx proxy blocks inserted into the aaPanel site config (backup, `nginx -t`, automatic rollback), Reverb under systemd when nothing runs yet, secure session cookie, config cache, doctor.
+- `scripts/setup-turn.sh`: installs and configures coturn (shared secret, relay ports 49160–49400, private networks denied, TLS with the site certificate + monthly refresh), opens ufw/firewalld ports, sets `CHAT_CALL_TURN_URLS` / `CHAT_CALL_TURN_SECRET`, doctor.
+- Guide: shortcuts in steps 10 and 19, doctor in step 14 and at the top of troubleshooting.
+
+### Verification
+- ✅ PHPUnit — **175 tests passed** (4 new in `DiagnosticsTest`).
+- ✅ Doctor locally; its WebSocket handshake check returns 404 against chat.hunario.com (confirms the missing proxy) and its STUN check succeeds against Google's STUN server.
+- ✅ Both scripts pass `bash -n`; not run on the production server from here.

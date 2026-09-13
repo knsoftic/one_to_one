@@ -117,12 +117,34 @@ class DeviceService
      */
     public function connectionDetails(User $user, string $token): array
     {
+        $details = $this->sharedDetails();
+
         return [
             'token' => $token,
             'user_id' => $user->getKey(),
             'server_url' => rtrim((string) config('app.url'), '/'),
             'server_time' => now()->toIso8601String(),
             'channel' => $this->channelFor($user),
+            'config_version' => $this->configVersion(),
+        ] + $details;
+    }
+
+    /**
+     * Fingerprint of the connection details every phone shares. When it changes
+     * (Firebase switched on, WebSocket address fixed, new endpoints…) the app
+     * registers again, so phones never stay on outdated settings.
+     */
+    public function configVersion(): string
+    {
+        return substr(hash('sha256', (string) json_encode($this->sharedDetails())), 0, 16);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function sharedDetails(): array
+    {
+        return [
             'websocket_url' => $this->websocketUrl(),
             'poll_interval_seconds' => max(15, (int) config('chat.mobile.poll_interval_seconds', 60)),
             'show_preview' => (bool) config('chat.mobile.show_preview', true),
