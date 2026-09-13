@@ -1,9 +1,13 @@
 import axios from '../bootstrap';
 import { debounce, errorMessage, html } from '../lib/dom';
+import { isNativeApp } from '../lib/native';
 import { toast } from '../lib/toast';
 import * as T from './templates';
 
 const SYNC_BATCH = 3000;
+
+// The mobile app re-checks the phone book in the background at most this often.
+const AUTO_SYNC_INTERVAL_MS = 12 * 60 * 60 * 1000;
 
 /**
  * Parse a vCard (.vcf) export into phone-book entries.
@@ -69,12 +73,14 @@ export class ContactsPanel {
             importInput: q('[data-contacts-import]'),
         };
 
-        // The Contact Picker API is available on Android Chrome.
-        this.pickerSupported = 'contacts' in navigator && typeof navigator.contacts?.select === 'function';
+        // The mobile app reads the whole phone book; Android Chrome has the Contact Picker API.
+        this.native = isNativeApp();
+        this.pickerSupported = this.native || ('contacts' in navigator && typeof navigator.contacts?.select === 'function');
         this.el.sync.hidden = !this.pickerSupported;
 
         this.bind();
         this.load();
+        if (this.native) this.autoSync();
     }
 
     get isOpen() {
@@ -144,6 +150,12 @@ export class ContactsPanel {
 
         if (!this.loaded) this.load();
         if (!window.matchMedia('(pointer: coarse)').matches) this.el.search.focus();
+
+        // Mobile app, first "New chat": ask for the phone book right away, like WhatsApp.
+        if (this.native && !this.askedThisSession && !this.lastSyncAt()) {
+            this.askedThisSession = true;
+            this.syncFromNativePhoneBook({ quietDenied: true });
+        }
     }
 
     close() {
@@ -232,6 +244,7 @@ export class ContactsPanel {
 
     async syncFromPhone() {
         if (!this.pickerSupported) return;
+        if (this.native) return this.syncFromNativePhoneBook();
         try {
             const picked = await navigator.contacts.select(['name', 'tel'], { multiple: true });
             const entries = picked
@@ -248,10 +261,71 @@ export class ContactsPanel {
         }
     }
 
-    async upload(entries) {
+    /**
+     * Mobile app: read names and numbers from the phone book (asks for the
+     * Contacts permission the first time).
+     */
+    async syncFromNativePhoneBook({ silent = false, quietDenied = false } = {}) {
+        try {
+            const { NativeApp } = await import('../native/plugins');
+            const { contacts } = await NativeApp.getContacts();
+            const entries = (contacts ?? [])
+                .map((contact) => ({ name: contact.name ?? '', phones: (contact.phones ?? []).filter(Boolean).slice(0, 10) }))
+                .filter((entry) => entry.phones.length);
+
+            if (!entries.length) {
+                if (!silent) toast.info('No phone numbers were found in your contacts.');
+                return;
+            }
+
+            if (await this.upload(entries, { silent })) this.rememberSync();
+        } catch (error) {
+            if (silent || (quietDenied && error?.code === 'PERMISSION_DENIED')) return;
+            toast.error(
+                error?.code === 'PERMISSION_DENIED'
+                    ? 'Allow Contacts access for the app in your phone settings to find your friends.'
+                    : 'Could not read your phone contacts.',
+            );
+        }
+    }
+
+    /** Quietly refresh matches when the Contacts permission was already granted. */
+    async autoSync() {
+        if (Date.now() - this.lastSyncAt() < AUTO_SYNC_INTERVAL_MS) return;
+
+        try {
+            const { NativeApp } = await import('../native/plugins');
+            const permissions = await NativeApp.checkPermissions();
+            if (permissions?.contacts === 'granted') await this.syncFromNativePhoneBook({ silent: true });
+        } catch {
+            /* background refresh only */
+        }
+    }
+
+    syncKey() {
+        return `contacts:synced-at:${this.chat.me.id}`;
+    }
+
+    lastSyncAt() {
+        try {
+            return Number(localStorage.getItem(this.syncKey())) || 0;
+        } catch {
+            return 0;
+        }
+    }
+
+    rememberSync() {
+        try {
+            localStorage.setItem(this.syncKey(), String(Date.now()));
+        } catch {
+            /* storage unavailable */
+        }
+    }
+
+    async upload(entries, { silent = false } = {}) {
         const button = this.el.sync;
         this.el.view.classList.add('is-syncing');
-        const note = toast.info(`Checking ${entries.length} ${entries.length === 1 ? 'contact' : 'contacts'}…`, { timeout: 0 });
+        const note = silent ? null : toast.info(`Checking ${entries.length} ${entries.length === 1 ? 'contact' : 'contacts'}…`, { timeout: 0 });
 
         try {
             let latest = null;
@@ -263,15 +337,19 @@ export class ContactsPanel {
             }
             if (latest) this.setContacts(latest);
 
-            note.querySelector('.toast-close')?.click();
-            if (matched) {
+            note?.querySelector('.toast-close')?.click();
+            if (silent) {
+                // Background refresh: no toast.
+            } else if (matched) {
                 toast.success(`${matched} of your contacts ${matched === 1 ? 'is' : 'are'} on ${this.chat.config.appName ?? 'the app'}.`);
             } else {
                 toast.info('None of these numbers are registered yet.');
             }
+            return true;
         } catch (error) {
-            note.querySelector('.toast-close')?.click();
-            toast.error(errorMessage(error, 'Contacts could not be synced.'));
+            note?.querySelector('.toast-close')?.click();
+            if (!silent) toast.error(errorMessage(error, 'Contacts could not be synced.'));
+            return false;
         } finally {
             this.el.view.classList.remove('is-syncing');
             button.blur();

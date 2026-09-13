@@ -4,9 +4,11 @@ import './bootstrap';
 import { readJsonScript } from './lib/dom';
 import { initDropdowns } from './lib/dropdown';
 import { confirmDialog } from './lib/modal';
+import { isNativeApp } from './lib/native';
 import { initTheme } from './lib/theme';
 import { toast } from './lib/toast';
 import { initForms } from './ui/forms';
+import { initNetworkStatus } from './ui/network';
 import { initSettings } from './ui/settings';
 
 const config = readJsonScript('app-config');
@@ -16,6 +18,12 @@ initTheme(config);
 initDropdowns();
 initForms();
 initSettings(config);
+initNetworkStatus(config);
+
+// Mobile app only: back button, status bar and push notifications (separate chunk).
+if (isNativeApp()) {
+    import('./native/app').then(({ initNativeApp }) => initNativeApp(config));
+}
 
 // Forms with data-confirm ask for confirmation before submitting (admin actions, etc.).
 document.addEventListener('submit', async (event) => {

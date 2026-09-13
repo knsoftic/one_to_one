@@ -140,6 +140,9 @@ export class Notifier {
 
         if (this.prefs.notifications_enabled === false) return;
 
+        // Inside the mobile app these arrive as real phone notifications instead.
+        if (this.chat.nativeNotifications) return;
+
         const visible = document.visibilityState === 'visible';
         if (visible && this.chat.active?.id === conversationId) return;
 

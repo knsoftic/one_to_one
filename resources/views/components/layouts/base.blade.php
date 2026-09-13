@@ -24,6 +24,8 @@
             var dark = pref === 'dark' || (pref === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
             root.setAttribute('data-theme-pref', pref);
             root.setAttribute('data-theme', dark ? 'dark' : 'light');
+            // Inside the mobile app the page is drawn behind the status bar.
+            if (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) { root.classList.add('is-native-app'); }
         })();
     </script>
 

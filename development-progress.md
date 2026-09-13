@@ -267,3 +267,88 @@ All six phases are complete. The application provides secure, real-time one-to-o
 - ✅ `php artisan migrate` (2 new migrations, phone suffix backfill), `route:list` (46 routes), `npm run build`.
 - ✅ Browser (375 px mobile + desktop): simplified register form with username suggestion, photo step, bottom nav + FAB, contacts import from a .vcf (3 matches, unregistered number ignored), saved names in chat list/header, bottom-sheet menu, swipe-to-reply.
 - ✅ PHPUnit — **127 tests passed** (adds photo step, phone matching formats, contact sync/privacy/validation/rate limit, saved names on conversations, phone suffix sync).
+
+---
+
+## Enhancements — Android app (Capacitor), notifications without Firebase
+
+### Mobile app (`mobile/`)
+- **Capacitor 8** Android project (`com.hunario.chat`, "One2One Chat") that opens `https://chat.hunario.com`; web changes reach the app with a normal server deploy.
+- `MainActivity`: branded splash kept until the page is visible (max 8 s); documents/downloads through the system download manager (session cookie sent only to our own host); opens the right chat when a notification is tapped.
+- `NativeAppPlugin`: app info, read-only phone-book reader (`READ_CONTACTS`), notification permission, enable/disable background notifications, clear a chat's notifications, battery-optimisation exemption request.
+- Plugins: `@capacitor/app` (back button, minimise) and Capacitor's built-in `SystemBars` (edge-to-edge insets, status bar icons follow the theme). **No Firebase / Google Play services.**
+- Adaptive + legacy launcher icons, monochrome icon, notification icon, light/dark splash, offline page with *Try again* (`server.errorPath`).
+- Permissions: internet, contacts (read), microphone, notifications, vibrate, network state, foreground service (special use), boot completed, battery-optimisation request. Backups and cleartext traffic disabled.
+- Release signing via git-ignored `android/keystore.properties`; build guide in `mobile/README.md`.
+
+### Notifications without Firebase
+- The user asked not to use Firebase, so the app delivers notifications through **its own background connection** (the FCM implementation that was briefly added was removed).
+- `ChatNotificationService` (foreground service, `specialUse`): OkHttp WebSocket to Reverb using the Pusher protocol, subscribes to `private-App.Models.User.{id}` and shows `NewMessageNotification` broadcasts; ping/pong keep-alive with dead-connection detection; exponential reconnect backoff (up to 5 min); reconnects when the network returns; polls the feed while the socket is down and always catches up after reconnecting; de-duplicates by notification id; stays quiet while the app is on screen.
+- `MessageNotifier`: "Messages" channel (high importance) with one notification per chat (latest 6 lines, count, private on lock screen), group summary for several chats, dismiss tracking; quiet "Background connection" channel for the required service notification. Notifications of chats read elsewhere are removed on the next check.
+- `BootReceiver` restarts the service after reboot / app update; the web app asks once to allow background running (battery exemption).
+
+### Server
+- `device_tokens` (user, SHA-256 token hash, platform, app version, last used). `POST /devices` (session) issues a random 64-character token and returns the connection details (WebSocket URL, channel, endpoints, poll interval, preview setting); registering again from the same phone replaces the old token; `DELETE /devices`.
+- `routes/api.php` (stateless, `AuthenticateDevice` bearer-token middleware, `device-api` rate limit 60/min): `POST /api/device/broadcasting/auth` (signs only the device owner's private channel), `GET /api/device/notifications?after=` (unread new-message notifications, skips seen messages, respects the notification setting, returns unread conversation ids and a cursor), `DELETE /api/device`.
+- Phones are signed out of notifications on logout (session-bound token), password change/reset, and when the account is suspended/deactivated.
+- `NewMessageNotification` now includes the receiver's saved contact name (`sender.display_name`).
+- Config: `chat.mobile.poll_interval_seconds` (`CHAT_MOBILE_POLL_SECONDS`), `chat.mobile.show_preview` (`CHAT_MOBILE_NOTIFICATION_PREVIEW`).
+
+### Web app integration
+- `resources/js/native/` (separate chunk, only inside the app): status bar style, Android back button (overlays → reply/voice/contacts panel → close chat → minimise), notification permission + device registration + service start, battery prompt (once), clearing a chat's notifications when it is opened, turning notifications off on sign-out, "Remember me" preselected.
+- Contacts panel: in the app **Sync phone contacts** reads the whole phone book (asked on the first "New chat"), refreshes silently every 12 h; the `.vcf` import is hidden in the app.
+- `native.css`: top safe-area padding for app shells (page is drawn behind the status bar).
+
+### Verification
+- ✅ `php artisan migrate`, `route:list` (device routes), `npm run build` (native chunk split out).
+- ✅ Debug APK built with Gradle 9.3.1 / AGP 8.13 / JDK 25 (Android Studio JBR), target SDK 36, min SDK 24; Android lint: no errors.
+- ✅ PHPUnit (adds 13 device tests: token issuing/replacement/validation, WebSocket URL, unknown and suspended tokens, own-channel-only signatures, feed with saved names/cursor/seen/opt-out/isolation, device sign-out, logout, password change).
+- ⏳ On-device test of contacts permission, background notifications (screen off, after reboot) and downloads — needs a phone.
+
+---
+
+## Enhancements — Notifications while the app is open, internet status, permissions on open
+
+### Notifications (app closed and open)
+- Phone notifications now also appear **while the app is open**; only messages of the chat currently on screen are skipped (`setActiveConversation`, updated on `chat:opened` / `chat:closed`). The web app's in-app toast and chime are skipped inside the app when phone notifications are on, so nothing is shown twice.
+- `KeepAliveReceiver`: inexact alarm about every 15 minutes (rescheduled on app start, boot and when notifications are enabled) restarts the background service if the phone killed it, or — when Android forbids a background start — fetches the notification feed once. Feed/presentation logic moved to `NotificationFeed`, shared with the service.
+
+### No / slow internet
+- Connection bar on every page (`resources/js/ui/network.js`, styles in `native.css`): *No internet connection* (offline event), *Can't reach the server* (requests fail while online), *Slow internet connection* (two API calls slower than 3.5 s, or a slow health check) and *Back online* for 2.5 s. Page shells make room for the bar instead of covering headers. Recovery is detected with `HEAD /up` pings (every 8 s while offline, 20 s while slow). The Network Information API speed estimate is not used — it reported "2g" on a fast local connection.
+- App offline screen (`mobile/www/offline.html`): distinguishes no internet / server not answering / slow connection, retries automatically every 5 s and as soon as the network returns, *Try again* button.
+- Native "Slow internet connection" / "No internet connection" screen when a page is still loading after 8 s, with *Try again*; reloads by itself when the network comes back.
+
+### Permissions on first open
+- `native/permissions.js`: when the chat opens, one explanation sheet lists only the permissions still missing (Notifications, Contacts, Microphone), then the system dialogs appear one after another. Granted or permanently blocked permissions are skipped; asked at most once per app launch. Afterwards contacts are matched silently and the battery exemption is requested once.
+- `NativeAppPlugin`: `getPermissions()`, `requestPermission({ name })`, `setActiveConversation()`; microphone permission alias.
+
+### Verification
+- ✅ `npm run build`; browser check of the connection bar (offline → back online → hidden, 375 px and desktop).
+- ✅ Debug APK build and Android lint (0 errors).
+- ✅ PHPUnit — 140 tests passed.
+- ⏳ On a phone: permission sheet, notifications with the app open/closed/after reboot, slow-internet and offline screens.
+
+---
+
+## Enhancements — WhatsApp-style push notifications (Firebase)
+
+The user chose Firebase Cloud Messaging (free) for push, with notifications that look and behave like WhatsApp. The app's own background connection is kept as an automatic fallback for phones without Google Play services.
+
+### Server
+- `device_tokens.fcm_token` / `fcm_token_hash` (unique: a Firebase token belongs to one account; moved when the phone signs into another account).
+- `PushService`: FCM HTTP v1 without an SDK (RS256 service-account JWT → cached OAuth token), **data-only** messages so the app draws every notification itself; clears tokens of uninstalled apps (`UNREGISTERED`). Enabled by `FCM_CREDENTIALS`.
+- `SendMessagePush` (after the response, high priority): notification id shared with the notification centre/realtime event, conversation, message, sender id, saved contact name, avatar URL, initials, colour, preview, sent time.
+- `SendReadPush` (normal priority) from `MessageService::markSeen`: removes the chat's notification from the reader's phones when it is read anywhere.
+- Device API: `PUT /api/device/push-token`, `POST /api/device/messages/delivered` (✓✓ from a closed app, own messages only), `POST /api/device/conversations/{id}/messages` (Reply — same block/participant rules as the web, marks the chat read), `POST /api/device/conversations/{id}/read` (Mark as read). Connection details include `push.fcm` and the new endpoints.
+
+### Android
+- Firebase BoM 34.19 + `firebase-messaging`; `google-services` plugin applied only when `app/google-services.json` exists (the APK still builds without it).
+- `PushRegistrar` picks Firebase push (token uploaded → fallback service and safety check stopped) or the fallback connection; a temporary failure never undoes push that already worked.
+- `PushMessagingService` shows messages and marks them delivered, handles `read` pushes; `onNewToken` re-uploads.
+- `MessageNotifier` rewritten: `MessagingStyle` per chat with sender `Person` + photo (`AvatarLoader`: own-server photo cached 7 days, or initials in the user's colour), earlier messages rebuilt from the notification on screen, Reply (`RemoteInput`) and Mark as read actions, "not sent" state, group summary, long-lived conversation shortcuts (Android 11+ Conversations section).
+- Web app asks for the battery exemption only when the phone uses the fallback connection.
+
+### Verification
+- ✅ PHPUnit — **151 tests passed** (11 new: token save/move/clear, `push.fcm` flag, data payload with saved name/avatar/notification id, no push without credentials or with notifications off, read push, stale token, delivered, Reply incl. block/participant rules, Mark as read).
+- ✅ APK builds without and with a (placeholder) `google-services.json` — `processDebugGoogleServices` runs and `google_app_id` is generated; Android lint 0 errors.
+- ⏳ Needs the real Firebase project: `google-services.json` for the APK and the service-account JSON on the server; then on-device checks.

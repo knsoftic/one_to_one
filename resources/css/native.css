@@ -1,0 +1,126 @@
+/* ==========================================================================
+   Safe areas & connection bar
+   - Mobile app (Capacitor): the page is drawn edge-to-edge behind the Android
+     status bar, so shells reserve the top safe area themselves.
+   - Connection bar (offline / slow / server unreachable) on every page; page
+     shells make room for it instead of covering headers.
+   ========================================================================== */
+
+:root {
+    --app-safe-top: 0px;
+    --network-bar-h: 0px;
+}
+
+.has-network-bar { --network-bar-h: 2rem; }
+
+.is-native-app {
+    /* Capacitor injects --safe-area-inset-* for WebViews without env() support. */
+    --app-safe-top: max(var(--safe-area-inset-top, 0px), env(safe-area-inset-top, 0px));
+    -webkit-tap-highlight-color: transparent;
+}
+
+.chat-app,
+.auth-shell,
+.page-shell,
+.admin-shell {
+    padding-top: calc(var(--app-safe-top) + var(--network-bar-h));
+    transition: padding-top 0.2s ease;
+}
+
+.is-native-app .chat-app { background: var(--c-surface); }
+
+.is-native-app .lightbox-bar { padding-top: calc(0.6rem + var(--app-safe-top)); }
+
+.has-network-bar .toast-stack { top: calc(var(--app-safe-top) + var(--network-bar-h) + 0.6rem); }
+
+/* The app reads the phone book directly, so the .vcf import is not needed. */
+.is-native-app .contacts-import-option { display: none; }
+
+/* ---------- Connection bar ---------- */
+.network-bar {
+    position: fixed;
+    z-index: 150;
+    top: var(--app-safe-top);
+    left: 0;
+    right: 0;
+    height: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    padding: 0 1rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+    color: #fff;
+    background: #dc2626;
+    animation: network-bar-in 0.25s var(--ease-out);
+}
+
+.network-bar[data-state='unreachable'] { background: #475569; }
+.network-bar[data-state='slow'] { background: #b45309; }
+.network-bar[data-state='restored'] { background: #15803d; }
+
+.network-bar-icon { display: inline-grid; place-items: center; }
+.network-bar-icon .icon { width: 1rem; height: 1rem; }
+.network-bar-hint { font-weight: 500; opacity: 0.88; overflow: hidden; text-overflow: ellipsis; }
+.network-bar-hint::before { content: '·'; margin-right: 0.45rem; }
+
+.network-bar-dots { display: inline-flex; gap: 3px; margin-left: 0.15rem; }
+.network-bar-dots i {
+    width: 4px;
+    height: 4px;
+    border-radius: 999px;
+    background: currentColor;
+    animation: network-dot 1.2s infinite ease-in-out;
+}
+.network-bar-dots i:nth-child(2) { animation-delay: 0.15s; }
+.network-bar-dots i:nth-child(3) { animation-delay: 0.3s; }
+
+@media (max-width: 379px) {
+    .network-bar-hint { display: none; }
+}
+
+@keyframes network-bar-in {
+    from { transform: translateY(-100%); }
+    to { transform: translateY(0); }
+}
+
+@keyframes network-dot {
+    0%, 60%, 100% { opacity: 0.35; }
+    30% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .network-bar, .network-bar-dots i { animation: none; }
+    .chat-app, .auth-shell, .page-shell, .admin-shell { transition: none; }
+}
+
+/* ---------- Permission request sheet (mobile app) ---------- */
+.permission-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    margin: 1rem 0 0.25rem;
+    padding: 0;
+    list-style: none;
+    text-align: left;
+}
+
+.permission-item { display: flex; align-items: flex-start; gap: 0.75rem; }
+
+.permission-item-icon {
+    width: 2.25rem;
+    height: 2.25rem;
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    border-radius: 999px;
+    color: var(--c-primary);
+    background: var(--c-primary-soft);
+}
+
+.permission-item-icon .icon { width: 1.1rem; height: 1.1rem; }
+.permission-item-title { display: block; font-weight: 600; font-size: 0.9rem; color: var(--c-text); }
+.permission-item-text { display: block; margin-top: 0.15rem; font-size: 0.8rem; line-height: 1.4; color: var(--c-muted); }

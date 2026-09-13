@@ -8,6 +8,7 @@ use App\Http\Controllers\BlockController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\ConversationController;
+use App\Http\Controllers\DeviceController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\MessageStatusController;
 use App\Http\Controllers\NotificationController;
@@ -67,6 +68,14 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::delete('/contacts/{contact}', [ContactController::class, 'destroy'])
         ->whereNumber('contact')
         ->name('contacts.destroy');
+
+    // Mobile app push notification tokens
+    Route::post('/devices', [DeviceController::class, 'store'])
+        ->middleware('throttle:chat-actions')
+        ->name('devices.store');
+    Route::delete('/devices', [DeviceController::class, 'destroy'])
+        ->middleware('throttle:chat-actions')
+        ->name('devices.destroy');
 
     // Chat dashboard (HTML shell; data is loaded via AJAX)
     Route::get('/chat', [ChatController::class, 'index'])->name('chat.index');

@@ -6,6 +6,7 @@ use App\Events\MessageHidden;
 use App\Events\MessageSent;
 use App\Events\MessagesStatusUpdated;
 use App\Events\MessageUpdated;
+use App\Jobs\SendReadPush;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\User;
@@ -248,6 +249,11 @@ class MessageService
             Message::STATUS_SEEN,
             $now->toIso8601String(),
         ));
+
+        // Remove the chat's notification from the reader's phones.
+        if (app(PushService::class)->enabled()) {
+            SendReadPush::dispatchAfterResponse($reader->getKey(), $conversation->getKey());
+        }
 
         return $ids;
     }

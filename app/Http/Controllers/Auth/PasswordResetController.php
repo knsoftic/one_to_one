@@ -50,6 +50,9 @@ class PasswordResetController extends Controller
                     'remember_token' => Str::random(60),
                 ])->save();
 
+                // Sign out the mobile app everywhere.
+                $user->deviceTokens()->delete();
+
                 event(new PasswordReset($user));
             }
         );

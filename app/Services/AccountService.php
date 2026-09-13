@@ -83,6 +83,9 @@ class AccountService
             'password' => $password,
             'remember_token' => Str::random(60),
         ])->save();
+
+        // Phones signed in with the old password must sign in again.
+        $user->deviceTokens()->delete();
     }
 
     public function updatePreferences(User $user, array $preferences): User

@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Broadcasting\ResilientBroadcastManager;
+use App\Services\PushService;
 use App\View\Composers\AppConfigComposer;
 use App\View\Composers\ChatConfigComposer;
 use Illuminate\Broadcasting\BroadcastManager;
@@ -24,6 +25,9 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->extend(BroadcastManager::class, fn (BroadcastManager $manager, $app) => new ResilientBroadcastManager($app));
+
+        // Reads the Firebase service-account file once per request.
+        $this->app->singleton(PushService::class);
     }
 
     /**
@@ -63,6 +67,9 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('chat-send', fn (Request $request) => Limit::perMinute(60)->by('send:'.($request->user()?->id ?? $request->ip())));
 
         RateLimiter::for('chat-actions', fn (Request $request) => Limit::perMinute(120)->by('actions:'.($request->user()?->id ?? $request->ip())));
+
+        // Mobile app background service (polling + channel auth on reconnect).
+        RateLimiter::for('device-api', fn (Request $request) => Limit::perMinute(60)->by('device:'.($request->attributes->get('device')?->id ?? $request->ip())));
 
         RateLimiter::for('chat-search', fn (Request $request) => Limit::perMinute(60)->by('search:'.($request->user()?->id ?? $request->ip())));
 

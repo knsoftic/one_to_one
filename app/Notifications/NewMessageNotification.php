@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use App\Models\Message;
 use App\Models\User;
+use App\Services\ContactService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\BroadcastMessage;
 use Illuminate\Notifications\Notification;
@@ -15,6 +16,8 @@ use Illuminate\Notifications\Notification;
 class NewMessageNotification extends Notification
 {
     use Queueable;
+
+    private ?string $displayName = null;
 
     public function __construct(public Message $message) {}
 
@@ -40,12 +43,21 @@ class NewMessageNotification extends Notification
             'sender' => [
                 'id' => $sender->id,
                 'name' => $sender->name,
+                // Name saved in the receiver's phone book (used by phone notifications).
+                'display_name' => $this->displayNameFor($notifiable),
                 'username' => $sender->username,
                 'avatar_url' => $sender->avatar_url,
                 'initials' => $sender->initials,
                 'avatar_hue' => $sender->avatar_hue,
             ],
         ];
+    }
+
+    private function displayNameFor(User $notifiable): string
+    {
+        $sender = $this->message->sender;
+
+        return $this->displayName ??= app(ContactService::class)->savedNames($notifiable, [$sender->id])[$sender->id] ?? $sender->name;
     }
 
     /**

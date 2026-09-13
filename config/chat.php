@@ -108,6 +108,40 @@ return [
         'csp' => (bool) env('CHAT_CSP', true),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Mobile app notifications (no Firebase)
+    |--------------------------------------------------------------------------
+    |
+    | The Android app keeps its own background connection: it listens on the
+    | user's private Reverb channel and falls back to polling the server.
+    |
+    */
+
+    'mobile' => [
+        // How often the app checks for new messages while the WebSocket is unavailable.
+        'poll_interval_seconds' => (int) env('CHAT_MOBILE_POLL_SECONDS', 60),
+        // Show the message text in phone notifications (false = "New message").
+        'show_preview' => (bool) env('CHAT_MOBILE_NOTIFICATION_PREVIEW', true),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Push notifications (Firebase Cloud Messaging, HTTP v1 API)
+    |--------------------------------------------------------------------------
+    |
+    | Enabled when FCM_CREDENTIALS points to a Firebase service-account JSON
+    | file (keep it outside public/, e.g. storage/app/private). Phones without
+    | Google Play services keep using the app's own background connection.
+    |
+    */
+
+    'push' => [
+        'credentials' => env('FCM_CREDENTIALS'),
+        // Optional: read from the service-account file when empty.
+        'project_id' => env('FCM_PROJECT_ID'),
+    ],
+
     'admin' => [
         'name' => env('ADMIN_NAME', 'Administrator'),
         'username' => env('ADMIN_USERNAME', 'admin'),

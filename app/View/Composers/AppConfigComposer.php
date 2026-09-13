@@ -22,7 +22,10 @@ class AppConfigComposer
             'logout' => 'logout',
             'settings' => 'profile.edit',
             'chat' => 'chat.index',
-        ])->filter(fn ($name) => Route::has($name))->map(fn ($name) => route($name));
+            'devices' => 'devices.store',
+        ])->filter(fn ($name) => Route::has($name))->map(fn ($name) => route($name))
+            // Lightweight endpoint the connection bar pings to detect recovery.
+            ->put('health', url('/up'));
 
         $view->with('appConfig', [
             'name' => config('app.name'),

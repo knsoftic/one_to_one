@@ -18,6 +18,8 @@ See [`development-progress.md`](development-progress.md) for the phase-by-phase 
 
 **Deploying on aaPanel?** Follow the step-by-step guide: [`docs/DEPLOYMENT-AAPANEL.md`](docs/DEPLOYMENT-AAPANEL.md) (chat.hunario.com).
 
+**Android app:** a Capacitor app in [`mobile/`](mobile/README.md) wraps the live site and adds full phone-book contact matching, WhatsApp-style push notifications (Firebase, with Reply / Mark as read and a fallback for phones without Google services), native downloads and the Android back button.
+
 ---
 
 ## Table of contents
@@ -328,7 +330,7 @@ CREATE DATABASE one_to_one_chat_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unico
 php artisan test
 ```
 
-The suite (108 tests) covers authentication, profiles, conversations, messaging, realtime events, receipts, presence, polling sync, attachments (with real content-type detection), message actions, notifications, blocking, the admin panel and security headers.
+The suite (151 tests) covers authentication, profiles, conversations, messaging, realtime events, receipts, presence, polling sync, attachments (with real content-type detection), message actions, notifications, blocking, phone contacts, mobile app device notifications, the admin panel and security headers.
 
 Code style: `vendor/bin/pint`
 

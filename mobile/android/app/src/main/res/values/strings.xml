@@ -1,0 +1,36 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">One2One Chat</string>
+    <string name="title_activity_main">One2One Chat</string>
+    <string name="package_name">com.hunario.chat</string>
+    <string name="custom_url_scheme">com.hunario.chat</string>
+    <string name="download_started">Downloading %1$s…</string>
+    <string name="download_failed">Download failed. Please try again.</string>
+    <string name="download_unsupported">This file can\'t be downloaded.</string>
+
+    <!-- Slow / no internet screen -->
+    <string name="slow_title">Slow internet connection</string>
+    <string name="slow_message">Still loading… This can take a moment on a slow network.</string>
+    <string name="offline_title">No internet connection</string>
+    <string name="offline_message">Turn on Wi-Fi or mobile data. The app reconnects automatically.</string>
+    <string name="try_again">Try again</string>
+
+    <!-- Message notifications (no Firebase) -->
+    <string name="channel_messages">Messages</string>
+    <string name="channel_messages_description">New chat messages</string>
+    <string name="channel_connection">Background connection</string>
+    <string name="channel_connection_description">Keeps One2One Chat connected so new messages arrive instantly. You can turn this notification off; messages will still arrive.</string>
+    <string name="connection_connected">Connected · new messages will appear here</string>
+    <string name="connection_connecting">Connecting…</string>
+    <string name="notification_new_message">New message</string>
+    <string name="notification_you">You</string>
+    <string name="action_reply">Reply</string>
+    <string name="action_reply_hint">Type a message</string>
+    <string name="action_mark_read">Mark as read</string>
+    <string name="reply_not_sent">%1$s — not sent. Tap to open the chat.</string>
+    <string name="summary_messages_chats">%1$s from %2$d chats</string>
+    <plurals name="new_messages">
+        <item quantity="one">%d new message</item>
+        <item quantity="other">%d new messages</item>
+    </plurals>
+</resources>

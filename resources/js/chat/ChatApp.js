@@ -183,6 +183,25 @@ export class ChatApp {
                 this.closeConversation({ navigation: 'none' });
             }
         });
+
+        // Android back button in the mobile app: step back inside the chat UI first.
+        document.addEventListener('app:back', (event) => {
+            if (this.contactsPanel?.isOpen) {
+                this.contactsPanel.close();
+            } else if (this.actions?.mode) {
+                this.actions.clearMode({ restoreText: true });
+            } else if (this.voice?.state && this.voice.state !== 'idle') {
+                this.voice.discard();
+            } else if (this.active) {
+                if (this.active.pushed) history.back();
+                else this.closeConversation({ navigation: 'replace' });
+            } else if (this.el.searchInput.value) {
+                this.clearSearch();
+            } else {
+                return;
+            }
+            event.preventDefault();
+        });
     }
 
     /* ================================================================== */
@@ -544,6 +563,7 @@ export class ChatApp {
             loaded: false,
             loadingOlder: false,
             unseenBelow: 0,
+            pushed: navigation === 'push',
         };
 
         this.el.welcome.hidden = true;

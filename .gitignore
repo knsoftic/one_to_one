@@ -22,3 +22,11 @@ yarn-error.log
 /.vscode
 /.zed
 /.claude
+
+# Mobile app (Capacitor)
+/mobile/node_modules
+/mobile/dist
+/mobile/android/keystore.properties
+/mobile/android/*.jks
+/mobile/android/*.keystore
+/mobile/android/app/google-services.json

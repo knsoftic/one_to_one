@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\DeviceController;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RegisterRequest;
 use App\Services\AccountService;
@@ -66,6 +67,12 @@ class AuthController extends Controller
     {
         if ($user = $request->user()) {
             $this->presence->markOffline($user);
+
+            // Stop push notifications on the phone that is signing out.
+            $deviceHash = $request->session()->get(DeviceController::SESSION_KEY);
+            if (is_string($deviceHash)) {
+                $user->deviceTokens()->where('token_hash', $deviceHash)->delete();
+            }
         }
 
         Auth::guard('web')->logout();

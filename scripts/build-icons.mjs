@@ -13,14 +13,14 @@ import { fileURLToPath } from 'node:url';
 import * as lucide from 'lucide';
 
 const ICONS = [
-    'activity', 'arrow-down', 'arrow-left', 'at-sign', 'ban', 'bell', 'bell-off', 'camera', 'check',
-    'check-check', 'chevron-down', 'chevron-left', 'chevron-right', 'circle-alert', 'circle-check',
-    'circle-pause', 'circle-x', 'clock', 'copy', 'corner-up-left', 'download', 'ellipsis-vertical',
+    'activity', 'arrow-down', 'arrow-left', 'at-sign', 'ban', 'battery-charging', 'bell', 'bell-off', 'camera', 'check',
+    'check-check', 'contact', 'chevron-down', 'chevron-left', 'chevron-right', 'circle-alert', 'circle-check',
+    'circle-pause', 'circle-x', 'clock', 'cloud-off', 'copy', 'corner-up-left', 'download', 'ellipsis-vertical',
     'external-link', 'eye', 'eye-off', 'file', 'file-text', 'image', 'info', 'key-round',
     'layout-dashboard', 'loader-circle', 'lock', 'log-out', 'mail', 'menu', 'message-circle',
     'message-square-plus', 'message-square-text', 'mic', 'monitor', 'moon', 'palette', 'paperclip',
     'pause', 'pencil', 'phone', 'play', 'refresh-cw', 'search', 'send-horizontal', 'settings',
-    'shield', 'shield-check', 'smile', 'sparkles', 'square', 'sun', 'trash-2', 'trending-up',
+    'shield', 'shield-check', 'signal-low', 'smile', 'sparkles', 'square', 'sun', 'trash-2', 'trending-up',
     'undo-2', 'upload', 'user', 'user-check', 'user-cog', 'user-plus', 'user-round', 'user-x',
     'users', 'volume-2', 'wifi', 'wifi-off', 'x', 'zoom-in',
 ];

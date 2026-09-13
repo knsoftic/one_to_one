@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12+ splash icon: 288dp canvas, artwork inside the 192dp circle. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="288dp"
+    android:height="288dp"
+    android:viewportWidth="288"
+    android:viewportHeight="288">
+    <path android:pathData="M112,80H176A32,32 0,0 1,208 112V176A32,32 0,0 1,176 208H112A32,32 0,0 1,80 176V112A32,32 0,0 1,112 80Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="80"
+                android:startY="80"
+                android:endX="208"
+                android:endY="208">
+                <item android:offset="0" android:color="#FF6366F1" />
+                <item android:offset="0.55" android:color="#FF8B5CF6" />
+                <item android:offset="1" android:color="#FFEC4899" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <path
+        android:pathData="M121,169L124,156A26,26 0,1 1,134 166Z"
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="8"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+</vector>

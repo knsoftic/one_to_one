@@ -151,7 +151,7 @@
                                 <span class="contacts-action-text">Find people saved in your phone who use {{ config('app.name') }}</span>
                             </span>
                         </button>
-                        <label class="contacts-action" for="contacts-import-input">
+                        <label class="contacts-action contacts-import-option" for="contacts-import-input">
                             <span class="contacts-action-icon is-muted"><x-icon name="upload" /></span>
                             <span class="min-w-0">
                                 <span class="contacts-action-title">Import contacts file</span>

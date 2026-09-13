@@ -36,6 +36,7 @@ Cron (every minute) ──▶ php artisan schedule:run
 15. [Deploying updates](#15-deploying-updates)
 16. [Security checklist](#16-security-checklist)
 17. [Troubleshooting](#17-troubleshooting)
+18. [Android app push notifications](#18-android-app-push-notifications)
 
 ---
 
@@ -590,3 +591,60 @@ cd /www/wwwroot/chat.hunario.com
 | **Users never show as offline** | Cron task not running (step 12). Check **aaPanel → Cron → Log**. |
 | **`open_basedir restriction in effect`** | Disable *Anti-XSS attack* in the site's *Site directory* settings. |
 | **Changes not visible after update** | `php artisan optimize:clear && php artisan optimize && php artisan view:cache`, rebuild assets, hard-refresh the browser. |
+| **Android app: no push notifications** | Check step 18: `FCM_CREDENTIALS` readable by `www`, `php artisan config:cache` after editing `.env`, and an APK built with `google-services.json`. Look for "Push" warnings in `storage/logs`. Phones without Google Play services use the fallback connection, which needs Reverb (steps 10–11). |
+
+---
+
+## 18. Android app push notifications
+
+The Android app (`mobile/`, see [`mobile/README.md`](../mobile/README.md)) opens `https://chat.hunario.com`, so
+contacts sync, downloads, the back button and notifications work as soon as the latest code is deployed.
+
+Notifications work like WhatsApp: **Firebase Cloud Messaging** (free) delivers them even when the app is closed, and the
+app draws them itself — sender photo, conversation style, *Reply* and *Mark as read* buttons, ✓✓ delivered for the
+sender, and the notification disappears when the chat is read on another device. Phones without Google Play services
+fall back to the app's own background connection (Reverb WebSocket + polling).
+
+### 18.1 Firebase project (once, in your Google account)
+
+1. <https://console.firebase.google.com> → **Add project** (Google Analytics is not needed).
+2. **Add app → Android**, package name **`com.hunario.chat`** → *Register app*.
+3. Download **`google-services.json`** → it goes into the Android project (`mobile/android/app/`) and the APK is rebuilt.
+4. ⚙ **Project settings → Service accounts → Generate new private key** → downloads the service-account JSON
+   (a secret: never commit it or put it under `public/`).
+
+### 18.2 Server
+
+1. Upload the service-account JSON through **aaPanel → Files** to
+   `/www/wwwroot/chat.hunario.com/storage/app/private/firebase-service-account.json`, then:
+
+   ```bash
+   cd /www/wwwroot/chat.hunario.com
+   chown www:www storage/app/private/firebase-service-account.json
+   chmod 640 storage/app/private/firebase-service-account.json
+   ```
+
+2. In `.env`:
+
+   ```dotenv
+   FCM_CREDENTIALS=storage/app/private/firebase-service-account.json
+   ```
+
+3. Apply:
+
+   ```bash
+   /www/server/php/82/bin/php artisan config:cache
+   ```
+
+The server needs outbound HTTPS to `oauth2.googleapis.com` and `fcm.googleapis.com` (allowed by default). Pushes are
+sent right after the HTTP response, so no queue worker is required.
+
+Optional `.env` settings:
+
+```dotenv
+CHAT_MOBILE_NOTIFICATION_PREVIEW=true   # false = "New message" instead of the text
+CHAT_MOBILE_POLL_SECONDS=60             # fallback connection only
+```
+
+Signing out in the app, changing or resetting the password, or suspending the account stops notifications on that
+phone. Tokens of uninstalled apps are removed automatically.

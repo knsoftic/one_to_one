@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="color-scheme" content="light dark">
+    <title>One2One Chat</title>
+    <style>
+        :root {
+            --bg: #f6f7fb; --text: #111827; --muted: #6b7280; --primary: #4f46e5;
+            --chip: #eef2ff; --chip-text: #4338ca; --danger: #dc2626; --warning: #b45309;
+        }
+        @media (prefers-color-scheme: dark) {
+            :root { --bg: #0b0f19; --text: #f3f4f6; --muted: #9ca3af; --chip: #1e1b4b; --chip-text: #c7d2fe; --danger: #f87171; --warning: #fbbf24; }
+        }
+        * { box-sizing: border-box; }
+        html, body { height: 100%; }
+        body {
+            margin: 0;
+            display: grid;
+            place-items: center;
+            padding: calc(1.5rem + env(safe-area-inset-top)) 1.5rem calc(1.5rem + env(safe-area-inset-bottom));
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            text-align: center;
+        }
+        main { width: 100%; max-width: 22rem; }
+        .mark {
+            position: relative;
+            width: 5rem; height: 5rem; margin: 0 auto 1.5rem;
+            display: grid; place-items: center; border-radius: 1.4rem;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6 55%, #ec4899);
+        }
+        .badge {
+            position: absolute; right: -0.45rem; bottom: -0.45rem;
+            width: 2.1rem; height: 2.1rem; display: grid; place-items: center;
+            border-radius: 999px; background: var(--bg); color: var(--danger);
+        }
+        .badge svg { width: 1.3rem; height: 1.3rem; }
+        [data-state="slow"] .badge { color: var(--warning); }
+        h1 { margin: 0 0 0.5rem; font-size: 1.35rem; letter-spacing: -0.02em; }
+        p { margin: 0; color: var(--muted); line-height: 1.5; }
+        .status {
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            margin: 1.25rem 0 1.5rem; padding: 0.45rem 0.85rem; border-radius: 999px;
+            font-size: 0.85rem; font-weight: 600; background: var(--chip); color: var(--chip-text);
+        }
+        .spinner {
+            width: 0.9rem; height: 0.9rem; border-radius: 999px;
+            border: 2px solid currentColor; border-right-color: transparent;
+            animation: spin 0.8s linear infinite;
+        }
+        button {
+            width: 100%; padding: 0.9rem 1rem; border: 0; border-radius: 0.9rem;
+            font: inherit; font-weight: 600; color: #fff; background: var(--primary);
+        }
+        button:disabled { opacity: 0.7; }
+        button:focus-visible { outline: 3px solid #a5b4fc; outline-offset: 3px; }
+        .tips { margin-top: 1.25rem; font-size: 0.8rem; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
+    </style>
+</head>
+<body>
+    <main data-state="offline">
+        <div class="mark" aria-hidden="true">
+            <svg width="38" height="38" viewBox="0 0 64 64"><path d="M12.5 52.5 15 42a21 21 0 1 1 8 8z" fill="none" stroke="#fff" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/></svg>
+            <span class="badge" id="badge"></span>
+        </div>
+        <h1 id="title">No internet connection</h1>
+        <p id="message">Turn on Wi-Fi or mobile data. The app reconnects automatically.</p>
+        <div class="status" id="status" role="status" aria-live="polite"><span class="spinner"></span><span id="status-text">Waiting for network…</span></div>
+        <button type="button" id="retry">Try again</button>
+        <p class="tips" id="tips"></p>
+    </main>
+    <script>
+        (function () {
+            var APP_URL = 'https://chat.hunario.com/chat';
+            var PING_URL = 'https://chat.hunario.com/up';
+            var AUTO_RETRY_MS = 5000;
+            var PING_TIMEOUT_MS = 12000;
+            var SLOW_MS = 4000;
+
+            var ICONS = {
+                offline: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h.01"/><path d="M8.5 16.43a5 5 0 0 1 7 0"/><path d="M2 8.82a15 15 0 0 1 4.18-2.64"/><path d="M19 12.86a10 10 0 0 0-2.62-1.84"/><path d="M22 8.82a15 15 0 0 0-11.29-3.76"/><path d="M5 12.86a10 10 0 0 1 5.17-2.69"/><path d="m2 2 20 20"/></svg>',
+                server: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m2 2 20 20"/><path d="M5.78 5.78A7 7 0 0 0 9 19h8.5a4.5 4.5 0 0 0 1.3-.19"/><path d="M21.53 16.5A4.5 4.5 0 0 0 17.5 10h-1.79A7 7 0 0 0 9.55 5.23"/></svg>',
+                slow: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20h.01"/><path d="M7 20v-4"/></svg>'
+            };
+
+            var TEXT = {
+                offline: ['No internet connection', 'Turn on Wi-Fi or mobile data. The app reconnects automatically.', 'Waiting for network…', ''],
+                server: ["Can't reach One2One Chat", 'Your internet is on, but the server is not answering right now.', 'Retrying…', 'If this continues, try switching between Wi-Fi and mobile data.'],
+                slow: ['Slow internet connection', 'Connecting is taking longer than usual.', 'Still connecting…', 'Moving closer to your Wi-Fi router or to better mobile signal can help.']
+            };
+
+            var main = document.querySelector('main');
+            var button = document.getElementById('retry');
+            var checking = false;
+
+            function show(kind) {
+                var t = TEXT[kind];
+                main.setAttribute('data-state', kind);
+                document.getElementById('badge').innerHTML = ICONS[kind];
+                document.getElementById('title').textContent = t[0];
+                document.getElementById('message').textContent = t[1];
+                document.getElementById('status-text').textContent = t[2];
+                document.getElementById('tips').textContent = t[3];
+            }
+
+            function busy(on) {
+                button.disabled = on;
+                button.textContent = on ? 'Checking…' : 'Try again';
+            }
+
+            /* Ask the server if it answers (no-cors: any response means reachable). */
+            function check(manual) {
+                if (checking) return;
+
+                if (!navigator.onLine) {
+                    show('offline');
+                    if (manual === true) {
+                        busy(true);
+                        setTimeout(function () { busy(false); }, 800);
+                    }
+                    return;
+                }
+
+                checking = true;
+                if (manual === true) busy(true);
+                var startedAt = Date.now();
+                var controller = window.AbortController ? new AbortController() : null;
+                var slowTimer = setTimeout(function () { show('slow'); }, SLOW_MS);
+                var timeout = setTimeout(function () { if (controller) controller.abort(); }, PING_TIMEOUT_MS);
+
+                fetch(PING_URL + '?t=' + startedAt, { mode: 'no-cors', cache: 'no-store', signal: controller ? controller.signal : undefined })
+                    .then(function () {
+                        clearTimeout(slowTimer);
+                        document.getElementById('status-text').textContent = 'Connected. Opening…';
+                        window.location.replace(APP_URL);
+                    })
+                    .catch(function () {
+                        clearTimeout(slowTimer);
+                        checking = false;
+                        busy(false);
+                        show(navigator.onLine ? (Date.now() - startedAt >= PING_TIMEOUT_MS - 500 ? 'slow' : 'server') : 'offline');
+                    })
+                    .then(function () { clearTimeout(timeout); });
+            }
+
+            button.addEventListener('click', function () { check(true); });
+            window.addEventListener('online', function () { check(false); });
+            window.addEventListener('offline', function () { show('offline'); });
+
+            show(navigator.onLine ? 'server' : 'offline');
+            setInterval(function () { check(false); }, AUTO_RETRY_MS);
+            check(false);
+        })();
+    </script>
+</body>
+</html>
