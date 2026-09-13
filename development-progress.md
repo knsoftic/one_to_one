@@ -240,3 +240,30 @@ All six phases are complete. The application provides secure, real-time one-to-o
 ### Known environment notes
 - During development MariaDB (XAMPP) stopped once without a crash entry and was restarted with XAMPP's standard command; if it is not running, start MySQL from the XAMPP Control Panel.
 - A few image/PDF/voice files uploaded during browser testing remain in `storage/app/private/chat` from the pre-reset database; they are private and unreferenced and can be deleted safely.
+
+---
+
+## Enhancements — Simple sign-up, phone contacts, mobile UI
+
+### Simpler registration
+- Registration form no longer asks for a profile picture; fields are in a single, mobile-friendly column (full name → mobile → email → username → password).
+- Username is suggested automatically from the full name (editable).
+- After registering, a separate **optional "Add a profile photo" step** (`/welcome/photo`) shows a large tap-to-choose picker with **Save** and **Skip for now** (`OnboardingController`, `UpdateAvatarRequest`, `AccountService::updateAvatar`).
+
+### Phone contacts (like WhatsApp)
+- `contacts` table (owner, registered contact user, name as saved, number) and indexed `users.phone_suffix` (last 9 significant digits, kept in sync by the `User` model; existing users backfilled).
+- `ContactService` matches phone-book numbers in any format (`0300 1234567`, `+92 300 1234567`, `0092…`) against registered, active users; **numbers of people who aren't registered are never stored**; you are never matched with yourself.
+- Endpoints: `GET /contacts`, `POST /contacts/sync` (rate limited 6/min, 50/day), `DELETE /contacts/{contact}`.
+- Frontend "New chat" panel: **Sync phone contacts** (Contact Picker API — Android Chrome), **Import contacts file** (.vcf export, any device), filter contacts, search other users, tap to start a chat.
+- Saved contact names are shown in recent chats, the chat header, the online strip, reply quotes and notifications (`saved_name` on conversations).
+
+### Mobile UI
+- Bottom navigation (Chats with unread badge · Contacts · You) and a floating "New chat" button on phones.
+- Bigger touch targets and text, compact headers, 16 px form fields (no iOS zoom), `interactive-widget=resizes-content` so the composer stays above the keyboard, browser toolbar colour follows the theme.
+- Message actions open as a **bottom sheet** with a preview on phones/touch screens; **swipe a message right to reply**.
+- Sign-up pages keep the brand bar in the flow on phones (no overlap).
+
+### Verification
+- ✅ `php artisan migrate` (2 new migrations, phone suffix backfill), `route:list` (46 routes), `npm run build`.
+- ✅ Browser (375 px mobile + desktop): simplified register form with username suggestion, photo step, bottom nav + FAB, contacts import from a .vcf (3 matches, unregistered number ignored), saved names in chat list/header, bottom-sheet menu, swipe-to-reply.
+- ✅ PHPUnit — **127 tests passed** (adds photo step, phone matching formats, contact sync/privacy/validation/rate limit, saved names on conversations, phone suffix sync).

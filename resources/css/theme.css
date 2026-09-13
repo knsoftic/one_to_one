@@ -196,6 +196,11 @@ html:not(.no-transitions) .theme-transition {
     transition: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease;
 }
 
+/* Phones: 16px form fields so iOS Safari does not zoom in on focus */
+@media (max-width: 767px) {
+    .form-control { font-size: 16px; }
+}
+
 @media (prefers-reduced-motion: reduce) {
     *,
     *::before,

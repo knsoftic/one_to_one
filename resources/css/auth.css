@@ -111,6 +111,11 @@
 
 .auth-topbar { position: absolute; top: 1rem; right: 1rem; left: 1rem; display: flex; justify-content: space-between; align-items: center; }
 @media (min-width: 1024px) { .auth-topbar .brand { visibility: hidden; } }
+/* Phones & tablets: keep the brand bar in the flow so tall forms never overlap it */
+@media (max-width: 1023px) {
+    .auth-main { justify-content: flex-start; padding: 1rem 1.25rem 2.5rem; }
+    .auth-topbar { position: static; width: 100%; max-width: 27rem; margin-bottom: 1.75rem; }
+}
 
 .auth-card { width: 100%; max-width: 27rem; animation: fade-in-up 0.5s var(--ease-out); }
 .auth-card.is-wide { max-width: 34rem; }
@@ -124,7 +129,53 @@
 .auth-grid { display: grid; gap: 1.1rem; grid-template-columns: minmax(0, 1fr); }
 @media (min-width: 640px) { .auth-grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
-/* Avatar picker on registration / settings */
+/* Sign-up steps */
+.signup-steps { display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; margin: 0 0 1.25rem; padding: 0; list-style: none; font-size: 0.8rem; font-weight: 600; color: var(--c-subtle); }
+.signup-steps li { display: inline-flex; align-items: center; gap: 0.45rem; }
+.signup-steps li span { width: 1.4rem; height: 1.4rem; display: grid; place-items: center; border-radius: 999px; border: 1.5px solid var(--c-border-strong); font-size: 0.72rem; }
+.signup-steps li em { font-style: normal; font-weight: 500; }
+.signup-steps li.is-current { color: var(--c-text); }
+.signup-steps li.is-current span { border-color: var(--c-primary); background: var(--c-primary); color: #fff; }
+.signup-steps li.is-done { color: var(--c-success); }
+.signup-steps li.is-done span { border-color: var(--c-success); background: var(--c-success); color: #fff; }
+
+/* Large profile photo picker (post-registration step) */
+.onboarding-photo { align-items: stretch; }
+.dp-picker {
+    position: relative;
+    align-self: center;
+    width: 9.5rem;
+    height: 9.5rem;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+.dp-picker:hover { transform: scale(1.02); }
+.dp-picker:focus-within, .dp-picker:focus-visible { outline: 3px solid var(--c-focus); outline-offset: 4px; }
+.dp-picker img, .dp-picker-initials {
+    width: 100%;
+    height: 100%;
+    border-radius: 999px;
+    object-fit: cover;
+    box-shadow: 0 0 0 4px var(--c-surface), 0 0 0 6px var(--c-border);
+}
+.dp-picker-initials { display: grid; place-items: center; font-size: 3rem; font-weight: 700; }
+.dp-picker.has-image img { box-shadow: 0 0 0 4px var(--c-surface), 0 0 0 6px var(--c-primary); }
+.dp-picker-badge {
+    position: absolute;
+    right: 0.35rem;
+    bottom: 0.35rem;
+    width: 2.6rem;
+    height: 2.6rem;
+    display: grid;
+    place-items: center;
+    border-radius: 999px;
+    color: #fff;
+    background: var(--c-primary);
+    box-shadow: 0 0 0 3px var(--c-surface);
+}
+
+/* Avatar picker on settings */
 .avatar-picker { display: flex; align-items: center; gap: 1rem; }
 .avatar-picker-preview {
     position: relative;

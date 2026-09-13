@@ -50,7 +50,7 @@ export class Notifier {
             this.present({
                 messageId: message.id,
                 conversationId: Number(message.conversation_id),
-                title: `${sender.name ?? 'Someone'} sent you a message`,
+                title: `${this.chat.displayName(message.sender_id, sender.name ?? 'Someone')} sent you a message`,
                 body: T.previewOf(message),
                 sender,
             });
@@ -65,7 +65,9 @@ export class Notifier {
             this.present({
                 messageId: notification.message_id,
                 conversationId: Number(notification.conversation_id),
-                title: notification.title,
+                title: notification.sender?.id
+                    ? `${this.chat.displayName(notification.sender.id, notification.sender.name)} sent you a message`
+                    : notification.title,
                 body: notification.body,
                 sender: notification.sender ?? {},
             });

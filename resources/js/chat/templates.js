@@ -99,6 +99,21 @@ export function searchResultItem(user) {
     `;
 }
 
+/** A saved phone-book contact (name as saved, profile name / username underneath). */
+export function contactItem(contact, user = contact.user) {
+    const secondary = contact.name !== user.name ? `~${user.name} · @${user.username}` : `@${user.username}`;
+
+    return html`
+        <button type="button" class="conversation-item contact-item" data-start-user-id="${user.id}">
+            ${raw(avatar(user, 'md', { status: true }))}
+            <span class="conversation-body">
+                <span class="conversation-name">${contact.name}</span>
+                <span class="search-result-meta">${secondary}</span>
+            </span>
+        </button>
+    `;
+}
+
 export function onlineUser(user) {
     const first = String(user.name || '').split(' ')[0];
     return html`
@@ -352,6 +367,14 @@ export function attachmentPreview({ type, name, size, url }) {
             </span>
             <button type="button" class="btn-icon btn-icon-sm" data-remove-attachment aria-label="Remove attachment">${raw(icon('x'))}</button>
         </div>
+    `;
+}
+
+/** Short preview of the message at the top of the mobile action sheet. */
+export function messageSheetHeader(message) {
+    return html`
+        <div class="sheet-handle" aria-hidden="true"></div>
+        <div class="sheet-preview">${message.is_deleted ? 'This message was deleted' : previewOf(message) || 'Message'}</div>
     `;
 }
 

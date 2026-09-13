@@ -11,6 +11,8 @@ use InvalidArgumentException;
 
 class ConversationService
 {
+    public function __construct(private readonly ContactService $contacts) {}
+
     /**
      * Return the single conversation between two users, creating it when needed.
      * Safe under concurrency thanks to the unique participants index.
@@ -61,7 +63,10 @@ class ConversationService
             ->limit($limit)
             ->get();
 
-        return $this->attachBlockFlags($this->attachLatestMessages($conversations), $user);
+        return $this->attachSavedNames(
+            $this->attachBlockFlags($this->attachLatestMessages($conversations), $user),
+            $user,
+        );
     }
 
     /**
@@ -78,7 +83,7 @@ class ConversationService
         $conversation->setAttribute('latest_message_id', $latest?->id);
         $conversation->setRelation('latestMessage', $latest);
 
-        $this->attachBlockFlags(new Collection([$conversation]), $user);
+        $this->attachSavedNames($this->attachBlockFlags(new Collection([$conversation]), $user), $user);
 
         return $conversation;
     }
@@ -89,6 +94,25 @@ class ConversationService
      * @param  Collection<int, Conversation>  $conversations
      * @return Collection<int, Conversation>
      */
+    /**
+     * Add the name the viewer saved for the other participant in their phone book.
+     *
+     * @param  Collection<int, Conversation>  $conversations
+     * @return Collection<int, Conversation>
+     */
+    private function attachSavedNames(Collection $conversations, User $user): Collection
+    {
+        $names = $this->contacts->savedNames(
+            $user,
+            $conversations->map(fn (Conversation $c) => $c->otherParticipantId($user)),
+        );
+
+        return $conversations->each(fn (Conversation $conversation) => $conversation->setAttribute(
+            'saved_name',
+            $names[$conversation->otherParticipantId($user)] ?? null,
+        ));
+    }
+
     private function attachBlockFlags(Collection $conversations, User $user): Collection
     {
         if ($conversations->isEmpty()) {

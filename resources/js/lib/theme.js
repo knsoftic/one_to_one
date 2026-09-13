@@ -23,6 +23,9 @@ function apply(pref) {
         /* storage unavailable */
     }
 
+    // Match the mobile browser toolbar to the app surface.
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#111723' : '#ffffff');
+
     $$('[data-theme-option]').forEach((btn) => {
         btn.setAttribute('aria-pressed', btn.dataset.themeOption === pref ? 'true' : 'false');
     });

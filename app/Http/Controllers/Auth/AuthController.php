@@ -53,6 +53,11 @@ class AuthController extends Controller
         $request->session()->regenerate();
         $this->presence->touch($user, force: true);
 
+        // Profile photo is optional and added in a separate, skippable step.
+        if (! $user->profile_image) {
+            return redirect()->route('onboarding.photo');
+        }
+
         return redirect()->route('chat.index')
             ->with('status', "Welcome, {$user->name}! Your account has been created.");
     }

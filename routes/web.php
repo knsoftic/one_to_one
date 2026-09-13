@@ -6,10 +6,12 @@ use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\BlockController;
 use App\Http\Controllers\ChatController;
+use App\Http\Controllers\ContactController;
 use App\Http\Controllers\ConversationController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\MessageStatusController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\PresenceController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SyncController;
@@ -52,6 +54,19 @@ Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->n
 
 Route::middleware(['auth', 'active'])->group(function () {
     Route::redirect('/', '/chat')->name('home');
+
+    // Optional profile photo step right after registration
+    Route::get('/welcome/photo', [OnboardingController::class, 'photo'])->name('onboarding.photo');
+    Route::post('/welcome/photo', [OnboardingController::class, 'savePhoto'])->name('onboarding.photo.store');
+
+    // Phone-book contacts registered on the app
+    Route::get('/contacts', [ContactController::class, 'index'])->name('contacts.index');
+    Route::post('/contacts/sync', [ContactController::class, 'sync'])
+        ->middleware('throttle:contacts-sync')
+        ->name('contacts.sync');
+    Route::delete('/contacts/{contact}', [ContactController::class, 'destroy'])
+        ->whereNumber('contact')
+        ->name('contacts.destroy');
 
     // Chat dashboard (HTML shell; data is loaded via AJAX)
     Route::get('/chat', [ChatController::class, 'index'])->name('chat.index');

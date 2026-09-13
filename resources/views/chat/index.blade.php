@@ -4,7 +4,7 @@
         {{-- ================================================================
              Sidebar
              ================================================================ --}}
-        <aside class="chat-sidebar" aria-label="Conversations">
+        <aside class="chat-sidebar" aria-label="Conversations" data-sidebar data-mode="chats">
             <header class="sidebar-header">
                 <a href="{{ route('profile.edit') }}" class="sidebar-me" title="Profile settings">
                     <x-avatar :user="$user" size="md" status class="is-online" data-me-avatar />
@@ -18,7 +18,10 @@
                 </a>
 
                 <div class="flex items-center">
-                    <x-theme-toggle />
+                    <button type="button" class="btn-icon header-new-chat" data-action="new-chat" aria-label="New chat" title="New chat">
+                        <x-icon name="message-square-plus" />
+                    </button>
+                    <x-theme-toggle class="header-theme-toggle" />
 
                     {{-- Notification centre --}}
                     <div class="dropdown notif-dropdown">
@@ -59,6 +62,8 @@
                 </div>
             </header>
 
+            {{-- ======================= Chats view ======================= --}}
+            <div class="sidebar-view" data-sidebar-view="chats">
             <div class="sidebar-search">
                 <div class="input-wrap">
                     <x-icon name="search" />
@@ -111,7 +116,82 @@
                     @endfor
                 </div>
             </div>
+
+            <button type="button" class="fab" data-action="new-chat" aria-label="New chat">
+                <x-icon name="message-square-plus" />
+            </button>
+            </div>
+
+            {{-- ======================= Contacts view (new chat) ======================= --}}
+            <div class="sidebar-view contacts-view" data-sidebar-view="contacts" hidden>
+                <header class="contacts-header">
+                    <button type="button" class="btn-icon" data-action="close-contacts" aria-label="Back to chats">
+                        <x-icon name="arrow-left" />
+                    </button>
+                    <div class="min-w-0 flex-1">
+                        <div class="contacts-title">New chat</div>
+                        <div class="contacts-subtitle" data-contacts-count>Contacts on {{ config('app.name') }}</div>
+                    </div>
+                </header>
+
+                <div class="sidebar-search">
+                    <div class="input-wrap">
+                        <x-icon name="search" />
+                        <input type="search" class="form-control search-input" placeholder="Search contacts, name or number"
+                               autocomplete="off" spellcheck="false" maxlength="100" aria-label="Search contacts" data-contacts-search>
+                    </div>
+                </div>
+
+                <div class="sidebar-scroll" data-contacts-scroll>
+                    <div class="contacts-actions">
+                        <button type="button" class="contacts-action" data-contacts-sync hidden>
+                            <span class="contacts-action-icon"><x-icon name="users" /></span>
+                            <span class="min-w-0">
+                                <span class="contacts-action-title">Sync phone contacts</span>
+                                <span class="contacts-action-text">Find people saved in your phone who use {{ config('app.name') }}</span>
+                            </span>
+                        </button>
+                        <label class="contacts-action" for="contacts-import-input">
+                            <span class="contacts-action-icon is-muted"><x-icon name="upload" /></span>
+                            <span class="min-w-0">
+                                <span class="contacts-action-title">Import contacts file</span>
+                                <span class="contacts-action-text">Upload a .vcf file exported from your phone's Contacts app</span>
+                            </span>
+                            <input id="contacts-import-input" type="file" accept=".vcf,text/vcard,text/x-vcard" class="sr-only" data-contacts-import>
+                        </label>
+                    </div>
+
+                    <div data-contacts-results hidden></div>
+                    <div data-contacts-list>
+                        @for ($i = 0; $i < 4; $i++)
+                            <div class="conversation-skeleton">
+                                <div class="skeleton" style="width: 2.9rem; height: 2.9rem; border-radius: 999px"></div>
+                                <div class="flex-1 flex flex-col gap-2">
+                                    <div class="skeleton" style="height: .8rem; width: {{ 45 + ($i * 9) % 30 }}%"></div>
+                                    <div class="skeleton" style="height: .7rem; width: 35%"></div>
+                                </div>
+                            </div>
+                        @endfor
+                    </div>
+                </div>
+            </div>
         </aside>
+
+        {{-- Mobile bottom navigation --}}
+        <nav class="mobile-nav" aria-label="Main">
+            <button type="button" class="mobile-nav-item is-active" data-mobile-tab="chats" aria-current="page">
+                <span class="mobile-nav-icon"><x-icon name="message-circle" /><span class="badge badge-primary mobile-nav-badge" data-mobile-unread hidden>0</span></span>
+                <span>Chats</span>
+            </button>
+            <button type="button" class="mobile-nav-item" data-mobile-tab="contacts">
+                <span class="mobile-nav-icon"><x-icon name="users" /></span>
+                <span>Contacts</span>
+            </button>
+            <a href="{{ route('profile.edit') }}" class="mobile-nav-item">
+                <span class="mobile-nav-icon"><x-avatar :user="$user" size="xs" /></span>
+                <span>You</span>
+            </a>
+        </nav>
 
         {{-- ================================================================
              Main chat area

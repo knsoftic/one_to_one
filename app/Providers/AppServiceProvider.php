@@ -69,5 +69,11 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('chat-typing', fn (Request $request) => Limit::perMinute(60)->by('typing:'.($request->user()?->id ?? $request->ip())));
 
         RateLimiter::for('chat-sync', fn (Request $request) => Limit::perMinute(90)->by('sync:'.($request->user()?->id ?? $request->ip())));
+
+        // Phone-book matching reveals who is registered: keep it slow.
+        RateLimiter::for('contacts-sync', fn (Request $request) => [
+            Limit::perMinute(6)->by('contacts:'.($request->user()?->id ?? $request->ip())),
+            Limit::perDay(50)->by('contacts-day:'.($request->user()?->id ?? $request->ip())),
+        ]);
     }
 }

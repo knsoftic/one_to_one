@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Phone;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -70,6 +71,17 @@ class User extends Authenticatable
         'remember_token',
     ];
 
+    protected static function booted(): void
+    {
+        // Keep the indexed phone suffix in sync for phone-book contact matching.
+        static::saving(function (User $user) {
+            if (array_key_exists('phone', $user->getAttributes())
+                && ($user->isDirty('phone') || $user->getAttribute('phone_suffix') === null)) {
+                $user->phone_suffix = Phone::suffix((string) $user->phone);
+            }
+        });
+    }
+
     protected function casts(): array
     {
         return [
@@ -107,6 +119,12 @@ class User extends Authenticatable
     public function conversationsAsUserTwo(): HasMany
     {
         return $this->hasMany(Conversation::class, 'user_two_id');
+    }
+
+    /** Phone-book contacts of this user who are registered on the app. */
+    public function contacts(): HasMany
+    {
+        return $this->hasMany(Contact::class, 'user_id');
     }
 
     /** Block records created by this user. */

@@ -6,6 +6,7 @@ import { MessageActions } from './actions';
 import { createApi } from './api';
 import { AttachmentComposer } from './attachments';
 import { BlockManager } from './blocks';
+import { ContactsPanel } from './contacts';
 import { Notifier } from './notifications';
 import { EmojiPicker } from './emoji';
 import { dayKey, formatLastSeen } from './format';
@@ -48,6 +49,8 @@ export class ChatApp {
         this.onlineUserIds = [];
         this.pending = new Map();
         this.typingConversations = new Set();
+        /** @type {Map<number, string>} names saved in the user's phone book */
+        this.savedNames = new Map();
         this.typingTimers = new Map();
         this.deliveredQueue = new Set();
         this.statusCache = new Map();
@@ -100,7 +103,7 @@ export class ChatApp {
 
         T.setTemplateContext({
             meId: this.me.id,
-            nameOf: (userId) => this.users.get(Number(userId))?.name ?? '',
+            nameOf: (userId) => this.displayName(userId, this.users.get(Number(userId))?.name ?? ''),
         });
     }
 
@@ -120,7 +123,9 @@ export class ChatApp {
         this.voice = new VoiceRecorder(this);
         this.blocks = new BlockManager(this);
         this.notifier = new Notifier(this);
+        this.contactsPanel = new ContactsPanel(this);
         bindVoicePlayers(this.el.messageList);
+        this.bindMobileNav();
         this.updateSendState();
 
         this.realtime = new Realtime(this);
@@ -154,8 +159,7 @@ export class ChatApp {
 
             switch (action) {
                 case 'new-chat':
-                    this.showListView();
-                    this.el.searchInput.focus();
+                    this.contactsPanel.open();
                     break;
                 case 'back':
                 case 'close-chat':
@@ -281,10 +285,65 @@ export class ChatApp {
     }
 
     /** Participant of a conversation, merged with the latest presence data. */
+    /** Name to show for a user: as saved in the phone book, otherwise their profile name. */
+    displayName(userId, fallback = '') {
+        return this.savedNames.get(Number(userId)) ?? fallback;
+    }
+
+    /** Copy of a user object using the phone-book name when one is saved. */
+    decorate(user) {
+        if (!user) return user;
+        const saved = this.savedNames.get(Number(user.id));
+        return saved ? { ...user, name: saved, profile_name: user.name } : user;
+    }
+
+    /** User merged with the latest known presence (keeps the profile name). */
+    presenceOf(user) {
+        return { ...user, ...(this.users.get(user.id) ?? {}), name: user.name };
+    }
+
+    /** Contacts loaded or synced: remember saved names and refresh the UI. */
+    applyContacts(contacts) {
+        this.savedNames = new Map(contacts.map((contact) => [Number(contact.user.id), contact.name]));
+        contacts.forEach((contact) => this.rememberUser(contact.user));
+        this.renderConversations();
+        this.renderOnlineUsers();
+        const conversation = this.activeConversation();
+        if (conversation) this.renderHeader(conversation);
+    }
+
+    bindMobileNav() {
+        const tabs = document.querySelectorAll('[data-mobile-tab]');
+
+        tabs.forEach((tab) =>
+            tab.addEventListener('click', () => {
+                if (tab.dataset.mobileTab === 'contacts') {
+                    this.contactsPanel.open();
+                } else if (this.contactsPanel.isOpen) {
+                    this.contactsPanel.close();
+                }
+            }),
+        );
+
+        document.addEventListener('chat:sidebar-mode', (event) => {
+            tabs.forEach((tab) => {
+                const active = tab.dataset.mobileTab === event.detail.mode;
+                tab.classList.toggle('is-active', active);
+                if (active) tab.setAttribute('aria-current', 'page');
+                else tab.removeAttribute('aria-current');
+            });
+        });
+    }
+
     participantOf(conversation) {
         const participant = conversation?.participant;
         if (!participant) return null;
-        const merged = { ...participant, ...(this.users.get(participant.id) ?? {}) };
+        const saved = this.savedNames.get(Number(participant.id)) ?? participant.saved_name;
+        const merged = {
+            ...participant,
+            ...(this.users.get(participant.id) ?? {}),
+            ...(saved ? { name: saved, profile_name: participant.name } : {}),
+        };
         // Someone who blocked you does not share their presence.
         return conversation.blocked_me ? { ...merged, is_online: false, last_seen: null } : merged;
     }
@@ -337,6 +396,12 @@ export class ChatApp {
         badge.hidden = total === 0;
         badge.textContent = total > 99 ? '99+' : String(total);
         document.title = total > 0 ? `(${total}) ${this.baseTitle}` : this.baseTitle;
+
+        const mobileBadge = document.querySelector('[data-mobile-unread]');
+        if (mobileBadge) {
+            mobileBadge.hidden = total === 0;
+            mobileBadge.textContent = total > 99 ? '99+' : String(total);
+        }
         document.dispatchEvent(new CustomEvent('chat:unread', { detail: { total } }));
     }
 
@@ -398,7 +463,7 @@ export class ChatApp {
                 (chats ? T.sectionTitle('Chats') + chats : '') +
                 T.sectionTitle('People') +
                 (users.length
-                    ? users.map((user) => T.searchResultItem(user)).join('')
+                    ? users.map((user) => T.searchResultItem(this.decorate(user))).join('')
                     : T.emptyState({ iconName: 'search', title: 'No users found', text: 'Try a different name, username, email or mobile number.' }));
         } catch (error) {
             if (axios.isCancel(error) || error?.name === 'CanceledError') return;
@@ -434,7 +499,8 @@ export class ChatApp {
         const hidden = this.blockedMeIds();
         const users = this.onlineUserIds
             .map((id) => this.users.get(id))
-            .filter((u) => u && u.is_online && u.id !== this.me.id && !hidden.has(u.id));
+            .filter((u) => u && u.is_online && u.id !== this.me.id && !hidden.has(u.id))
+            .map((u) => this.decorate(u));
 
         onlineStrip.hidden = users.length === 0 || onlineStrip.dataset.searching === '1';
         onlineCount.textContent = users.length ? String(users.length) : '';

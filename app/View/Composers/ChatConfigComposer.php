@@ -45,6 +45,9 @@ class ChatConfigComposer
             'block' => ['blocks.store', ['user' => $id]],
             'unblock' => ['blocks.destroy', ['user' => $id]],
             'notifications' => ['notifications.index', []],
+            'contacts' => ['contacts.index', []],
+            'contactsSync' => ['contacts.sync', []],
+            'contactDestroy' => ['contacts.destroy', ['contact' => $id]],
             'notificationsRead' => ['notifications.read', []],
         ];
 
@@ -57,6 +60,7 @@ class ChatConfigComposer
         $reverb = config('broadcasting.connections.reverb');
 
         $view->with('chatConfig', [
+            'appName' => config('app.name'),
             'user' => (new UserResource($user))->resolve($request),
             'initialConversationId' => $view->getData()['initialConversationId'] ?? null,
             'routes' => $routes,

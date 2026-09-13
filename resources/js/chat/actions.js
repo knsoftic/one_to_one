@@ -45,8 +45,12 @@ export class MessageActions {
             const row = bubble.closest('[data-message-id]');
             if (!this.messageFor(row)) return;
             event.preventDefault();
+            // A long press already opened the menu on touch devices.
+            if (this.menu && Date.now() - this.menuOpenedAt < 800) return;
             this.openMenu(row, bubble, { x: event.clientX, y: event.clientY });
         });
+
+        this.bindSwipeToReply(list);
 
         // Long press on touch devices.
         list.addEventListener('touchstart', (event) => {
@@ -67,12 +71,68 @@ export class MessageActions {
         );
 
         document.addEventListener('click', (event) => {
+            // Ignore the click synthesised right after a long press.
+            if (this.menu && Date.now() - this.menuOpenedAt < 400) return;
             if (this.menu && !this.menu.contains(event.target)) this.closeMenu();
         });
         document.addEventListener('keydown', (event) => {
             if (event.key === 'Escape') this.closeMenu();
         });
         this.chat.el.messages.addEventListener('scroll', () => this.closeMenu(), { passive: true });
+    }
+
+    /** Swipe a message to the right to reply (touch devices, like WhatsApp). */
+    bindSwipeToReply(list) {
+        const THRESHOLD = 56;
+        let gesture = null;
+
+        list.addEventListener('touchstart', (event) => {
+            const bubble = event.target.closest('.message-bubble');
+            if (!bubble || event.touches.length !== 1) return;
+            const row = bubble.closest('[data-message-id]');
+            const message = this.messageFor(row);
+            if (!message || message.is_deleted || this.conversationBlocked()) return;
+
+            const touch = event.touches[0];
+            gesture = { x: touch.clientX, y: touch.clientY, row, message, dx: 0, horizontal: null };
+        }, { passive: true });
+
+        list.addEventListener('touchmove', (event) => {
+            if (!gesture) return;
+            const touch = event.touches[0];
+            const dx = touch.clientX - gesture.x;
+            const dy = touch.clientY - gesture.y;
+
+            if (gesture.horizontal === null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
+                gesture.horizontal = dx > 0 && Math.abs(dx) > Math.abs(dy) * 1.5;
+            }
+            if (!gesture.horizontal) return;
+
+            gesture.dx = Math.max(0, Math.min(dx, 84));
+            gesture.row.classList.add('is-swiping');
+            gesture.row.classList.toggle('is-swipe-ready', gesture.dx > THRESHOLD);
+            gesture.row.style.setProperty('--swipe', `${gesture.dx}px`);
+        }, { passive: true });
+
+        const finish = () => {
+            if (!gesture) return;
+            const { row, dx, message } = gesture;
+            gesture = null;
+            row.classList.remove('is-swiping', 'is-swipe-ready');
+            row.style.removeProperty('--swipe');
+            if (dx > THRESHOLD) {
+                navigator.vibrate?.(10);
+                this.setMode('reply', message);
+            }
+        };
+
+        list.addEventListener('touchend', finish, { passive: true });
+        list.addEventListener('touchcancel', finish, { passive: true });
+    }
+
+    /** Bottom sheet instead of a floating menu on phones and touch screens. */
+    useSheet() {
+        return window.matchMedia('(max-width: 767px), (pointer: coarse)').matches;
     }
 
     messageFor(row) {
@@ -112,20 +172,33 @@ export class MessageActions {
         if (items.length) items.push('-');
         items.push({ action: 'delete', icon: 'trash-2', label: 'Delete', danger: true });
 
+        const sheet = this.useSheet();
         const menu = document.createElement('div');
-        menu.className = 'dropdown-menu message-menu';
+        menu.className = `dropdown-menu message-menu${sheet ? ' is-sheet' : ''}`;
         menu.setAttribute('role', 'menu');
-        menu.innerHTML = T.messageMenu(items);
+        menu.innerHTML = (sheet ? T.messageSheetHeader(message) : '') + T.messageMenu(items);
+
+        if (sheet) {
+            this.backdrop = document.createElement('div');
+            this.backdrop.className = 'sheet-backdrop';
+            this.backdrop.addEventListener('click', () => this.closeMenu());
+            document.body.appendChild(this.backdrop);
+        }
+
         document.body.appendChild(menu);
 
-        // Position next to the bubble / pointer, kept inside the viewport.
-        const rect = anchor.getBoundingClientRect();
-        const { width, height } = menu.getBoundingClientRect();
-        let left = point ? point.x : message.is_mine ? rect.right - width : rect.left;
-        let top = point ? point.y : rect.bottom + 6;
-        if (top + height > window.innerHeight - 8) top = Math.max(8, (point ? point.y : rect.top) - height - 6);
-        left = Math.min(Math.max(8, left), window.innerWidth - width - 8);
-        Object.assign(menu.style, { position: 'fixed', left: `${left}px`, top: `${top}px` });
+        if (!sheet) {
+            // Position next to the bubble / pointer, kept inside the viewport.
+            const rect = anchor.getBoundingClientRect();
+            const { width, height } = menu.getBoundingClientRect();
+            let left = point ? point.x : message.is_mine ? rect.right - width : rect.left;
+            let top = point ? point.y : rect.bottom + 6;
+            if (top + height > window.innerHeight - 8) top = Math.max(8, (point ? point.y : rect.top) - height - 6);
+            left = Math.min(Math.max(8, left), window.innerWidth - width - 8);
+            Object.assign(menu.style, { position: 'fixed', left: `${left}px`, top: `${top}px` });
+        }
+
+        this.menuOpenedAt = Date.now();
 
         menu.addEventListener('click', (event) => {
             const item = event.target.closest('[data-message-action]');
@@ -144,6 +217,8 @@ export class MessageActions {
     closeMenu() {
         this.menu?.remove();
         this.menu = null;
+        this.backdrop?.remove();
+        this.backdrop = null;
         this.menuRow?.classList.remove('is-menu-open');
         this.menuRow = null;
     }

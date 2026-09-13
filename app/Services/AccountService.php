@@ -66,6 +66,17 @@ class AccountService
         return $user;
     }
 
+    /**
+     * Set or replace only the profile picture (used by the post-registration step).
+     */
+    public function updateAvatar(User $user, UploadedFile $avatar): User
+    {
+        $user->profile_image = $this->storeAvatar($avatar, $user->profile_image);
+        $user->save();
+
+        return $user;
+    }
+
     public function updatePassword(User $user, string $password): void
     {
         $user->forceFill([

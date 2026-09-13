@@ -26,14 +26,18 @@ class RegistrationTest extends TestCase
 
     public function test_registration_screen_can_be_rendered(): void
     {
-        $this->get('/register')->assertOk()->assertSee('Create your account');
+        $this->get('/register')
+            ->assertOk()
+            ->assertSee('Create your account')
+            ->assertDontSee('name="profile_image"', false);
     }
 
     public function test_new_users_can_register_with_normalized_fields(): void
     {
         $response = $this->post('/register', $this->payload());
 
-        $response->assertRedirect(route('chat.index'));
+        // Profile photo is added on a separate, optional step.
+        $response->assertRedirect(route('onboarding.photo'));
         $this->assertAuthenticated();
 
         $user = User::firstWhere('username', 'awais_01');

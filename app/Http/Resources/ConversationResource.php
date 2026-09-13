@@ -27,6 +27,11 @@ class ConversationResource extends JsonResource
             $participant['last_seen'] = null;
         }
 
+        // Name as saved in the viewer's phone book (like WhatsApp), if any.
+        if ($participant) {
+            $participant['saved_name'] = $this->saved_name ?? null;
+        }
+
         return [
             'id' => $this->id,
             'participant' => $participant,

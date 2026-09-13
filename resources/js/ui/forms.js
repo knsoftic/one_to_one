@@ -28,6 +28,7 @@ function initAvatarPickers() {
         const placeholder = $('[data-avatar-placeholder]', picker);
         const clear = $('[data-avatar-clear]', picker);
         const remove = $('[data-avatar-remove]', picker);
+        const submit = $('[data-photo-submit]', picker);
         let objectUrl = null;
 
         const show = (src) => {
@@ -36,6 +37,7 @@ function initAvatarPickers() {
             placeholder?.setAttribute('hidden', '');
             preview.classList.add('has-image');
             clear?.removeAttribute('hidden');
+            if (submit) submit.disabled = false;
         };
 
         const reset = () => {
@@ -44,6 +46,7 @@ function initAvatarPickers() {
             placeholder?.removeAttribute('hidden');
             preview.classList.remove('has-image');
             clear?.setAttribute('hidden', '');
+            if (submit) submit.disabled = true;
         };
 
         input.addEventListener('change', () => {
@@ -127,7 +130,34 @@ function initLoadingForms() {
     });
 }
 
+/** Suggest a username from the full name until the user edits it. */
+function initUsernameSuggestions() {
+    $$('[data-username-suggest]').forEach((form) => {
+        const source = $('[data-suggest-source]', form);
+        const target = $('[data-suggest-target]', form);
+        if (!source || !target) return;
+
+        let edited = target.value.trim() !== '';
+        target.addEventListener('input', () => {
+            edited = target.value.trim() !== '';
+        });
+
+        source.addEventListener('input', () => {
+            if (edited) return;
+            target.value = source.value
+                .normalize('NFKD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '.')
+                .replace(/^\.+/, '')
+                .slice(0, 30)
+                .replace(/\.+$/, '');
+        });
+    });
+}
+
 export function initForms() {
+    initUsernameSuggestions();
     initPasswordToggles();
     initAvatarPickers();
     initStrengthMeters();

@@ -7,12 +7,16 @@ A modern, secure, real-time **one-to-one chat** web application built with **Lar
 - Reply, edit, copy, delete for me / delete for everyone
 - ✓ sent · ✓✓ delivered · blue ✓✓ seen receipts, typing indicator, online status & "last seen"
 - Recent chats with unread badges, user search, block / unblock
+- **Phone contacts like WhatsApp**: sync contacts from the phone (Android Chrome) or import a `.vcf` file to see who is registered, shown with the names you saved
+- Quick sign-up (profile photo is an optional step after registration)
 - In-app, desktop and sound notifications with a notification centre
 - Light, dark and system themes; fully responsive (desktop, tablet, mobile)
 - Admin panel (statistics and account management — **no access to private chats**)
 - Automatic AJAX polling fallback when WebSockets are unavailable
 
 See [`development-progress.md`](development-progress.md) for the phase-by-phase implementation log.
+
+**Deploying on aaPanel?** Follow the step-by-step guide: [`docs/DEPLOYMENT-AAPANEL.md`](docs/DEPLOYMENT-AAPANEL.md) (chat.hunario.com).
 
 ---
 
