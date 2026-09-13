@@ -47,7 +47,6 @@ export class ChatApp {
         this.conversations = new Map();
         /** @type {Map<number, object>} latest known public profile / presence per user */
         this.users = new Map();
-        this.onlineUserIds = [];
         this.pending = new Map();
         this.typingConversations = new Set();
         /** @type {Map<number, string>} names saved in the user's phone book */
@@ -75,9 +74,6 @@ export class ChatApp {
             searchResults: q('[data-search-results]'),
             filters: q('[data-filters]'),
             totalUnread: q('[data-total-unread]'),
-            onlineStrip: q('[data-online-strip]'),
-            onlineList: q('[data-online-list]'),
-            onlineCount: q('[data-online-count]'),
             welcome: q('[data-chat-welcome]'),
             panel: q('[data-chat-panel]'),
             headerUser: q('[data-chat-header-user]'),
@@ -211,7 +207,7 @@ export class ChatApp {
     /* ================================================================== */
 
     bindSidebar() {
-        const { searchInput, searchClear, filters, conversationList, sidebarScroll, onlineList } = this.el;
+        const { searchInput, searchClear, filters, conversationList, sidebarScroll } = this.el;
         const runSearch = debounce((term) => this.search(term), 300);
 
         searchInput.addEventListener('input', () => {
@@ -262,7 +258,6 @@ export class ChatApp {
         sidebarScroll.addEventListener('click', (event) => {
             if (!conversationList.contains(event.target)) onPick(event);
         });
-        onlineList.addEventListener('click', onPick);
     }
 
     async loadConversations() {
@@ -328,7 +323,6 @@ export class ChatApp {
         this.savedNames = new Map(contacts.map((contact) => [Number(contact.user.id), contact.name]));
         contacts.forEach((contact) => this.rememberUser(contact.user));
         this.renderConversations();
-        this.renderOnlineUsers();
         const conversation = this.activeConversation();
         if (conversation) this.renderHeader(conversation);
     }
@@ -435,19 +429,17 @@ export class ChatApp {
     }
 
     showSearchLoading() {
-        const { searchResults, conversationList, filters, onlineStrip } = this.el;
+        const { searchResults, conversationList, filters } = this.el;
         searchResults.hidden = false;
         conversationList.hidden = true;
         filters.hidden = true;
-        onlineStrip.dataset.searching = '1';
-        onlineStrip.hidden = true;
         if (!searchResults.innerHTML.trim()) {
             searchResults.innerHTML = '<div class="flex justify-center p-6 text-primary"><span class="spinner"></span></div>';
         }
     }
 
     clearSearch() {
-        const { searchInput, searchClear, searchResults, conversationList, filters, onlineStrip } = this.el;
+        const { searchInput, searchClear, searchResults, conversationList, filters } = this.el;
         this.searchAbort?.abort();
         searchInput.value = '';
         searchClear.hidden = true;
@@ -455,8 +447,6 @@ export class ChatApp {
         searchResults.innerHTML = '';
         conversationList.hidden = false;
         filters.hidden = false;
-        delete onlineStrip.dataset.searching;
-        this.renderOnlineUsers();
     }
 
     async search(term) {
@@ -504,28 +494,15 @@ export class ChatApp {
         }
     }
 
+    /** Presence of everyone online, for the green dots in the chat list. */
     async loadOnlineUsers() {
         try {
             const users = await this.api.onlineUsers();
             users.forEach((user) => this.rememberUser(user));
-            this.onlineUserIds = users.map((user) => user.id);
-            this.renderOnlineUsers();
+            this.refreshPresenceViews();
         } catch {
             /* non-critical */
         }
-    }
-
-    renderOnlineUsers() {
-        const { onlineStrip, onlineList, onlineCount } = this.el;
-        const hidden = this.blockedMeIds();
-        const users = this.onlineUserIds
-            .map((id) => this.users.get(id))
-            .filter((u) => u && u.is_online && u.id !== this.me.id && !hidden.has(u.id))
-            .map((u) => this.decorate(u));
-
-        onlineStrip.hidden = users.length === 0 || onlineStrip.dataset.searching === '1';
-        onlineCount.textContent = users.length ? String(users.length) : '';
-        onlineList.innerHTML = users.map((user) => T.onlineUser(user)).join('');
     }
 
     /* ================================================================== */
@@ -1545,13 +1522,11 @@ export class ChatApp {
 
     onPresenceHere(users) {
         users.forEach((user) => this.rememberUser({ ...user, is_online: true }));
-        this.onlineUserIds = [...new Set([...users.map((u) => u.id), ...this.onlineUserIds])];
         this.refreshPresenceViews();
     }
 
     onPresenceJoin(user) {
         this.rememberUser({ ...user, is_online: true });
-        this.onlineUserIds = [user.id, ...this.onlineUserIds.filter((id) => id !== user.id)];
         this.refreshPresenceViews();
     }
 
@@ -1564,7 +1539,6 @@ export class ChatApp {
     onPresenceUpdate(user) {
         if (!user?.id) return;
         this.rememberUser(user);
-        if (user.is_online && !this.onlineUserIds.includes(user.id)) this.onlineUserIds.unshift(user.id);
         this.refreshPresenceViews();
     }
 
@@ -1577,7 +1551,6 @@ export class ChatApp {
     refreshPresenceViews() {
         cancelAnimationFrame(this.presenceFrame);
         this.presenceFrame = requestAnimationFrame(() => {
-            this.renderOnlineUsers();
             this.renderConversations();
             this.updateHeaderStatus();
         });
@@ -1591,7 +1564,6 @@ export class ChatApp {
             const known = this.users.get(user.id);
             if (!known || known.is_online !== user.is_online || known.last_seen !== user.last_seen) presenceChanged = true;
             this.rememberUser(user);
-            if (user.is_online && !this.onlineUserIds.includes(user.id)) this.onlineUserIds.push(user.id);
         }
 
         let unknownConversation = false;

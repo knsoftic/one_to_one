@@ -80,14 +80,6 @@
                 </button>
             </div>
 
-            <section class="online-strip" data-online-strip hidden>
-                <div class="online-strip-title">
-                    <span>Online now</span>
-                    <span data-online-count></span>
-                </div>
-                <div class="online-strip-list" data-online-list></div>
-            </section>
-
             <div class="sidebar-scroll" data-sidebar-scroll>
                 {{-- Desktop notification permission prompt --}}
                 <div class="notify-banner" data-notify-banner hidden>

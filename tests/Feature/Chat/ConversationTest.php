@@ -22,7 +22,10 @@ class ConversationTest extends TestCase
             ->assertOk()
             ->assertSee('data-chat-app', false)
             ->assertSee('chat-config', false)
-            ->assertSee('conversations\/__ID__\/messages', false);
+            ->assertSee('conversations\/__ID__\/messages', false)
+            // Online people are shown as green dots in the chat list, not in a separate strip.
+            ->assertDontSee('data-online-strip', false)
+            ->assertDontSee('Online now');
     }
 
     public function test_starting_a_conversation_creates_it_once(): void

@@ -70,7 +70,6 @@ export class BlockManager {
 
     apply(conversationId, patch) {
         const conversation = this.chat.upsertConversation({ id: conversationId, ...patch });
-        this.chat.renderOnlineUsers();
 
         if (this.chat.active?.id === conversationId) {
             this.chat.stopTyping();

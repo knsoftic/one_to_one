@@ -72,31 +72,6 @@
 .chip.is-active { background: var(--c-primary-soft); border-color: transparent; color: var(--c-primary-text); }
 .chip .badge { height: 1.1rem; min-width: 1.1rem; font-size: 0.65rem; padding: 0 0.3rem; }
 
-.online-strip { padding: 0.15rem 0 0.7rem; border-bottom: 1px solid var(--c-border); }
-.online-strip-title { display: flex; justify-content: space-between; padding: 0 1rem; margin-bottom: 0.45rem; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--c-subtle); }
-.online-strip-list { display: flex; gap: 0.55rem; overflow-x: auto; padding: 0.15rem 1rem; scrollbar-width: none; }
-.online-strip-list::-webkit-scrollbar { display: none; }
-.online-user {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.3rem;
-    width: 3.6rem;
-    flex-shrink: 0;
-    padding: 0.25rem 0;
-    border: 0;
-    border-radius: 12px;
-    background: transparent;
-    color: var(--c-muted);
-    font-size: 0.7rem;
-    font-weight: 500;
-    cursor: pointer;
-    animation: fade-in 0.3s ease;
-    transition: background-color 0.15s ease;
-}
-.online-user:hover { background: var(--c-surface-2); color: var(--c-text); }
-.online-user-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
 .sidebar-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 0.4rem 0.5rem 1rem; }
 .sidebar-section-title { padding: 0.75rem 0.65rem 0.35rem; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--c-subtle); }
 

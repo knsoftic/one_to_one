@@ -90,7 +90,7 @@ export function conversationItem(conversation, { active = false, typing = false 
 export function searchResultItem(user) {
     return html`
         <button type="button" class="conversation-item" data-start-user-id="${user.id}">
-            ${raw(avatar(user, 'md', { status: true }))}
+            ${raw(avatar(user, 'md'))}
             <span class="conversation-body">
                 <span class="conversation-name">${user.name}</span>
                 <span class="search-result-meta">@${user.username}</span>
@@ -106,21 +106,11 @@ export function contactItem(contact, user = contact.user) {
 
     return html`
         <button type="button" class="conversation-item contact-item" data-start-user-id="${user.id}">
-            ${raw(avatar(user, 'md', { status: true }))}
+            ${raw(avatar(user, 'md'))}
             <span class="conversation-body">
                 <span class="conversation-name">${contact.name}</span>
                 <span class="search-result-meta">${secondary}</span>
             </span>
-        </button>
-    `;
-}
-
-export function onlineUser(user) {
-    const first = String(user.name || '').split(' ')[0];
-    return html`
-        <button type="button" class="online-user" data-start-user-id="${user.id}" title="${user.name}">
-            ${raw(avatar(user, 'lg', { status: true }))}
-            <span class="online-user-name">${first}</span>
         </button>
     `;
 }
