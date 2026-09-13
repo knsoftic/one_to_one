@@ -1,0 +1,48 @@
+/* ==========================================================================
+   App shell (non-chat pages) & settings
+   ========================================================================== */
+
+.page-shell { min-height: 100dvh; display: flex; flex-direction: column; }
+
+.topbar {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    height: 4rem;
+    padding: 0 1.25rem;
+    background: color-mix(in srgb, var(--c-surface) 85%, transparent);
+    border-bottom: 1px solid var(--c-border);
+    backdrop-filter: saturate(1.4) blur(12px);
+}
+
+.page-container { width: 100%; max-width: 64rem; margin: 0 auto; padding: 1.75rem 1.25rem 4rem; }
+.page-header { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem; }
+.page-title { font-size: 1.6rem; font-weight: 800; letter-spacing: -0.03em; }
+.page-subtitle { color: var(--c-muted); margin-top: 0.25rem; font-size: 0.925rem; }
+
+.settings-layout { display: grid; gap: 1.5rem; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 900px) { .settings-layout { grid-template-columns: 15rem minmax(0, 1fr); align-items: start; } }
+
+.settings-nav { display: flex; gap: 0.25rem; overflow-x: auto; scrollbar-width: none; }
+.settings-nav::-webkit-scrollbar { display: none; }
+@media (min-width: 900px) { .settings-nav { flex-direction: column; position: sticky; top: 5.5rem; } }
+
+.settings-profile-card { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 0.35rem; padding: 1.5rem 1rem; margin-bottom: 0.75rem; }
+@media (max-width: 899px) { .settings-profile-card { display: none; } }
+
+.settings-section { display: none; animation: fade-in-up 0.35s var(--ease-out); }
+.settings-section.is-active { display: block; }
+
+.setting-row { display: flex; align-items: center; justify-content: space-between; gap: 1.25rem; padding: 1.1rem 0; border-bottom: 1px solid var(--c-border); }
+.setting-row:first-child { padding-top: 0; }
+.setting-row:last-child { border-bottom: 0; padding-bottom: 0; }
+.setting-title { font-weight: 600; font-size: 0.925rem; }
+.setting-text { font-size: 0.825rem; color: var(--c-muted); margin-top: 0.15rem; }
+@media (max-width: 560px) { .setting-row.stack-mobile { flex-direction: column; align-items: flex-start; } }
+
+.list-row { display: flex; align-items: center; gap: 0.85rem; padding: 0.8rem 0; border-bottom: 1px solid var(--c-border); }
+.list-row:last-child { border-bottom: 0; }
