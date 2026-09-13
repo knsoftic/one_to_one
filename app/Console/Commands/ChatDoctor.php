@@ -111,9 +111,9 @@ class ChatDoctor extends Command
         }
         $this->result((bool) $socket, "Reverb is running on {$serverHost}:{$serverPort}", 'Start Reverb and keep it running (Supervisor, guide step 11, or scripts/setup-realtime.sh).');
 
-        // Laravel → Reverb (broadcasting events).
+        // Laravel → Reverb: the same request every message broadcast makes (public test channel, no data).
         try {
-            Broadcast::connection('reverb')->getPusher()->getChannels();
+            Broadcast::connection('reverb')->broadcast(['chat-doctor'], 'doctor.ping', ['at' => now()->toIso8601String()]);
             $this->result(true, 'Laravel can send events to Reverb', '');
         } catch (Throwable $e) {
             $this->result(false, 'Laravel can send events to Reverb', 'Broadcast request failed: '.str($e->getMessage())->limit(160).' — check the Nginx /apps/ proxy (guide step 10) and REVERB_* values.');
