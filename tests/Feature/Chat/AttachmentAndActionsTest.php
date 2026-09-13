@@ -142,7 +142,7 @@ class AttachmentAndActionsTest extends TestCase
         $this->send(['attachment' => $this->upload('fake.docx', 'plain text pretending to be a word file')])
             ->assertUnprocessable()->assertJsonValidationErrors('attachment');
 
-        $this->send(['attachment' => UploadedFile::fake()->image('animated.gif')])
+        $this->send(['attachment' => UploadedFile::fake()->image('bitmap.bmp')])
             ->assertUnprocessable()->assertJsonValidationErrors('attachment');
 
         $this->send(['voice' => $this->upload('voice.webm', 'not audio at all')])

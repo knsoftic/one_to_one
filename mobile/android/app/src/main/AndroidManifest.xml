@@ -112,8 +112,12 @@
     <!-- Voice notes and calls -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
-    <!-- Video calls -->
+    <!-- Video calls and the in-app camera -->
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Sharing your location in a chat (asked only when you share) -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-feature android:name="android.hardware.location.gps" android:required="false" />
     <!-- Calls: ring over the lock screen, keep talking in the background, screen off at your ear -->
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />

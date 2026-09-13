@@ -80,10 +80,13 @@ export class EmojiPicker {
     /**
      * @param {HTMLElement} anchor   element the panel is positioned in
      * @param {(emoji: string) => void} onSelect
+     * @param {{modes?: {id: string, label: string, render: (container: HTMLElement, picker: EmojiPicker) => void}[]}} options
+     *        extra panels next to "Emoji" (stickers, GIFs)
      */
-    constructor(anchor, onSelect) {
+    constructor(anchor, onSelect, { modes = [] } = {}) {
         this.anchor = anchor;
         this.onSelect = onSelect;
+        this.modes = modes;
         this.panel = null;
         this.onDocumentClick = this.onDocumentClick.bind(this);
         this.onKeydown = this.onKeydown.bind(this);
@@ -110,7 +113,15 @@ export class EmojiPicker {
         this.panel.className = 'emoji-panel';
         this.panel.setAttribute('role', 'dialog');
         this.panel.setAttribute('aria-label', 'Emoji picker');
-        this.panel.innerHTML = html`
+        const modeBar = this.modes.length
+            ? html`<div class="picker-modes" role="tablist" aria-label="Emoji, stickers and GIFs">
+                <button type="button" class="picker-mode is-active" data-picker-mode="emoji" role="tab" aria-selected="true">Emoji</button>
+                ${raw(this.modes.map((m) => html`<button type="button" class="picker-mode" data-picker-mode="${m.id}" role="tab" aria-selected="false">${m.label}</button>`).join(''))}
+            </div>`
+            : '';
+
+        this.panel.innerHTML = modeBar + html`
+            <div class="picker-body" data-picker-body="emoji">
             <div class="emoji-tabs" role="tablist">
                 ${raw(tabs.map((t, i) => html`<button type="button" class="emoji-tab${i === 0 ? ' is-active' : ''}" data-emoji-tab="${t.id}" title="${t.label}" aria-label="${t.label}">${t.icon}</button>`).join(''))}
             </div>
@@ -130,9 +141,17 @@ export class EmojiPicker {
                         .join(''),
                 )}
             </div>
+            </div>
+            <div class="picker-body" data-picker-body="extra" hidden></div>
         `;
 
         this.panel.addEventListener('click', (event) => {
+            const mode = event.target.closest('[data-picker-mode]');
+            if (mode) {
+                this.showMode(mode.dataset.pickerMode);
+                return;
+            }
+
             const emoji = event.target.closest('[data-emoji]');
             if (emoji) {
                 saveRecent(emoji.dataset.emoji);
@@ -152,6 +171,24 @@ export class EmojiPicker {
         this.anchor.appendChild(this.panel);
         setTimeout(() => document.addEventListener('click', this.onDocumentClick), 0);
         document.addEventListener('keydown', this.onKeydown);
+    }
+
+    showMode(id) {
+        this.panel.querySelectorAll('[data-picker-mode]').forEach((button) => {
+            const active = button.dataset.pickerMode === id;
+            button.classList.toggle('is-active', active);
+            button.setAttribute('aria-selected', String(active));
+        });
+
+        const emojiBody = this.panel.querySelector('[data-picker-body="emoji"]');
+        const extra = this.panel.querySelector('[data-picker-body="extra"]');
+        const mode = this.modes.find((m) => m.id === id);
+        emojiBody.hidden = Boolean(mode);
+        extra.hidden = !mode;
+        if (mode) {
+            extra.replaceChildren();
+            mode.render(extra, this);
+        }
     }
 
     close() {

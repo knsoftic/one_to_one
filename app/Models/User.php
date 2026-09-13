@@ -127,6 +127,11 @@ class User extends Authenticatable
         return $this->hasMany(Contact::class, 'user_id');
     }
 
+    public function stickers(): HasMany
+    {
+        return $this->hasMany(Sticker::class);
+    }
+
     /** Mobile app installs that receive push notifications for this user. */
     public function deviceTokens(): HasMany
     {

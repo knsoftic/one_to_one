@@ -131,6 +131,8 @@ pcntl_async_signals
 
 Click **Save** and **Restart PHP**.
 
+> **Bigger videos:** videos are limited to 16 MB by default (`CHAT_MAX_VIDEO_KB=16384`). To allow e.g. 50 MB set `CHAT_MAX_VIDEO_KB=51200` in `.env` **and** raise `upload_max_filesize` / `post_max_size` here plus `client_max_body_size` in Nginx (step 10) to at least `55M`, then run `php artisan config:cache`.
+
 ---
 
 ## 4. DNS

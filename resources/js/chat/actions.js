@@ -3,6 +3,8 @@ import { confirmDialog } from '../lib/modal';
 import { toast } from '../lib/toast';
 import * as T from './templates';
 import { previewOf } from './templates';
+import { openMessageInfo } from './message-info';
+import { reactionBar } from './reactions';
 
 const LONG_PRESS_MS = 450;
 
@@ -162,15 +164,27 @@ export class MessageActions {
 
     openMenu(row, anchor, point = null) {
         const message = this.messageFor(row);
-        if (!message) return;
+        if (!message || message.type === 'system') return;
         this.closeMenu();
 
         const items = [];
-        const isCall = message.type === 'call';
+        // View once media cannot be forwarded, starred, pinned or downloaded (M22).
+        const isCall = message.type === 'call' || Boolean(message.attachment?.view_once);
         if (!message.is_deleted && !isCall && !this.conversationBlocked()) items.push({ action: 'reply', icon: 'corner-up-left', label: 'Reply' });
+        if (!message.is_deleted && !isCall && this.chat.api.has('messageForward')) items.push({ action: 'forward', icon: 'forward', label: 'Forward' });
+        if (!message.is_deleted && !isCall && this.chat.api.has('messageStar')) {
+            items.push(message.is_starred ? { action: 'unstar', icon: 'star-off', label: 'Unstar' } : { action: 'star', icon: 'star', label: 'Star' });
+        }
+        if (!message.is_deleted && !isCall && !this.conversationBlocked() && this.chat.api.has('messagePin')) {
+            items.push(this.chat.pins.isPinned(message) ? { action: 'unpin', icon: 'pin-off', label: 'Unpin' } : { action: 'pin', icon: 'pin', label: 'Pin' });
+        }
         if (!message.is_deleted && message.body) items.push({ action: 'copy', icon: 'copy', label: 'Copy text' });
-        if (message.attachment?.download_url && !message.is_deleted) items.push({ action: 'download', icon: 'download', label: 'Download' });
+        if (message.type === 'sticker' && !message.is_mine && !message.is_deleted && typeof message.id === 'number' && this.chat.api.has('messageSaveSticker')) {
+            items.push({ action: 'save-sticker', icon: 'sticker', label: 'Save to my stickers' });
+        }
+        if (message.attachment?.download_url && !message.is_deleted && message.type !== 'sticker') items.push({ action: 'download', icon: 'download', label: 'Download' });
         if (this.canEdit(message)) items.push({ action: 'edit', icon: 'pencil', label: 'Edit' });
+        if (message.is_mine && !message.is_deleted && !isCall) items.push({ action: 'info', icon: 'info', label: 'Info' });
         if (items.length) items.push('-');
         items.push({ action: 'delete', icon: 'trash-2', label: 'Delete', danger: true });
 
@@ -178,7 +192,8 @@ export class MessageActions {
         const menu = document.createElement('div');
         menu.className = `dropdown-menu message-menu${sheet ? ' is-sheet' : ''}`;
         menu.setAttribute('role', 'menu');
-        menu.innerHTML = (sheet ? T.messageSheetHeader(message) : '') + T.messageMenu(items);
+        const reactions = this.chat.reactions?.canReact(message) ? reactionBar(message, this.chat.me.id) : '';
+        menu.innerHTML = (sheet ? T.messageSheetHeader(message) : '') + reactions + T.messageMenu(items);
 
         if (sheet) {
             this.backdrop = document.createElement('div');
@@ -203,6 +218,15 @@ export class MessageActions {
         this.menuOpenedAt = Date.now();
 
         menu.addEventListener('click', (event) => {
+            const reaction = event.target.closest('[data-react-emoji]');
+            if (reaction || event.target.closest('[data-react-more]')) {
+                event.stopPropagation();
+                this.closeMenu();
+                if (reaction) this.chat.reactions.toggle(message, reaction.dataset.reactEmoji);
+                else this.chat.reactions.openPicker(message);
+                return;
+            }
+
             const item = event.target.closest('[data-message-action]');
             if (!item) return;
             event.stopPropagation();
@@ -231,6 +255,26 @@ export class MessageActions {
                 return this.setMode('reply', message);
             case 'edit':
                 return this.setMode('edit', message);
+            case 'forward':
+                return this.chat.forwardDialog.open(message);
+            case 'save-sticker':
+                try {
+                    await this.chat.api.saveSticker(message.id);
+                    this.chat.stickerPanel.stickers = null;
+                    toast.success('Saved to your stickers.');
+                } catch (error) {
+                    toast.error(errorMessage(error, 'The sticker could not be saved.'));
+                }
+                return;
+            case 'star':
+            case 'unstar':
+                return this.chat.starred.toggle(message);
+            case 'info':
+                return openMessageInfo(message);
+            case 'pin':
+                return this.chat.pins.pin(message);
+            case 'unpin':
+                return this.chat.pins.unpin(message);
             case 'copy':
                 return this.copy(message.body);
             case 'download':

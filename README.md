@@ -15,7 +15,7 @@ A modern, secure, real-time **one-to-one chat** web application built with **Lar
 - Admin panel (statistics and account management — **no access to private chats**)
 - Automatic AJAX polling fallback when WebSockets are unavailable
 
-See [`development-progress.md`](development-progress.md) for the phase-by-phase implementation log.
+See [`development-progress.md`](development-progress.md) for the phase-by-phase implementation log and [`docs/FEATURE-ROADMAP.md`](docs/FEATURE-ROADMAP.md) for planned features.
 
 **Deploying on aaPanel?** Follow the step-by-step guide: [`docs/DEPLOYMENT-AAPANEL.md`](docs/DEPLOYMENT-AAPANEL.md) (chat.hunario.com).
 

@@ -25,6 +25,7 @@ export class VoiceRecorder {
             timer: document.querySelector('[data-voice-timer]'),
             stop: document.querySelector('[data-voice-stop]'),
             send: document.querySelector('[data-voice-send]'),
+            once: document.querySelector('[data-voice-once]'),
             cancel: document.querySelector('[data-voice-cancel]'),
         };
 
@@ -37,6 +38,12 @@ export class VoiceRecorder {
         this.el.stop.addEventListener('click', () => this.stop());
         this.el.cancel.addEventListener('click', () => this.discard());
         this.el.send.addEventListener('click', () => this.send());
+        this.viewOnce = false;
+        this.el.once?.addEventListener('click', () => {
+            this.viewOnce = !this.viewOnce;
+            this.el.once.classList.toggle('is-on', this.viewOnce);
+            this.el.once.setAttribute('aria-pressed', String(this.viewOnce));
+        });
 
         document.addEventListener('chat:opened', () => this.discard());
         document.addEventListener('chat:closed', () => this.discard());
@@ -65,6 +72,7 @@ export class VoiceRecorder {
         this.recorder.start(250);
         this.startedAt = Date.now();
         this.setState('recording');
+        this.chat.startRecordingIndicator?.();
 
         this.ticker = setInterval(() => {
             const seconds = (Date.now() - this.startedAt) / 1000;
@@ -78,6 +86,7 @@ export class VoiceRecorder {
 
     stop() {
         if (this.state !== 'recording') return;
+        this.chat.stopRecordingIndicator?.();
         this.duration = (Date.now() - this.startedAt) / 1000;
         clearInterval(this.ticker);
         this.recorder.stop();
@@ -128,6 +137,7 @@ export class VoiceRecorder {
             type: 'voice',
             duration: Math.round(this.duration * 10) / 10,
             fileName: file.name,
+            viewOnce: this.viewOnce,
         });
         this.reset();
     }
@@ -142,6 +152,7 @@ export class VoiceRecorder {
     }
 
     reset() {
+        this.chat.stopRecordingIndicator?.();
         stopAllVoice();
         if (this.previewUrl) URL.revokeObjectURL(this.previewUrl);
         this.previewUrl = null;
@@ -166,6 +177,14 @@ export class VoiceRecorder {
         this.el.stop.hidden = state !== 'recording';
         this.el.preview.hidden = state !== 'preview';
         this.el.send.hidden = state !== 'preview';
+        if (this.el.once) {
+            this.el.once.hidden = state !== 'preview';
+            if (state === 'idle') {
+                this.viewOnce = false;
+                this.el.once.classList.remove('is-on');
+                this.el.once.setAttribute('aria-pressed', 'false');
+            }
+        }
     }
 }
 
@@ -178,6 +197,53 @@ function bars() {
 /* ---------------------------------------------------------------------- */
 
 let current = null; // { player, audio }
+
+const SPEED_KEY = 'chat:voice-speed';
+export const VOICE_SPEEDS = [1, 1.5, 2];
+
+/** Playback speed for voice messages, remembered on this device. */
+export function voiceSpeed() {
+    try {
+        const stored = Number(localStorage.getItem(SPEED_KEY));
+        return VOICE_SPEEDS.includes(stored) ? stored : 1;
+    } catch {
+        return 1;
+    }
+}
+
+export function nextVoiceSpeed(speed) {
+    const index = VOICE_SPEEDS.indexOf(speed);
+    return VOICE_SPEEDS[(index + 1) % VOICE_SPEEDS.length];
+}
+
+export function speedLabel(speed) {
+    return `${speed}×`;
+}
+
+/**
+ * The voice message to play after this one: the next message in the chat, when it is a
+ * voice message from the same person (like WhatsApp playing consecutive voice notes).
+ */
+export function nextVoicePlayer(player) {
+    const row = player.closest('[data-message-id]');
+    if (!row) return null;
+
+    let next = row.nextElementSibling;
+    while (next && !next.matches('[data-message-id]')) next = next.nextElementSibling;
+
+    if (!next || next.dataset.senderId !== row.dataset.senderId) return null;
+    return next.querySelector('[data-voice-player]:not(.is-preview)');
+}
+
+function setSpeed(speed) {
+    try {
+        localStorage.setItem(SPEED_KEY, String(speed));
+    } catch {
+        /* storage unavailable: applies to this page only */
+    }
+    document.querySelectorAll('[data-voice-speed]').forEach((button) => (button.textContent = speedLabel(speed)));
+    if (current) current.audio.playbackRate = speed;
+}
 
 function stopAllVoice() {
     if (current) {
@@ -206,6 +272,9 @@ function audioFor(player) {
         render(player, audio);
         player.querySelector('[data-voice-time]').textContent = formatDuration(Number(player.dataset.duration) || audio.duration);
         if (current?.player === player) current = null;
+
+        const next = player.classList.contains('is-preview') ? null : nextVoicePlayer(player);
+        if (next) play(next);
     });
     audio.addEventListener('error', () => {
         player.classList.remove('is-playing');
@@ -218,6 +287,13 @@ function audioFor(player) {
 
 export function bindVoicePlayers(root) {
     root.addEventListener('click', (event) => {
+        const speed = event.target.closest('[data-voice-speed]');
+        if (speed) {
+            event.stopPropagation();
+            setSpeed(nextVoiceSpeed(voiceSpeed()));
+            return;
+        }
+
         const toggle = event.target.closest('[data-voice-toggle]');
         const seek = event.target.closest('[data-voice-seek]');
         const player = (toggle || seek)?.closest('[data-voice-player]');
@@ -239,10 +315,17 @@ export function bindVoicePlayers(root) {
             return;
         }
 
-        stopAllVoice();
-        audio.play().then(() => {
-            player.classList.add('is-playing');
-            current = { player, audio };
-        }).catch(() => toast.error('This voice message could not be played.'));
+        play(player);
     });
+}
+
+function play(player) {
+    const audio = audioFor(player);
+    stopAllVoice();
+    audio.playbackRate = voiceSpeed();
+    audio.play().then(() => {
+        audio.playbackRate = voiceSpeed();
+        player.classList.add('is-playing');
+        current = { player, audio };
+    }).catch(() => toast.error('This voice message could not be played.'));
 }

@@ -136,6 +136,27 @@ class RealtimeTest extends TestCase
         $this->assertFalse(Cache::has("chat:typing:{$this->conversation->id}:{$this->me->id}"));
     }
 
+    /** M8 — "recording audio…" while a voice message is being recorded. */
+    public function test_recording_audio_is_reported_like_typing(): void
+    {
+        Event::fake([UserTyping::class]);
+
+        $this->actingAs($this->me)
+            ->postJson("/conversations/{$this->conversation->id}/typing", ['typing' => true, 'action' => 'recording'])
+            ->assertOk();
+
+        Event::assertDispatched(UserTyping::class, fn (UserTyping $e) => $e->broadcastWith()['action'] === 'recording' && $e->typing);
+
+        $this->actingAs($this->friend)
+            ->getJson('/chat/sync?conversation_id='.$this->conversation->id.'&since='.urlencode(now()->subMinute()->toIso8601String()))
+            ->assertJsonPath('typing.typing', true)
+            ->assertJsonPath('typing.action', 'recording');
+
+        $this->actingAs($this->me)
+            ->postJson("/conversations/{$this->conversation->id}/typing", ['typing' => true, 'action' => 'dancing'])
+            ->assertJsonValidationErrors('action');
+    }
+
     public function test_heartbeat_marks_user_online_and_delivers_pending_messages(): void
     {
         Event::fake([UserPresenceChanged::class, MessagesStatusUpdated::class]);

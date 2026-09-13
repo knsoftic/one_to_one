@@ -1,9 +1,12 @@
 <?php
 
 use App\Console\Commands\ChatDoctor;
+use App\Models\LinkPreview;
 use App\Models\User;
 use App\Services\CallService;
+use App\Services\DisappearingMessageService;
 use App\Services\PresenceService;
+use App\Services\ViewOnceService;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schedule;
@@ -34,6 +37,16 @@ Artisan::command('chat:sweep-presence', function (PresenceService $presence) {
     $this->info("Marked {$count} inactive user(s) offline.");
 })->purpose('Mark users without recent activity as offline');
 
+Artisan::command('chat:expire-messages', function (DisappearingMessageService $disappearing) {
+    $count = $disappearing->expire();
+    $this->info("Removed {$count} disappearing message(s).");
+})->purpose('Remove disappearing messages whose time is up');
+
+Artisan::command('chat:purge-view-once', function (ViewOnceService $viewOnce) {
+    $count = $viewOnce->purge();
+    $this->info("Removed the files of {$count} opened view once message(s).");
+})->purpose('Remove media of view once messages after they were opened');
+
 Artisan::command('chat:expire-calls', function (CallService $calls) {
     $count = $calls->expireStale();
     $this->info("Closed {$count} unanswered or abandoned call(s).");
@@ -51,3 +64,7 @@ Schedule::call(fn () => Cache::put(ChatDoctor::SCHEDULER_HEARTBEAT_KEY, now()->t
     ->name('chat-scheduler-heartbeat');
 Schedule::command('chat:sweep-presence')->everyMinute()->withoutOverlapping();
 Schedule::command('chat:expire-calls')->everyMinute()->withoutOverlapping();
+Schedule::command('chat:expire-messages')->everyMinute()->withoutOverlapping();
+Schedule::command('chat:purge-view-once')->everyMinute()->withoutOverlapping();
+// Link previews no message uses anymore (and their images).
+Schedule::command('model:prune', ['--model' => [LinkPreview::class]])->daily();

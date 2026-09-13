@@ -50,6 +50,109 @@ class MessagePolicy
         return Response::allow();
     }
 
+    /**
+     * Forward: any visible message except call history and deleted messages.
+     */
+    /**
+     * Vote in a poll: both people, unless one has blocked the other.
+     */
+    public function vote(User $user, Message $message): Response
+    {
+        $view = $this->view($user, $message);
+        if ($view->denied()) {
+            return $view;
+        }
+
+        if ($message->message_type !== Message::TYPE_POLL) {
+            return Response::deny('This message is not a poll.');
+        }
+
+        if ($user->hasBlockWith($message->isSentBy($user) ? $message->receiver_id : $message->sender_id)) {
+            return Response::deny('You can no longer vote in this conversation.');
+        }
+
+        return Response::allow();
+    }
+
+    /**
+     * Update or stop a live location: only its sender, while it is being shared.
+     */
+    public function updateLocation(User $user, Message $message): Response
+    {
+        $view = $this->view($user, $message);
+        if ($view->denied()) {
+            return $view;
+        }
+
+        if (! $message->isSentBy($user) || $message->message_type !== Message::TYPE_LOCATION) {
+            return Response::deny('Only the person sharing a location can update it.');
+        }
+
+        return $message->isLiveLocationActive()
+            ? Response::allow()
+            : Response::deny('This live location has ended.');
+    }
+
+    public function forward(User $user, Message $message): Response
+    {
+        $view = $this->view($user, $message);
+        if ($view->denied()) {
+            return $view;
+        }
+
+        if ($message->attachment_meta['view_once'] ?? false) {
+            return Response::deny('View once messages cannot be forwarded.');
+        }
+
+        return match ($message->message_type) {
+            Message::TYPE_CALL => Response::deny('Call history cannot be forwarded.'),
+            Message::TYPE_SYSTEM => Response::deny('Chat notices cannot be forwarded.'),
+            default => Response::allow(),
+        };
+    }
+
+    /**
+     * React with an emoji: visible messages (not call history), and not while either side blocks the other.
+     */
+    public function react(User $user, Message $message): Response
+    {
+        $view = $this->view($user, $message);
+        if ($view->denied()) {
+            return $view;
+        }
+
+        if (in_array($message->message_type, [Message::TYPE_CALL, Message::TYPE_SYSTEM], true)) {
+            return Response::deny('You cannot react to this message.');
+        }
+
+        if ($user->hasBlockWith($message->isSentBy($user) ? $message->receiver_id : $message->sender_id)) {
+            return Response::deny('You can no longer react in this conversation.');
+        }
+
+        return Response::allow();
+    }
+
+    /**
+     * Pin to the top of the chat: same rules as reacting.
+     */
+    public function pin(User $user, Message $message): Response
+    {
+        $view = $this->view($user, $message);
+        if ($view->denied()) {
+            return $view;
+        }
+
+        if (in_array($message->message_type, [Message::TYPE_CALL, Message::TYPE_SYSTEM], true)) {
+            return Response::deny($message->message_type === Message::TYPE_CALL ? 'Call history cannot be pinned.' : 'Chat notices cannot be pinned.');
+        }
+
+        if ($user->hasBlockWith($message->isSentBy($user) ? $message->receiver_id : $message->sender_id)) {
+            return Response::deny('You can no longer pin messages in this conversation.');
+        }
+
+        return Response::allow();
+    }
+
     public function deleteForMe(User $user, Message $message): Response
     {
         return $message->involves($user) && ! $message->isDeletedFor($user)

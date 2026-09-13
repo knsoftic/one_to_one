@@ -10,8 +10,23 @@ import { CallManager } from './calls';
 import { ContactsPanel } from './contacts';
 import { Notifier } from './notifications';
 import { EmojiPicker } from './emoji';
+import { GifPanel, StickerPanel } from './stickers';
+import { ForwardDialog } from './forward';
+import { Reactions } from './reactions';
+import { ChatSearch } from './search';
+import { StarredMessages } from './starred';
+import { PinnedMessages } from './pins';
+import { albumLayout } from './album';
+import { LinkPreviewComposer } from './link-preview';
+import { LocationSharing } from './location';
+import { ContactSharing } from './contact-share';
+import { Polls } from './poll';
+import { DisappearingMessages } from './disappearing';
+import { ViewOnce } from './view-once';
+import { DraftStore } from './drafts';
 import { dayKey, formatLastSeen } from './format';
 import { openLightbox } from './lightbox';
+import { openVideoPlayer } from './video';
 import { Realtime } from './realtime';
 import * as T from './templates';
 import { VoiceRecorder, bindVoicePlayers } from './voice';
@@ -49,6 +64,8 @@ export class ChatApp {
         this.users = new Map();
         this.pending = new Map();
         this.typingConversations = new Set();
+        /** @type {Map<number, 'typing'|'recording'>} what the other person is doing */
+        this.typingActions = new Map();
         /** @type {Map<number, string>} names saved in the user's phone book */
         this.savedNames = new Map();
         this.typingTimers = new Map();
@@ -57,6 +74,13 @@ export class ChatApp {
         this.typingSentAt = null;
         this.typingConversationId = null;
         this.markSeenSoon = debounce(() => this.markActiveSeen(), 250);
+        this.drafts = new DraftStore(this.me.id);
+        this.saveDraftSoon = debounce(() => this.saveDraft(), 400);
+        /** Album ids opened with "+N". */
+        this.expandedAlbums = new Set();
+        /** File uploads run one after another, so messages keep the order they were picked in. */
+        this.uploadChain = Promise.resolve();
+        this.fileChain = Promise.resolve();
 
         this.filter = 'all';
         this.searchAbort = null;
@@ -96,7 +120,14 @@ export class ChatApp {
         };
 
         this.baseTitle = document.title;
-        this.emojiPicker = new EmojiPicker(this.el.composer, (emoji) => this.insertAtCursor(emoji));
+        this.stickerPanel = new StickerPanel(this);
+        this.gifPanel = new GifPanel(this);
+        this.emojiPicker = new EmojiPicker(this.el.composer, (emoji) => this.insertAtCursor(emoji), {
+            modes: [
+                ...(this.api.has('stickers') ? [this.stickerPanel.mode()] : []),
+                ...(this.api.has('gifs') ? [this.gifPanel.mode()] : []),
+            ],
+        });
 
         T.setTemplateContext({
             meId: this.me.id,
@@ -122,6 +153,24 @@ export class ChatApp {
         this.notifier = new Notifier(this);
         this.contactsPanel = new ContactsPanel(this);
         this.calls = new CallManager(this);
+        this.forwardDialog = new ForwardDialog(this);
+        this.reactions = new Reactions(this);
+        this.chatSearch = new ChatSearch(this);
+        this.starred = new StarredMessages(this);
+        this.pins = new PinnedMessages(this);
+        this.linkPreviews = new LinkPreviewComposer(this);
+        this.locationSharing = new LocationSharing(this);
+        this.contactSharing = new ContactSharing(this);
+        this.polls = new Polls(this);
+        this.disappearing = new DisappearingMessages(this);
+        this.viewOnce = new ViewOnce(this);
+        if (this.api.has('messageVote')) {
+            this.attachments.menu.add({ id: 'poll', icon: 'chart-column', label: 'Poll', run: () => this.polls.open() });
+        }
+        this.attachments.menu.add({ id: 'contact', icon: 'contact', label: 'Contact', run: () => this.contactSharing.open() });
+        if (navigator.geolocation && this.api.has('messageLocation')) {
+            this.attachments.menu.add({ id: 'location', icon: 'map-pin', label: 'Location', run: () => this.locationSharing.open() });
+        }
         bindVoicePlayers(this.el.messageList);
         this.bindMobileNav();
         this.updateSendState();
@@ -336,6 +385,8 @@ export class ChatApp {
                     this.contactsPanel.open();
                 } else if (this.contactsPanel.isOpen) {
                     this.contactsPanel.close();
+                } else if (this.starred?.isOpen) {
+                    this.starred.close();
                 }
             }),
         );
@@ -396,7 +447,11 @@ export class ChatApp {
                 .map((conversation) =>
                     T.conversationItem(
                         { ...conversation, participant: this.participantOf(conversation) },
-                        { active: conversation.id === this.active?.id, typing: this.typingConversations.has(conversation.id) },
+                        {
+                            active: conversation.id === this.active?.id,
+                            typing: this.typingConversations.has(conversation.id) ? this.typingActions.get(conversation.id) ?? 'typing' : false,
+                            draft: conversation.id === this.active?.id ? '' : this.drafts.get(conversation.id),
+                        },
                     ),
                 )
                 .join('');
@@ -530,6 +585,7 @@ export class ChatApp {
             return;
         }
 
+        this.saveDraft();
         const token = ++this.openToken;
         this.emojiPicker.close();
         this.stopTyping();
@@ -555,7 +611,7 @@ export class ChatApp {
         this.el.messageList.innerHTML = T.messageSkeletons();
         this.el.olderSentinel.hidden = true;
         this.el.typingRow.hidden = true;
-        this.el.composerInput.value = '';
+        this.el.composerInput.value = this.drafts.get(id);
         this.autosize();
         this.updateSendState();
         this.updateScrollButton(true);
@@ -596,6 +652,7 @@ export class ChatApp {
     }
 
     closeConversation({ navigation = 'push' } = {}) {
+        this.saveDraft();
         this.openToken++;
         this.emojiPicker.close();
         this.stopTyping();
@@ -622,6 +679,7 @@ export class ChatApp {
         this.el.headerUser.innerHTML = T.chatHeaderUser(user);
         this.el.conversationMenu.innerHTML = this.conversationMenuItems(conversation);
         this.updateHeaderStatus();
+        document.dispatchEvent(new CustomEvent('chat:header', { detail: { conversation, chat: this } }));
     }
 
     /** Overridable/extendable menu (block actions are added in later phases). */
@@ -648,7 +706,7 @@ export class ChatApp {
         avatarEl?.classList.toggle('is-online', !hidePresence && Boolean(user?.is_online));
 
         if (typing) {
-            status.textContent = 'typing…';
+            status.textContent = this.typingActions.get(conversation.id) === 'recording' ? 'recording audio…' : 'typing…';
         } else if (hidePresence) {
             status.textContent = conversation.blocked_by_me ? 'You blocked this user' : '';
         } else if (user?.is_online) {
@@ -711,12 +769,28 @@ export class ChatApp {
         scrollBottom.addEventListener('click', () => this.scrollToBottom(true));
 
         messageList.addEventListener('click', (event) => {
+            // "+N" over the fourth photo of an album (drawn on the bubble): show the whole album.
+            const albumMore = event.target.closest('.message.album-more');
+            if (albumMore && (event.target === albumMore || event.target.classList.contains('message-bubble'))) {
+                this.expandedAlbums.add(albumMore.dataset.album);
+                this.applyAlbums();
+                return;
+            }
+
+            const contactChat = event.target.closest('[data-contact-message]');
+            if (contactChat) {
+                this.startConversationWith(Number(contactChat.dataset.contactMessage));
+                return;
+            }
+
             const retry = event.target.closest('[data-retry]');
             if (retry) {
                 const pending = this.pending.get(retry.dataset.retry);
                 if (!pending) return;
                 if (pending.kind === 'file') {
                     this.sendFile(pending.conversationId, { ...pending.options, retryClientId: retry.dataset.retry });
+                } else if (pending.kind === 'special') {
+                    this.sendSpecial(pending.conversationId, { ...pending.options, retryClientId: retry.dataset.retry });
                 } else {
                     this.sendText(pending.conversationId, pending.text, retry.dataset.retry);
                 }
@@ -729,6 +803,16 @@ export class ChatApp {
                     src: image.dataset.lightbox,
                     name: image.dataset.lightboxName,
                     download: image.dataset.lightboxDownload,
+                });
+            }
+
+            const video = event.target.closest('[data-video]');
+            if (video) {
+                openVideoPlayer({
+                    src: video.dataset.video,
+                    name: video.dataset.videoName,
+                    download: video.dataset.videoDownload,
+                    poster: video.dataset.videoPoster,
                 });
             }
         });
@@ -786,6 +870,31 @@ export class ChatApp {
             el.classList.toggle('is-grouped', this.sameGroup(list[i - 1], message));
             el.classList.toggle('has-tail', !this.sameGroup(message, list[i + 1]));
         }
+
+        this.applyAlbums();
+    }
+
+    /** Lay out photos/videos sent together as albums (whole list: one change affects the run). */
+    applyAlbums() {
+        const layout = albumLayout(this.active?.messages ?? [], this.expandedAlbums);
+
+        for (const el of this.el.messageList.querySelectorAll('.message[data-message-id]')) {
+            const item = layout.get(el.dataset.messageId);
+            el.classList.toggle('in-album', Boolean(item));
+            el.classList.toggle('album-odd', Boolean(item) && item.position % 2 === 0);
+            el.classList.toggle('album-even', Boolean(item) && item.position % 2 === 1);
+            el.classList.toggle('album-first-row', Boolean(item) && item.position < 2);
+            el.classList.toggle('album-last', Boolean(item?.last));
+            el.classList.toggle('album-hidden', Boolean(item?.hidden));
+            el.classList.toggle('album-more', Boolean(item?.more));
+
+            if (item?.more) {
+                el.style.setProperty('--album-more', JSON.stringify(`+${item.more}`));
+                el.dataset.album = item.album;
+            } else {
+                el.style.removeProperty('--album-more');
+            }
+        }
     }
 
     renderMessages(messages) {
@@ -823,7 +932,7 @@ export class ChatApp {
         return T.messageBubble(message);
     }
 
-    async loadOlder() {
+    async loadOlder(limit = null) {
         const active = this.active;
         if (!active || !active.loaded || !active.hasMore || active.loadingOlder) return;
 
@@ -834,7 +943,7 @@ export class ChatApp {
         const token = this.openToken;
 
         try {
-            const page = await this.api.messages(active.id, oldest.id);
+            const page = await this.api.messages(active.id, oldest.id, limit);
             if (token !== this.openToken) return;
             this.prependMessages(page.data, page.has_more);
         } catch (error) {
@@ -1008,6 +1117,7 @@ export class ChatApp {
             this.autosize();
             this.updateSendState();
             this.onComposerInput();
+            this.saveDraftSoon();
             document.dispatchEvent(new CustomEvent('chat:composing', { detail: { chat: this } }));
         });
 
@@ -1027,6 +1137,12 @@ export class ChatApp {
             event.preventDefault();
             this.emojiPicker.toggle();
         });
+    }
+
+    /** Remember unsent text of the open chat (not while editing a message). */
+    saveDraft() {
+        if (!this.active || this.actions?.mode?.type === 'edit') return;
+        this.drafts.set(this.active.id, this.el.composerInput.value);
     }
 
     autosize() {
@@ -1077,6 +1193,7 @@ export class ChatApp {
         }
 
         this.el.composerInput.value = '';
+        this.drafts.clear(this.active.id);
         this.autosize();
         this.updateSendState();
         this.emojiPicker.close();
@@ -1098,6 +1215,78 @@ export class ChatApp {
         return detail.payload;
     }
 
+    /** Send one of my stickers (M17). */
+    sendSticker(conversationId, sticker) {
+        return this.sendSpecial(conversationId, {
+            type: 'sticker',
+            fields: { sticker_id: sticker.id },
+            attachment: { url: sticker.url, name: 'Sticker.webp', mime: 'image/webp', width: 512, height: 512 },
+        });
+    }
+
+    /** Send a GIF from GIF search; the server downloads it (M17). */
+    sendGif(conversationId, gif) {
+        return this.sendSpecial(conversationId, {
+            type: 'image',
+            fields: { gif_id: gif.id },
+            attachment: { url: gif.preview_url, name: 'GIF.gif', mime: 'image/gif', animated: true, width: gif.width, height: gif.height },
+        });
+    }
+
+    /**
+     * A message whose content is already on the server or fetched by it
+     * (sticker, GIF): optimistic bubble, JSON request, retry on failure.
+     */
+    async sendSpecial(conversationId, options) {
+        const { type, fields, attachment, extra = {}, retryClientId = null } = options;
+        const clientId = retryClientId ?? uuid();
+        const existing = retryClientId ? this.pending.get(retryClientId) : null;
+        const conversation = this.conversations.get(conversationId);
+        const payload = existing?.payload ?? this.composePayload({ ...fields, client_id: clientId });
+        const replyPreview = existing?.temp?.reply_to ?? payload.reply_preview ?? null;
+        delete payload.reply_preview;
+        delete payload.link_preview_data;
+
+        const temp = {
+            id: `tmp-${clientId}`,
+            client_id: clientId,
+            conversation_id: conversationId,
+            sender_id: this.me.id,
+            receiver_id: conversation?.participant?.id ?? null,
+            is_mine: true,
+            type,
+            body: null,
+            is_deleted: false,
+            is_edited: false,
+            reply_to: replyPreview,
+            attachment,
+            ...extra,
+            status: 'pending',
+            created_at: existing?.temp?.created_at ?? new Date().toISOString(),
+        };
+
+        this.pending.set(clientId, { kind: 'special', conversationId, payload, temp, options: { type, fields, attachment, extra } });
+        if (retryClientId) this.updateMessage(temp);
+        else this.appendMessage(temp);
+
+        try {
+            const message = this.withCachedStatus(this.normalizeMessage(await this.api.sendMessage(conversationId, payload)));
+            this.pending.delete(clientId);
+            this.replaceMessage(temp.id, message);
+            this.onOwnMessageStored(message);
+            return message;
+        } catch (error) {
+            this.updateMessage({ ...temp, status: 'failed' });
+            const fallback = { sticker: 'The sticker was not sent.', location: 'The location was not sent.' }[type] ?? 'The GIF was not sent.';
+            toast.error(errorMessage(error, fallback));
+            if ([403, 422].includes(error?.response?.status)) {
+                this.pending.delete(clientId);
+                if (error.response.status === 403) this.refreshConversation(conversationId);
+            }
+            return null;
+        }
+    }
+
     async sendText(conversationId, text, retryClientId = null) {
         const clientId = retryClientId ?? uuid();
         const conversation = this.conversations.get(conversationId);
@@ -1116,11 +1305,13 @@ export class ChatApp {
             is_deleted: false,
             is_edited: false,
             reply_to: existing?.temp?.reply_to ?? payload.reply_preview ?? null,
+            link_preview: existing?.temp?.link_preview ?? payload.link_preview_data ?? null,
             status: 'pending',
             created_at: existing?.temp?.created_at ?? new Date().toISOString(),
         };
 
         delete payload.reply_preview;
+        delete payload.link_preview_data;
         this.pending.set(clientId, { conversationId, text, payload, temp });
 
         if (retryClientId) {
@@ -1151,73 +1342,39 @@ export class ChatApp {
     }
 
     /**
-     * Upload an image, document or voice note with an optimistic bubble and progress.
+     * Upload an image, video, document or voice note with an optimistic bubble and progress.
+     * Bubbles appear and uploads run in the order files were picked (albums stay in order).
      */
     async sendFile(conversationId, options) {
-        const { file, type, caption = '', duration = null, fileName = file.name, retryClientId = null } = options;
-        const clientId = retryClientId ?? uuid();
-        const existing = retryClientId ? this.pending.get(retryClientId) : null;
-        const conversation = this.conversations.get(conversationId);
+        const prepared = this.fileChain.then(() => this.prepareFile(conversationId, options));
+        this.fileChain = prepared.catch(() => {});
+        const { temp, form, clientId, type, localUrl, localThumbnail } = await prepared;
 
-        const payload = existing?.payload ?? this.composePayload({ message: caption || null, client_id: clientId });
-        const replyPreview = existing?.temp?.reply_to ?? payload.reply_preview ?? null;
-        delete payload.reply_preview;
-
-        const localUrl = existing?.temp?.attachment?.local_url ?? (type === 'document' ? null : URL.createObjectURL(file));
-        const dimensions = type === 'image' ? await imageSize(localUrl) : {};
-
-        const temp = {
-            id: `tmp-${clientId}`,
-            client_id: clientId,
-            conversation_id: conversationId,
-            sender_id: this.me.id,
-            receiver_id: conversation?.participant?.id ?? null,
-            is_mine: true,
-            type,
-            body: type === 'voice' ? null : caption || null,
-            is_deleted: false,
-            is_edited: false,
-            reply_to: replyPreview,
-            attachment: { local_url: localUrl, name: fileName, size: file.size, mime: file.type, duration, ...dimensions },
-            status: 'pending',
-            uploading: true,
-            progress: 0,
-            created_at: existing?.temp?.created_at ?? new Date().toISOString(),
-        };
-
-        this.pending.set(clientId, { kind: 'file', conversationId, payload, temp, options: { file, type, caption, duration, fileName } });
-
-        if (retryClientId) {
-            this.updateMessage(temp);
-        } else {
-            this.appendMessage(temp);
-        }
-
-        const form = new FormData();
-        form.append(type === 'voice' ? 'voice' : 'attachment', file, fileName);
-        if (payload.message) form.append('message', payload.message);
-        if (payload.reply_to_id) form.append('reply_to_id', payload.reply_to_id);
-        if (duration !== null) form.append('duration', String(duration));
-        form.append('client_id', clientId);
+        const request = this.uploadChain.then(() =>
+            this.api.sendMessage(conversationId, form, {
+                onUploadProgress: (event) => this.setUploadProgress(temp.id, event.total ? event.loaded / event.total : 0),
+            }),
+        );
+        this.uploadChain = request.catch(() => {});
 
         try {
-            const response = await this.api.sendMessage(conversationId, form, {
-                onUploadProgress: (event) => this.setUploadProgress(temp.id, event.total ? event.loaded / event.total : 0),
-            });
-            const message = this.withCachedStatus(this.normalizeMessage(response));
+            const message = this.withCachedStatus(this.normalizeMessage(await request));
 
-            // Keep showing the local preview until the stored image is cached (no flicker).
-            if (type === 'image' && message.attachment) {
+            // Keep showing the local preview until the stored image / poster is cached (no flicker).
+            const stored = type === 'image' ? message.attachment?.thumbnail_url || message.attachment?.url : type === 'video' ? message.attachment?.thumbnail_url : null;
+            if (stored) {
                 await Promise.race([
                     new Promise((resolve) => {
                         const img = new Image();
                         img.onload = img.onerror = resolve;
-                        img.src = message.attachment.thumbnail_url || message.attachment.url;
+                        img.src = stored;
                     }),
                     new Promise((resolve) => setTimeout(resolve, 4000)),
                 ]);
             }
-            if (localUrl) setTimeout(() => URL.revokeObjectURL(localUrl), 10_000);
+            // A video may still be playing from the local copy: keep it longer.
+            if (localUrl) setTimeout(() => URL.revokeObjectURL(localUrl), type === 'video' ? 600_000 : 10_000);
+            if (localThumbnail) setTimeout(() => URL.revokeObjectURL(localThumbnail), 10_000);
 
             this.pending.delete(clientId);
             this.replaceMessage(temp.id, message);
@@ -1233,6 +1390,65 @@ export class ChatApp {
         }
     }
 
+    /** Optimistic bubble and form data for a file upload. */
+    async prepareFile(conversationId, options) {
+        const { file, type, caption = '', duration = null, fileName = file.name, retryClientId = null, thumbnail = null, width = 0, height = 0, albumId = null, quality = null, viewOnce = false } = options;
+        const clientId = retryClientId ?? uuid();
+        const existing = retryClientId ? this.pending.get(retryClientId) : null;
+        const conversation = this.conversations.get(conversationId);
+
+        const payload = existing?.payload ?? this.composePayload({ message: caption || null, client_id: clientId });
+        const replyPreview = existing?.temp?.reply_to ?? payload.reply_preview ?? null;
+        delete payload.reply_preview;
+        delete payload.link_preview_data;
+
+        const localUrl = existing?.temp?.attachment?.local_url ?? (type === 'document' ? null : URL.createObjectURL(file));
+        const localThumbnail = existing?.temp?.attachment?.local_thumbnail_url ?? (thumbnail ? URL.createObjectURL(thumbnail) : null);
+        const dimensions = width && height ? { width, height } : type === 'image' ? await imageSize(localUrl) : {};
+
+        const temp = {
+            id: `tmp-${clientId}`,
+            client_id: clientId,
+            conversation_id: conversationId,
+            sender_id: this.me.id,
+            receiver_id: conversation?.participant?.id ?? null,
+            is_mine: true,
+            type,
+            body: type === 'voice' ? null : caption || null,
+            is_deleted: false,
+            is_edited: false,
+            reply_to: replyPreview,
+            album_id: albumId,
+            view_once: viewOnce ? { opened_at: null, available: true } : undefined,
+            attachment: { local_url: localUrl, local_thumbnail_url: localThumbnail, name: fileName, size: file.size, mime: file.type, duration, hd: quality === 'hd', view_once: viewOnce || undefined, ...dimensions },
+            status: 'pending',
+            uploading: true,
+            progress: 0,
+            created_at: existing?.temp?.created_at ?? new Date().toISOString(),
+        };
+
+        this.pending.set(clientId, { kind: 'file', conversationId, payload, temp, options: { file, type, caption, duration, fileName, thumbnail, width, height, albumId, quality, viewOnce } });
+
+        if (retryClientId) {
+            this.updateMessage(temp);
+        } else {
+            this.appendMessage(temp);
+        }
+
+        const form = new FormData();
+        form.append(type === 'voice' ? 'voice' : 'attachment', file, fileName);
+        if (payload.message) form.append('message', payload.message);
+        if (payload.reply_to_id) form.append('reply_to_id', payload.reply_to_id);
+        if (duration !== null) form.append('duration', String(Math.round(duration * 10) / 10));
+        if (thumbnail) form.append('thumbnail', thumbnail, 'poster.jpg');
+        if (albumId) form.append('album_id', albumId);
+        if (quality) form.append('quality', quality);
+        if (viewOnce) form.append('view_once', '1');
+        form.append('client_id', clientId);
+
+        return { temp, form, clientId, type, localUrl, localThumbnail };
+    }
+
     setUploadProgress(id, ratio) {
         const bar = this.messageEl(id)?.querySelector('[data-upload-progress]');
         if (bar) bar.style.width = `${Math.round(ratio * 100)}%`;
@@ -1243,6 +1459,7 @@ export class ChatApp {
     /** A message was deleted "for me" (here or on another device). */
     onMessageHidden({ id, conversation_id: conversationId }) {
         this.removeMessageFromView(id);
+        this.pins?.forget(Number(id));
 
         const conversation = this.conversations.get(Number(conversationId));
         if (conversation?.last_message?.id === Number(id)) {
@@ -1250,20 +1467,28 @@ export class ChatApp {
         }
     }
 
-    /** Scroll to a message (e.g. the original of a reply), loading history if needed. */
-    async jumpToMessage(id) {
+    /**
+     * Scroll to a message (the original of a reply, a search result…), loading history if needed.
+     *
+     * @returns {Promise<HTMLElement|null>}
+     */
+    async jumpToMessage(id, { deep = false } = {}) {
         const active = this.active;
-        if (!active) return;
+        if (!active) return null;
 
-        for (let attempts = 0; !this.messageEl(id) && active.hasMore && attempts < 10; attempts++) {
-            await this.loadOlder();
-            if (this.active !== active) return;
+        // Deep jumps (search, pinned and starred messages) load bigger pages for longer.
+        const maxPages = deep ? 60 : 10;
+        const pageSize = deep ? 100 : null;
+        for (let attempts = 0; !this.messageEl(id) && active.hasMore && attempts < maxPages; attempts++) {
+            while (active.loadingOlder) await new Promise((resolve) => setTimeout(resolve, 50));
+            await this.loadOlder(pageSize);
+            if (this.active !== active) return null;
         }
 
         const el = this.messageEl(id);
         if (!el) {
-            toast.info('The original message is no longer available.');
-            return;
+            toast.info('That message is no longer available.');
+            return null;
         }
 
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -1271,6 +1496,7 @@ export class ChatApp {
         void el.offsetWidth;
         el.classList.add('is-highlighted');
         setTimeout(() => el.classList.remove('is-highlighted'), 1700);
+        return el;
     }
 
     /**
@@ -1325,6 +1551,7 @@ export class ChatApp {
     onIncomingMessage(raw) {
         const message = this.withCachedStatus(this.normalizeMessage(raw));
         const conversationId = Number(message.conversation_id);
+        this.disappearing?.onNotice(message);
 
         if (message.is_mine) {
             // Sent from another tab / device.
@@ -1353,6 +1580,7 @@ export class ChatApp {
     onMessageUpdated(raw) {
         const message = this.normalizeMessage(raw);
         this.updateMessage(message);
+        if (message.is_deleted) this.pins?.forget(message.id);
 
         const conversation = this.conversations.get(Number(message.conversation_id));
         const last = conversation?.last_message;
@@ -1452,24 +1680,28 @@ export class ChatApp {
 
     /* ---------- Typing ---------- */
 
-    onTyping({ conversation_id: conversationId, typing }) {
-        this.setTyping(Number(conversationId), Boolean(typing));
+    onTyping({ conversation_id: conversationId, typing, action }) {
+        this.setTyping(Number(conversationId), Boolean(typing), action);
     }
 
-    setTyping(conversationId, typing) {
+    setTyping(conversationId, typing, action = 'typing') {
         clearTimeout(this.typingTimers.get(conversationId));
         const wasTyping = this.typingConversations.has(conversationId);
+        const previousAction = this.typingActions.get(conversationId);
+        const nextAction = action === 'recording' ? 'recording' : 'typing';
 
         if (typing) {
             this.typingConversations.add(conversationId);
+            this.typingActions.set(conversationId, nextAction);
             const ttl = (this.config.presence?.typingTtlSeconds ?? 5) + 1;
             this.typingTimers.set(conversationId, setTimeout(() => this.setTyping(conversationId, false), ttl * 1000));
         } else {
             this.typingConversations.delete(conversationId);
             this.typingTimers.delete(conversationId);
+            this.typingActions.delete(conversationId);
         }
 
-        if (wasTyping === typing) return;
+        if (wasTyping === typing && (!typing || previousAction === nextAction)) return;
 
         this.renderConversations();
         if (this.active?.id === conversationId) {
@@ -1482,6 +1714,7 @@ export class ChatApp {
         const show = Boolean(this.active && this.typingConversations.has(this.active.id));
         const nearBottom = this.isNearBottom();
         this.el.typingRow.hidden = !show;
+        this.el.typingRow.classList.toggle('is-recording', show && this.typingActions.get(this.active.id) === 'recording');
         if (show && nearBottom) this.scrollToBottom(true);
     }
 
@@ -1507,6 +1740,28 @@ export class ChatApp {
 
         clearTimeout(this.typingStopTimer);
         this.typingStopTimer = setTimeout(() => this.stopTyping(), 3500);
+    }
+
+    /** Tell the other person you are recording a voice message (refreshed while recording). */
+    startRecordingIndicator() {
+        const conversation = this.activeConversation();
+        if (!this.active?.loaded || !this.api.has('typing') || conversation?.blocked_by_me || conversation?.blocked_me) return;
+
+        this.stopTyping();
+        const id = this.active.id;
+        const send = () => this.api.typing(id, true, 'recording').catch(() => {});
+        send();
+        clearInterval(this.recordingTimer);
+        this.recordingTimer = setInterval(send, 3000);
+        this.recordingConversationId = id;
+    }
+
+    stopRecordingIndicator() {
+        if (!this.recordingTimer) return;
+        clearInterval(this.recordingTimer);
+        this.recordingTimer = null;
+        this.api.typing(this.recordingConversationId, false, 'recording').catch(() => {});
+        this.recordingConversationId = null;
     }
 
     stopTyping() {
@@ -1591,7 +1846,7 @@ export class ChatApp {
             }
         }
 
-        if (data.typing) this.setTyping(Number(data.typing.conversation_id), Boolean(data.typing.typing));
+        if (data.typing) this.setTyping(Number(data.typing.conversation_id), Boolean(data.typing.typing), data.typing.action);
         if (Array.isArray(data.calls)) this.calls?.syncCalls(data.calls);
         if (presenceChanged) this.refreshPresenceViews();
         if (unknownConversation || data.truncated) this.loadConversations();

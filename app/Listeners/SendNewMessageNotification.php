@@ -29,6 +29,11 @@ class SendNewMessageNotification
             return;
         }
 
+        // Chat notices (e.g. disappearing messages turned on) never notify.
+        if ($message->message_type === Message::TYPE_SYSTEM) {
+            return;
+        }
+
         // Call history only notifies the person called, and only about missed calls.
         if ($message->message_type === Message::TYPE_CALL
             && ! in_array($message->attachment_meta['reason'] ?? null, Call::MISSED_REASONS, true)) {

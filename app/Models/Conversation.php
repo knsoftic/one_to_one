@@ -21,6 +21,11 @@ class Conversation extends Model
         'last_message_id',
     ];
 
+    protected function casts(): array
+    {
+        return ['disappearing_seconds' => 'integer'];
+    }
+
     protected static function booted(): void
     {
         // Participants are always stored in ascending order so the unique

@@ -85,6 +85,9 @@ class ConversationService
 
         $this->attachSavedNames($this->attachBlockFlags(new Collection([$conversation]), $user), $user);
 
+        // Pinned messages are shown when a chat is opened (not in the chat list).
+        $conversation->setAttribute('pinned_messages', app(PinService::class)->visibleFor($conversation, $user));
+
         return $conversation;
     }
 

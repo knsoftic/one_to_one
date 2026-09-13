@@ -4,9 +4,11 @@
  * SECURITY: every user-controlled value is escaped via the html`` tag.
  * raw() is only used for markup generated in this file or icon SVGs.
  */
-import { escapeHtml, formatBytes, formatDuration, html, raw } from '../lib/dom';
+import { formatBytes, formatDuration, html, raw } from '../lib/dom';
 import { icon } from '../lib/icons';
 import { formatDayLabel, formatListTime, formatTime } from './format';
+import { formatMessageText, stripFormatting } from './formatting';
+import { speedLabel, voiceSpeed } from './voice';
 
 /* ------------------------------------------------------------------ */
 /* Avatars                                                             */
@@ -48,16 +50,18 @@ export function statusTicks(status, { pop = false } = {}) {
 /* Sidebar                                                             */
 /* ------------------------------------------------------------------ */
 
-export function conversationItem(conversation, { active = false, typing = false } = {}) {
+export function conversationItem(conversation, { active = false, typing = false, draft = '' } = {}) {
     const user = conversation.participant ?? {};
     const last = conversation.last_message;
     const unread = conversation.unread_count || 0;
 
     let preview = '';
     if (typing) {
-        preview = html`<span class="conversation-preview-text is-typing">typing…</span>`;
+        preview = html`<span class="conversation-preview-text is-typing">${typing === 'recording' ? 'recording audio…' : 'typing…'}</span>`;
+    } else if (draft && draft.trim()) {
+        preview = html`<span class="conversation-preview-text"><span class="conversation-draft">Draft:</span> ${stripFormatting(draft).replace(/\s+/g, ' ').trim()}</span>`;
     } else if (last) {
-        const plainMine = last.is_mine && !last.is_deleted && last.type !== 'call';
+        const plainMine = last.is_mine && !last.is_deleted && last.type !== 'call' && last.type !== 'system';
         const ticks = plainMine ? statusTicks(last.status) : '';
         const prefix = plainMine ? 'You: ' : '';
         preview =
@@ -143,15 +147,8 @@ export function chatHeaderUser(user) {
 /* Messages                                                            */
 /* ------------------------------------------------------------------ */
 
-const URL_PATTERN = /\bhttps?:\/\/[^\s<>"']+[^\s<>"'.,:;!?)\]]/gi;
-
-/** Escape text, then turn http(s) URLs into safe links. */
-export function formatMessageText(text) {
-    return escapeHtml(text).replace(
-        URL_PATTERN,
-        (url) => `<a href="${url}" target="_blank" rel="noopener noreferrer nofollow ugc">${url}</a>`,
-    );
-}
+/** Escaped text with WhatsApp-style formatting and safe links (see formatting.js). */
+export { formatMessageText };
 
 const EMOJI_ONLY = /^(?:\p{Extended_Pictographic}|\p{Emoji_Modifier}|\u200D|\uFE0F|[\u{1F1E6}-\u{1F1FF}]|\s)+$/u;
 
@@ -169,6 +166,8 @@ export function dateDivider(value) {
 
 function messageMeta(message) {
     const parts = [];
+    if (message.expires_at && !message.is_deleted) parts.push(`<span class="message-timer" title="Disappears ${formatTime(message.expires_at)}">${icon('timer')}</span>`);
+    if (message.is_starred && !message.is_deleted) parts.push(`<span class="message-star" title="Starred">${icon('star')}</span>`);
     if (message.is_edited) parts.push('<span class="message-edited">Edited</span>');
     parts.push(html`<time datetime="${message.created_at}">${formatTime(message.created_at)}</time>`);
     if (message.is_mine && !message.is_deleted && message.type !== 'call') parts.push(statusTicks(message.status));
@@ -226,9 +225,24 @@ function callHistory(message) {
  */
 export function previewOf(message) {
     if (message.is_deleted) return 'This message was deleted';
+    if (message.view_once || message.attachment?.view_once) {
+        return { video: '🎥 View once video', voice: '🎤 View once voice message' }[message.type] ?? '📷 View once photo';
+    }
     switch (message.type) {
         case 'image':
-            return `📷 ${message.body || 'Photo'}`;
+            return isGif(message.attachment) ? `👾 ${message.body || 'GIF'}` : `📷 ${message.body || 'Photo'}`;
+        case 'sticker':
+            return '💟 Sticker';
+        case 'location':
+            return message.location?.live ? '📍 Live location' : '📍 Location';
+        case 'contact':
+            return `👤 Contact: ${message.contact?.name ?? ''}`;
+        case 'poll':
+            return `📊 Poll: ${message.poll?.question ?? ''}`;
+        case 'system':
+            return message.system?.text ?? '';
+        case 'video':
+            return `🎥 ${message.body || 'Video'}`;
         case 'document':
             return `📄 ${message.attachment?.name || 'Document'}`;
         case 'voice':
@@ -252,7 +266,12 @@ export function setTemplateContext({ meId, nameOf }) {
     context.nameOf = nameOf;
 }
 
-const EXTENSION_LABELS = { pdf: 'PDF', doc: 'DOC', docx: 'DOCX' };
+const EXTENSION_LABELS = {
+    pdf: 'PDF', doc: 'Word', docx: 'Word', odt: 'Document', rtf: 'RTF', txt: 'Text',
+    xls: 'Excel', xlsx: 'Excel', ods: 'Spreadsheet', csv: 'CSV',
+    ppt: 'PowerPoint', pptx: 'PowerPoint', odp: 'Presentation',
+    zip: 'ZIP', rar: 'RAR', '7z': '7Z', mp3: 'MP3 audio', m4a: 'M4A audio',
+};
 
 function replyQuote(message) {
     const reply = message.reply_to;
@@ -282,17 +301,180 @@ function imageAttachment(message) {
         <button type="button" class="message-image" data-lightbox="${a.local_url || a.url}" data-lightbox-name="${a.name}"
                 data-lightbox-download="${a.download_url || ''}" style="aspect-ratio: ${ratio}" aria-label="Open image">
             <img src="${src}" alt="${a.name || 'Photo'}" loading="lazy" decoding="async">
+            ${raw(a.hd ? '<span class="message-image-hd" title="Sent in HD">HD</span>' : '')}
+            ${raw(isGif(a) ? '<span class="message-image-hd is-gif">GIF</span>' : '')}
             ${raw(uploadOverlay(message))}
         </button>
     `;
+}
+
+const isGif = (attachment) => Boolean(attachment?.animated || attachment?.mime === 'image/gif');
+
+/** Location or live location card (M18). No map tiles are loaded from other sites. */
+function locationCard(message) {
+    const l = message.location ?? {};
+    const lat = Number(l.lat) || 0;
+    const lng = Number(l.lng) || 0;
+    const until = l.live_until ? Date.parse(l.live_until) : 0;
+    const active = Boolean(l.live && l.live_active && !l.stopped_at && until > Date.now());
+    const href = `https://www.google.com/maps/search/?api=1&query=${lat.toFixed(6)},${lng.toFixed(6)}`;
+
+    let title = 'Location';
+    let detail = `${lat.toFixed(5)}, ${lng.toFixed(5)}${l.accuracy ? ` · ±${Number(l.accuracy)} m` : ''}`;
+    if (l.live && active) {
+        title = 'Live location';
+        detail = `Until ${formatTime(l.live_until)}${l.updated_at ? ` · updated ${formatTime(l.updated_at)}` : ''}`;
+    } else if (l.live) {
+        title = 'Live location ended';
+        detail = l.updated_at ? `Last updated ${formatTime(l.updated_at)}` : detail;
+    }
+
+    const stop = active && message.is_mine && typeof message.id === 'number'
+        ? html`<button type="button" class="btn btn-sm location-stop" data-location-stop="${message.id}">Stop sharing</button>`
+        : '';
+
+    return html`
+        <div class="location-card${active ? ' is-live' : ''}">
+            <a class="location-map" href="${href}" target="_blank" rel="noopener noreferrer" aria-label="Open location in Maps">
+                <span class="location-pin">${raw(icon(l.live ? 'navigation' : 'map-pin'))}</span>
+            </a>
+            <div class="location-body">
+                <span class="location-title">${title}</span>
+                <span class="location-detail">${detail}</span>
+            </div>
+            <div class="location-actions">
+                <a class="btn btn-sm location-open" href="${href}" target="_blank" rel="noopener noreferrer">Open in Maps</a>
+                ${raw(stop)}
+            </div>
+        </div>
+    `;
+}
+
+/** Poll (M20): question, options with bars and counts; tapping an option votes. */
+function pollCard(message) {
+    const p = message.poll ?? { options: [] };
+    const me = Number(context.meId);
+    const total = Number(p.total_voters) || 0;
+    const canVote = typeof message.id === 'number';
+    const most = Math.max(0, ...p.options.map((option) => option.count));
+
+    const options = p.options
+        .map((option) => {
+            const mine = option.voter_ids.map(Number).includes(me);
+            const percent = total ? Math.round((option.count / total) * 100) : 0;
+            const voters = option.voter_ids
+                .map((id) => (Number(id) === me ? 'You' : context.nameOf(id) || 'Them'))
+                .join(', ');
+
+            return html`
+                <button type="button" class="poll-option${mine ? ' is-mine' : ''}${option.count && option.count === most ? ' is-leading' : ''}" data-poll-option="${option.id}"
+                        role="${p.multiple ? 'checkbox' : 'radio'}" aria-checked="${mine ? 'true' : 'false'}" ${raw(canVote ? '' : 'disabled')}
+                        title="${voters}">
+                    <span class="poll-check">${raw(mine ? icon('check') : '')}</span>
+                    <span class="poll-option-main">
+                        <span class="poll-option-row"><span class="poll-option-text">${option.text}</span><span class="poll-count">${option.count}</span></span>
+                        <span class="poll-bar"><span style="width: ${percent}%"></span></span>
+                    </span>
+                </button>
+            `;
+        })
+        .join('');
+
+    return html`
+        <div class="poll-card" data-poll="${message.id}">
+            <div class="poll-question">${p.question}</div>
+            <div class="poll-hint">${raw(icon(p.multiple ? 'list-checks' : 'circle-dot'))} ${p.multiple ? 'Select one or more' : 'Select one'}</div>
+            <div class="poll-options-list" role="${p.multiple ? 'group' : 'radiogroup'}" aria-label="${p.question}">${raw(options)}</div>
+            <div class="poll-total">${total === 1 ? '1 vote' : `${total} votes`}</div>
+        </div>
+    `;
+}
+
+/** Contact card (M19): name, numbers, "Message" when they use the app, "Save contact". */
+function contactCard(message) {
+    const c = message.contact ?? {};
+    const phones = Array.isArray(c.phones) ? c.phones : [];
+    const initials = String(c.name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map((part) => [...part][0]).join('').toUpperCase();
+    const canMessage = c.user && Number(c.user.id) !== Number(context.meId);
+
+    return html`
+        <div class="contact-card">
+            <div class="contact-card-head">
+                <span class="contact-avatar">${initials}</span>
+                <span class="contact-card-body">
+                    <strong class="contact-card-name">${c.name}</strong>
+                    ${raw(phones.map((phone) => html`<span class="contact-card-phone">${phone}</span>`).join(''))}
+                    ${raw(c.user ? html`<span class="contact-card-user">${raw(icon('message-circle'))} @${c.user.username}</span>` : '')}
+                </span>
+            </div>
+            <div class="contact-card-actions">
+                ${raw(canMessage ? html`<button type="button" class="contact-card-action" data-contact-message="${c.user.id}">Message</button>` : '')}
+                ${raw(c.vcard_url ? html`<a class="contact-card-action" href="${c.vcard_url}" download>Save contact</a>` : '')}
+                ${raw(phones[0] ? html`<a class="contact-card-action" href="tel:${phones[0].replace(/[^+\d]/g, '')}">Call</a>` : '')}
+            </div>
+        </div>
+    `;
+}
+
+/** View once photo / video / voice (M22): never shows the media in the chat. */
+function viewOnceBubble(message) {
+    const label = { image: 'Photo', video: 'Video', voice: 'Voice message' }[message.type] ?? 'Media';
+    const opened = Boolean(message.view_once?.opened_at) || (!message.is_mine && message.view_once?.available === false);
+    const badge = `<span class="view-once-badge${opened ? ' is-opened' : ''}" aria-hidden="true">1</span>`;
+
+    if (!message.is_mine && !opened && typeof message.id === 'number') {
+        return html`<button type="button" class="view-once" data-view-once="${message.id}" aria-label="Open view once ${label.toLowerCase()}">${raw(badge)}<span>${label}</span></button>`;
+    }
+
+    return html`<span class="view-once is-static${opened ? ' is-opened' : ''}">${raw(badge)}<span>${opened ? 'Opened' : label}</span></span>`;
+}
+
+function stickerAttachment(message) {
+    const a = message.attachment;
+    return html`<span class="message-sticker"><img src="${a.local_url || a.url}" alt="Sticker" width="512" height="512" loading="lazy" decoding="async"></span>`;
+}
+
+function videoAttachment(message) {
+    const a = message.attachment;
+    const ratio = a.width && a.height ? `${Number(a.width)} / ${Number(a.height)}` : '16 / 9';
+    const poster = a.local_thumbnail_url || a.thumbnail_url;
+    const canPlay = !message.uploading && Boolean(a.local_url || a.url);
+
+    return html`
+        <button type="button" class="message-video${poster ? '' : ' no-poster'}" style="aspect-ratio: ${ratio}"
+                ${raw(canPlay ? html`data-video="${a.local_url || a.url}" data-video-name="${a.name || 'Video'}" data-video-download="${a.download_url || ''}" data-video-poster="${poster || ''}"` : 'disabled')}
+                aria-label="Play video${a.duration ? `, ${formatDuration(a.duration)}` : ''}">
+            ${raw(poster ? html`<img src="${poster}" alt="" loading="lazy" decoding="async">` : `<span class="message-video-placeholder">${icon('film')}</span>`)}
+            ${raw(message.uploading ? '' : `<span class="message-video-play">${icon('play')}</span>`)}
+            <span class="message-video-info">${raw(icon('video'))}${a.duration ? formatDuration(a.duration) : ''}</span>
+            ${raw(uploadOverlay(message))}
+        </button>
+    `;
+}
+
+/** Icon and colour group of a document by extension. */
+export function fileKind(extension) {
+    const groups = {
+        sheet: ['xls', 'xlsx', 'ods', 'csv'],
+        slides: ['ppt', 'pptx', 'odp'],
+        archive: ['zip', 'rar', '7z'],
+        audio: ['mp3', 'm4a'],
+        pdf: ['pdf'],
+        word: ['doc', 'docx', 'odt', 'rtf'],
+    };
+    const icons = { sheet: 'file-spreadsheet', slides: 'presentation', archive: 'file-archive', audio: 'file-music' };
+    const kind = Object.keys(groups).find((key) => groups[key].includes(extension)) ?? 'text';
+
+    return { kind, icon: icons[kind] ?? 'file-text' };
 }
 
 function documentAttachment(message) {
     const a = message.attachment;
     const extension = String(a.name || '').split('.').pop().toLowerCase();
     const label = EXTENSION_LABELS[extension] ?? extension.toUpperCase();
+    const kind = fileKind(extension);
     const inner = html`
-        <span class="message-file-icon" data-ext="${extension}">${raw(icon('file-text'))}</span>
+        <span class="message-file-icon" data-ext="${extension}" data-kind="${kind.kind}">${raw(icon(kind.icon))}</span>
         <span class="message-file-body">
             <span class="message-file-name">${a.name}</span>
             <span class="message-file-meta">${label} · ${formatBytes(a.size)}</span>
@@ -319,6 +501,7 @@ function voiceAttachment(message) {
             </button>
             <span class="voice-wave" data-voice-seek>${raw(bars)}<span class="voice-wave-progress" data-voice-progress>${raw(bars)}</span></span>
             <span class="voice-time" data-voice-time>${formatDuration(a.duration)}</span>
+            ${raw(message.uploading ? '' : html`<button type="button" class="voice-speed" data-voice-speed aria-label="Playback speed">${speedLabel(voiceSpeed())}</button>`)}
             ${raw(uploadOverlay(message))}
         </div>
     `;
@@ -330,23 +513,88 @@ function messageContent(message) {
     }
 
     if (message.type === 'call') return callHistory(message);
+    if (message.view_once || message.attachment?.view_once) return replyQuote(message) + viewOnceBubble(message);
+    if (message.type === 'location') return replyQuote(message) + locationCard(message);
+    if (message.type === 'contact') return replyQuote(message) + contactCard(message);
+    if (message.type === 'poll') return replyQuote(message) + pollCard(message);
 
     let attachment = '';
     if (message.attachment) {
         attachment =
             message.type === 'image' ? imageAttachment(message)
+            : message.type === 'video' ? videoAttachment(message)
+            : message.type === 'sticker' ? stickerAttachment(message)
             : message.type === 'voice' ? voiceAttachment(message)
             : documentAttachment(message);
     }
 
     const body = message.body ?? '';
     const text = body ? `<div class="message-text${!attachment && isJumboEmoji(body) ? ' is-jumbo' : ''}">${formatMessageText(body)}</div>` : '';
+    const card = message.type === 'text' || !message.type ? linkPreviewCard(message.link_preview) : '';
 
-    return replyQuote(message) + attachment + text;
+    const forwarded = message.forwarded
+        ? `<span class="message-forwarded">${icon('forward')}${message.forwarded_many ? 'Forwarded many times' : 'Forwarded'}</span>`
+        : '';
+
+    return forwarded + replyQuote(message) + attachment + card + text;
+}
+
+/**
+ * Card with the title, description, site and image of a link (M11).
+ * In the composer it is not clickable ({ static: true }).
+ */
+export function linkPreviewCard(preview, { static: isStatic = false } = {}) {
+    const href = typeof preview?.url === 'string' && /^https?:\/\//i.test(preview.url) ? preview.url : null;
+    if (!href || (!preview.title && !preview.description)) return '';
+
+    // Only images served by this site (relative path), never a remote address.
+    const image = typeof preview.image_url === 'string' && /^\/(?!\/)/.test(preview.image_url) ? preview.image_url : null;
+    const width = Number(preview.image_width) || 0;
+    const height = Number(preview.image_height) || 0;
+    const large = Boolean(image) && !isStatic && width >= 300 && height > 0 && width / height >= 1.3;
+
+    const media = image
+        ? html`<span class="link-card-media"${raw(large ? ` style="aspect-ratio: ${width} / ${height}"` : '')}><img src="${image}" alt="" loading="lazy" decoding="async"></span>`
+        : '';
+
+    const inner = html`
+        ${raw(media)}
+        <span class="link-card-body">
+            ${raw(preview.title ? html`<span class="link-card-title">${preview.title}</span>` : '')}
+            ${raw(preview.description ? html`<span class="link-card-desc">${preview.description}</span>` : '')}
+            <span class="link-card-site">${preview.site_name || preview.domain || ''}</span>
+        </span>
+    `;
+    const classes = `link-card${large ? ' is-large' : ''}${image ? '' : ' no-media'}`;
+
+    return isStatic
+        ? html`<span class="${classes}">${raw(inner)}</span>`
+        : html`<a class="${classes}" href="${href}" target="_blank" rel="noopener noreferrer nofollow ugc">${raw(inner)}</a>`;
+}
+
+/** Link preview above the composer: loading row, or the card with a remove button. */
+export function composerLinkPreview({ preview = null, loading = false, url = '' }) {
+    const content = loading
+        ? html`<span class="composer-link-loading"><span class="spinner"></span><span>Fetching preview for ${url}</span></span>`
+        : linkPreviewCard(preview, { static: true });
+
+    return html`
+        <div class="composer-link${loading ? ' is-loading' : ''}">
+            ${raw(content)}
+            <button type="button" class="btn-icon btn-icon-sm" data-link-preview-close aria-label="Remove link preview" title="Remove preview">${raw(icon('x'))}</button>
+        </div>
+    `;
 }
 
 export function messageBubble(message) {
-    const mediaOnly = !message.is_deleted && message.type === 'image' && message.attachment && !message.body;
+    // Notices written by the app (M21) are shown centred, without a bubble.
+    if (message.type === 'system') {
+        return html`<div class="message is-system" data-message-id="${message.id}" data-sender-id="${message.sender_id}">
+            <span class="system-notice">${message.system?.text || ''}</span>
+        </div>`;
+    }
+
+    const mediaOnly = !message.is_deleted && ['image', 'video', 'sticker'].includes(message.type) && message.attachment && !message.body && !message.attachment.view_once;
     const isRealId = typeof message.id === 'number';
 
     const classes = [
@@ -370,15 +618,40 @@ export function messageBubble(message) {
         ? `<button type="button" class="message-menu-btn" data-message-menu aria-label="Message options">${icon('chevron-down')}</button>`
         : '';
 
+    const reactable = isRealId && !message.is_deleted && message.type !== 'call';
+    const reactButton = reactable
+        ? `<button type="button" class="message-react-btn" data-react-open aria-label="React">${icon('smile-plus')}</button>`
+        : '';
+
+    const pill = reactionsPill(message);
+
     return html`
-        <div class="${classes}" data-message-id="${message.id}" data-sender-id="${message.sender_id}">
+        <div class="${classes}${pill ? ' has-reactions' : ''}" data-message-id="${message.id}" data-sender-id="${message.sender_id}">
             <div class="message-bubble">
                 ${raw(menu)}
                 ${raw(messageContent(message))}
                 ${raw(messageMeta(message))}
                 ${raw(retry)}
+                ${raw(pill)}
             </div>
+            ${raw(reactButton)}
         </div>
+    `;
+}
+
+/** Emoji pill under a bubble: the reactions and, when more than one, how many. */
+function reactionsPill(message) {
+    const reactions = message.is_deleted ? [] : message.reactions ?? [];
+    if (!reactions.length) return '';
+
+    const total = reactions.reduce((sum, reaction) => sum + reaction.count, 0);
+    const mine = reactions.some((reaction) => reaction.user_ids.some((id) => Number(id) === Number(context.meId)));
+    const label = reactions.map((reaction) => `${reaction.emoji} ${reaction.count}`).join(', ');
+
+    return html`
+        <button type="button" class="message-reactions${mine ? ' is-mine' : ''}" data-reactions aria-label="Reactions: ${label}">
+            ${reactions.map((reaction) => reaction.emoji).join('')}${raw(total > 1 ? html`<span class="message-reactions-count">${total}</span>` : '')}
+        </button>
     `;
 }
 
@@ -395,20 +668,89 @@ export function composerContext({ mode, title, preview }) {
     `;
 }
 
-export function attachmentPreview({ type, name, size, url }) {
-    const thumb =
-        type === 'image'
-            ? html`<img class="attachment-preview-thumb" src="${url}" alt="">`
-            : html`<span class="message-file-icon">${raw(icon('file-text'))}</span>`;
+const editButton = () =>
+    `<button type="button" class="btn-icon btn-icon-sm" data-edit-attachment aria-label="Edit photo" title="Edit (crop, rotate, draw, text)">${icon('pencil')}</button>`;
+
+/** "HD" switch for photos (M16). */
+/** "1" switch: send photos/videos as view once (M22). */
+const viewOnceToggle = (on) =>
+    `<button type="button" class="view-once-toggle${on ? ' is-on' : ''}" data-view-once-toggle aria-pressed="${on}" title="${on ? 'View once: on' : 'Send as view once'}">1</button>`;
+
+const hdToggle = (on) =>
+    `<button type="button" class="hd-toggle${on ? ' is-on' : ''}" data-hd-toggle aria-pressed="${on}" title="${on ? 'HD quality: on' : 'Send in HD quality'}">HD</button>`;
+
+export function attachmentPreview({ type, name, size, url, duration = null, loading = false, hd = false, viewOnce = false }) {
+    let thumb;
+    if (type === 'image' || (type === 'video' && url)) {
+        thumb = html`<span class="attachment-preview-media"><img class="attachment-preview-thumb" src="${url}" alt="">${raw(type === 'video' ? `<span class="attachment-preview-play">${icon('play')}</span>` : '')}</span>`;
+    } else if (type === 'video') {
+        thumb = html`<span class="message-file-icon">${raw(loading ? '<span class="spinner"></span>' : icon('film'))}</span>`;
+    } else {
+        const kind = fileKind(String(name || '').split('.').pop().toLowerCase());
+        thumb = html`<span class="message-file-icon" data-kind="${kind.kind}">${raw(icon(kind.icon))}</span>`;
+    }
+
+    const label = { image: 'Photo', video: 'Video' }[type] ?? 'Document';
+    const details = [label, duration ? formatDuration(duration) : null, formatBytes(size)].filter(Boolean).join(' · ');
 
     return html`
         <div class="attachment-preview">
             ${raw(thumb)}
             <span class="composer-context-body">
                 <span class="composer-context-title">${name}</span>
-                <span class="composer-context-text">${type === 'image' ? 'Photo' : 'Document'} · ${formatBytes(size)} — add a caption (optional)</span>
+                <span class="composer-context-text">${details} — add a caption (optional)</span>
             </span>
+            ${raw((type === 'image' && !/\.gif$/i.test(name)) || type === 'video' ? viewOnceToggle(viewOnce) : '')}
+            ${raw(type === 'image' && !/\.gif$/i.test(name) ? hdToggle(hd) + editButton() : '')}
             <button type="button" class="btn-icon btn-icon-sm" data-remove-attachment aria-label="Remove attachment">${raw(icon('x'))}</button>
+        </div>
+    `;
+}
+
+/**
+ * Several picked files (M13): thumbnails to switch between, the selected one's
+ * details, and buttons to add more or remove the selected file.
+ */
+export function attachmentTray({ items, activeIndex = 0, canAdd = true, hd = false, viewOnce = false }) {
+    const labels = { image: 'Photo', video: 'Video' };
+    const active = items[activeIndex] ?? items[0];
+    const activeLabel = labels[active.type] ?? 'Document';
+
+    const thumbs = items
+        .map((item, index) => {
+            const label = labels[item.type] ?? 'Document';
+            let media;
+            if (item.url) media = html`<img src="${item.url}" alt="">`;
+            else if (item.loading) media = '<span class="spinner"></span>';
+            else media = icon(item.type === 'video' ? 'film' : fileKind(String(item.name).split('.').pop().toLowerCase()).icon);
+
+            return html`
+                <button type="button" class="attachment-tray-item${index === activeIndex ? ' is-active' : ''}" data-attachment-item="${index}"
+                        aria-label="${label} ${index + 1}: ${item.name}" aria-pressed="${index === activeIndex ? 'true' : 'false'}" title="${item.name}">
+                    ${raw(media)}
+                    ${raw(item.type === 'video' && item.url ? `<span class="attachment-tray-play">${icon('play')}</span>` : '')}
+                    ${raw(item.hasCaption ? '<span class="attachment-tray-caption" aria-hidden="true"></span>' : '')}
+                </button>
+            `;
+        })
+        .join('');
+
+    return html`
+        <div class="attachment-tray">
+            <div class="attachment-tray-list">
+                ${raw(thumbs)}
+                ${raw(canAdd ? `<button type="button" class="attachment-tray-add" data-attachment-add aria-label="Add more files" title="Add more">${icon('plus')}</button>` : '')}
+            </div>
+            <div class="attachment-tray-footer">
+                <span class="composer-context-body">
+                    <span class="composer-context-title">${activeLabel} ${activeIndex + 1} of ${items.length} · ${active.name}</span>
+                    <span class="composer-context-text">${formatBytes(active.size)} — type a caption for this ${activeLabel.toLowerCase()} (optional)</span>
+                </span>
+                ${raw(items.some((item) => item.type === 'image' || item.type === 'video') ? viewOnceToggle(viewOnce) : '')}
+                ${raw(items.some((item) => item.type === 'image') ? hdToggle(hd) : '')}
+                ${raw(active.type === 'image' && !/\.gif$/i.test(active.name) ? editButton() : '')}
+                <button type="button" class="btn-icon btn-icon-sm" data-remove-attachment aria-label="Remove this file" title="Remove">${raw(icon('trash-2'))}</button>
+            </div>
         </div>
     `;
 }

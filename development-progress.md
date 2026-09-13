@@ -411,3 +411,163 @@ Reported: calls sometimes don't go through (never from the PC), phone notificati
 - ✅ PHPUnit — **175 tests passed** (4 new in `DiagnosticsTest`).
 - ✅ Doctor locally; its WebSocket handshake check returns 404 against chat.hunario.com (confirms the missing proxy) and its STUN check succeeds against Google's STUN server.
 - ✅ Both scripts pass `bash -n`; not run on the production server from here.
+
+---
+
+## Roadmap Phase 1 — Message features (complete)
+
+Built one feature at a time from [`docs/FEATURE-ROADMAP.md`](docs/FEATURE-ROADMAP.md); each has server tests (PHPUnit) and, where the logic lives in the browser, unit tests (`npm test`, Vitest — added in this phase with happy-dom for DOM helpers).
+
+### M1 — Forward message ✅
+- `POST /messages/{message}/forward` with `conversation_ids` (1–5, WhatsApp's limit). Every chat must be the user's and allow sending (block rules); call history and deleted messages cannot be forwarded.
+- Files are **copied** (`AttachmentService::duplicate`, thumbnail included), so deleting one message never removes another's attachment.
+- `messages.forward_count` (migration): copies get `original + 1`; the resource exposes `forwarded` and `forwarded_many` (≥ 5 → "Forwarded many times").
+- UI: "Forward" in the message menu → dialog with recent chats and saved contacts (a chat is created for contacts first), search, up to 5 selections; forwarded messages show a "Forwarded" label.
+- Tests: `ForwardMessageTest` (4).
+
+### M2 — Emoji reactions ✅
+- `message_reactions` table (one per person per message). `PUT /messages/{message}/reaction {emoji}` sets or replaces, `DELETE` removes; `SingleEmoji` rule accepts one emoji incl. skin tones, flags and ZWJ sequences.
+- Reactions are included in history, polling sync and `message.updated` broadcasts (`[{emoji, count, user_ids}]`, only when loaded so partial updates never wipe them); the message is touched so polling clients see changes; deleting for everyone removes them. Not allowed on call history or while blocked.
+- UI: quick bar (👍 ❤️ 😂 😮 😢 🙏 + full emoji picker) at the top of the message menu / long-press sheet and on a smiley button beside bubbles (mouse); pill under the bubble; tapping it shows who reacted and lets you remove yours; optimistic updates with rollback.
+- Tests: `MessageReactionTest` (5), `reactions.test.js` (3).
+
+### M3 — Search inside a chat ✅
+- `GET /conversations/{conversation}/messages/search?q=` (2–100 characters): text and file names the user can still see, newest first, max 50; `%` and `_` are matched literally.
+- UI: search icon in the chat header (desktop) and "Search" in the chat menu; bar with result count, older/newer arrows, results list with dates; jumping loads older history in pages of 100 when needed and highlights the words (text nodes only, links untouched).
+- Tests: `MessageSearchTest` (4), `search.test.js` (3).
+
+### M4 — Text formatting ✅
+- WhatsApp syntax rendered in bubbles: `*bold*`, `_italic_`, `~strike~`, `` `inline code` ``, ```` ```monospace block``` ````, `- ` / `* ` bullet lists, `1. ` numbered lists and `> ` quotes.
+- Text is HTML-escaped **before** formatting; links and code are protected with placeholders so markers inside them are left alone; markers must sit on word boundaries (`2*3*4` stays plain).
+- Chat list previews, push notifications and reply quotes show the text without markers (`Message::stripFormatting` on the server, `stripFormatting` in the browser).
+- Tests: `MessagePreviewTest` (2), `formatting.test.js` (6).
+
+### M5 — Star messages ✅
+- `starred_messages` table (per person). `POST/DELETE /messages/{message}/star`; `GET /starred` lists starred messages newest first (30 per page) with the chat partner's saved name. History and sync include `is_starred` for the viewer only.
+- Deleting a message for me removes my star; deleting for everyone removes all stars.
+- UI: "Star" / "Unstar" in the message menu, a small star in the bubble's time line, "Starred messages" in the sidebar menu → panel with each message, its chat and date; tapping one opens the chat and scrolls to the message (loading older history when needed).
+- Tests: `StarredMessageTest` (4).
+
+### M6 — Pin messages ✅
+- `pinned_messages` table: 24 hours, 7 days or 30 days; up to 3 per chat (pinning a 4th replaces the oldest); expired pins are ignored and cleaned up. `POST/DELETE /messages/{message}/pin`. Not allowed on call history or while blocked; deleting a message for everyone unpins it.
+- Both people see pins: the chat payload carries `pinned_messages`, and a `conversation.pins` broadcast refreshes the other side.
+- UI: "Pin" / "Unpin" in the message menu with a duration choice; bar under the chat header ("Pinned message 1 of 2", preview, dots) — tapping it jumps to the pin and cycles through them.
+- Tests: `PinnedMessageTest` (4).
+
+### M7 — Message info ✅
+- "Info" in the menu of your own messages: the message with Read, Delivered and Sent times (from `read_at` / `delivered_at` / `created_at`, kept live by the existing receipts).
+
+### M8 — "Recording audio…" ✅
+- The typing endpoint accepts `action` = `typing` | `recording`; it travels in the `user.typing` broadcast and in polling sync. The voice recorder reports it while recording and clears it on stop/cancel.
+- UI: "recording audio…" in the chat header and chat list, typing bubble with a microphone.
+- Tests: `RealtimeTest::test_recording_audio_is_reported_like_typing`.
+
+### M9 — Voice note speed ✅
+- 1× / 1.5× / 2× chip on every voice note (remembered on the device); when a voice note ends the next consecutive voice note from the same person plays automatically.
+- Tests: `voice.test.js` (3).
+
+### M10 — Drafts ✅
+- Unsent text is saved per chat on the device (per account, 30 days, newest 100) while typing and when switching chats; it comes back when the chat is reopened and is cleared when the message (or a file) is sent.
+- UI: chat list shows **Draft:** with the text instead of the last message.
+- Tests: `drafts.test.js` (2).
+
+### M11 — Link previews ✅
+- The **server** fetches the first link of a text message (the other person's phone never contacts the site): Open Graph / Twitter card / `<title>` + meta description, site name and image. Results are cached per link in `link_previews` (fresh 7 days; pages without details retried after 1 hour) and messages point to them (`messages.link_preview_id`). Links inside `code` are ignored.
+- **Safety (SSRF):** `App\Support\SafeFetcher` only allows http/https on ports 80/443 without credentials; refuses `localhost`, `.local`/`.internal` names and numeric shorthand hosts; every resolved address must be public (private, loopback, link-local, CGNAT, multicast, reserved and IPv4-in-IPv6 ranges are refused) and cURL is pinned to the checked address (no DNS rebinding, no proxy); redirects are followed one hop at a time (max 4) and re-checked; 5 s timeout; pages read up to 512 KB, images up to 5 MB (after decompression). Images are re-encoded to a 480 px WebP on the private disk and served by `/link-previews/{id}/image` with `nosniff` and a sandbox CSP.
+- Sending: a cached preview is attached at once; otherwise `AttachLinkPreview` runs after the response and broadcasts `message.updated` to both people (including the sender's tab). `link_preview=false` sends without one. Editing to another link replaces it; deleting for everyone removes it; forwarding keeps it.
+- Composer: `POST /link-preview` (30/min, POST so typed links stay out of access logs) shows "Fetching preview…" and then the card above the input with an ✕ to remove it; the optimistic bubble already shows the card.
+- Bubble: card with a large image (wide pictures) or a small thumbnail, title (2 lines), description (2 lines) and site; opens the link in a new tab (`noopener noreferrer nofollow`). Only images from this site's own path are rendered.
+- Unused previews and their images are removed by the daily `model:prune` schedule. Setting: `CHAT_LINK_PREVIEWS` (default on).
+- Tests: `SafeFetcherTest` (29 incl. 25 address cases), `LinkPreviewTest` (8), `link-preview.test.js` (5). Checked once against a real page (GitHub) locally: title, description, site and image were stored; `http://127.0.0.1/` was refused. Card layout checked in the test page (fixed: a long title stretched the bubble).
+
+### M12 — Videos ✅
+- New message type `video`: MP4/M4V, WebM, MOV and 3GP, checked by detected content type **and** extension; 16 MB by default (`CHAT_MAX_VIDEO_KB`, kept below the PHP/Nginx upload limits in the aaPanel guide, which now explains how to raise them).
+- The sender's browser reads the video (`video.js` → `videoDetails`): a poster frame a little way in, width/height and duration. The poster is uploaded with the video (`thumbnail`, max 1 MB, image rules) and re-encoded to WebP on the server, which also gives the bubble its shape. Videos the browser cannot decode still send (dark placeholder with a film icon).
+- Playback: stored privately like other files, served inline with Range support (seeking/streaming, `206 Partial Content`) to the two participants only. Tapping opens a full-screen player (autoplay, controls, download).
+- Bubble: poster with play button, duration badge, upload progress; caption support; "🎥 Video" / "🎥 caption" in the chat list, notifications and replies. Forwarding copies the video and poster.
+- Tests: `VideoMessageTest` (5: storage + poster + duration, inline Range playback for participants only, no poster, disguised/oversized/invalid poster/duration rejected, forwarding), `video.test.js` (3). Checked in Chrome with a recorded WebM: poster captured in ~50 ms at the right size and duration, bubble/placeholder/portrait layouts and the player work.
+
+### M13 — Several photos at once, with captions, as an album ✅
+- Pick (or paste / drop) up to **30 files** at once. The composer shows a tray of thumbnails with "+" to add more and a remove button; the message box holds the caption of the selected item (tap another thumbnail to caption it; a dot marks items that already have one). Text typed before picking becomes the first caption.
+- Photos and videos picked together get one `album_id` (UUID, also generated where `crypto.randomUUID` is missing); the server stores it in the attachment metadata and returns `album_id`. It is dropped when forwarding or deleting for everyone.
+- Bubbles appear at once in the picked order and uploads run **one after another** (`prepareFile` + upload queue), so the stored order matches; retries keep their place.
+- Display (`album.js`): 4+ consecutive uncaptioned photos/videos of one album from the same person form a two-column grid on the sender's side; beyond four, the fourth tile shows "+N" and tapping it opens the whole album. Two or three items, captioned items and deleted items stay normal bubbles. The time shows on the last visible tile. The message list became a CSS grid for this (other rows still span the full width).
+- Tests: `AlbumMessageTest` (2), `album.test.js` (4). Checked in a test page: album grids on both sides with "+2" and a video tile, time on the "+N" tile, tray with photo/video/loading/document items and caption dots.
+
+### M14 — Edit a photo before sending ✅
+- A ✏️ button on a picked photo (single preview or the selected item in the tray) opens a full-screen editor (`image-editor.js`, loaded only when needed): **crop** (drag corners or move the frame, rule-of-thirds grid, Reset/Crop), **rotate** 90°, **draw** (7 colours, 3 brush sizes) and **text** (tap the photo, type, Enter; outlined so it reads on any background), with **undo** (button or Ctrl+Z), Cancel and Done.
+- Edits are a list of operations replayed on the original (exact undo); the photo is worked on at up to 2560 px (the size the server keeps), honouring EXIF orientation. Done saves a JPEG (PNG stays PNG unless it would pass the size limit); an unchanged photo is sent as the original file. The server treats the result like any photo (re-encoded, metadata removed).
+- Works with mouse, touch and pen (pointer events); Esc leaves crop mode or cancels.
+- Tests: `image-editor.test.js` (4: crop corner/move limits, rotation size, output format). Checked in Chrome on a 1200×800 photo: stroke and text drawn, crop frame aligned to the photo and dragged, crop → 900×720, rotate → 720×900, exported JPEG decodes at 720×900. Fixed while checking: the canvas overflowed short screens, and the crop shade dimmed the toolbar.
+
+### M15 — Camera inside the app ✅
+- 📷 button next to the paperclip (shown only where the browser can use a camera) opens a full-screen camera (`camera.js`, loaded on demand): back camera first, switch button when there is more than one camera, **Photo** / **Video** modes, big shutter.
+- Photo: the current frame at full camera resolution as JPEG (selfies are saved as seen on screen). Video: recorded with MediaRecorder at ~1.5 Mbit/s with a running timer and an automatic stop that keeps the file under the video upload limit (75 s at the default 16 MB); the microphone is asked for only when recording starts, and without one the video records silently with a warning.
+- The result lands in the attachment tray like a picked file, so it can be edited (M14), captioned and sent together with other files (M13). Clear messages when the camera is blocked or missing; closing while recording discards the clip and always releases the camera.
+- Format: WebM (VP9/VP8 + Opus) where supported, MP4 on Safari. While testing, Chromium reported MP4 as supported but wrote **empty** MP4 files at 720p, so WebM is preferred and an empty recording shows "could not be recorded".
+- Android app: uses the WebView camera/microphone permissions already declared for calls; no new APK needed.
+- Tests: `camera.test.js` (3: format choice, length limit, file names). The browser pane blocks real cameras, so the blocked-camera message was checked there, and capture was checked with a synthetic 1280×720 camera stream: photo → `IMG_….jpg` (tray hand-off, camera closed), 2.7 s video → `VID_….webm` (253 KB) with the no-microphone warning, recording screen with timer and limit.
+
+### M16 — More file types and HD photos ✅
+- Documents now include **Word, Excel, PowerPoint** (old and new formats), **OpenDocument**, RTF, **TXT, CSV, ZIP, RAR, 7Z, MP3 and M4A** (10 MB). Each extension has its own list of content types detected from the file (`chat.uploads.document.types` + `App\Rules\DocumentType`), so a web page renamed `.txt`, a ZIP renamed `.txt` or a program renamed `.zip` is refused. **Programs and installers (EXE, APK, JS…) are deliberately not allowed** (the roadmap mentioned APK; left out for safety). Text files are always downloaded (never shown as a page) with `nosniff` and a sandbox policy.
+- Bubbles show the kind of file with its own icon and colour (spreadsheet green, slides orange, archive brown, audio purple, PDF red, text grey) and a friendly label ("Excel · 47 KB"). The file picker's accepted types come from the server config.
+- **HD photos:** photos are resized in the browser before upload like WhatsApp — standard 1600 px (JPEG 82%) or **HD** 3072 px (90%) with an "HD" switch in the tray; this saves data, lets big phone photos (up to 40 MB originals) through the 5 MB upload limit and removes EXIF/GPS on the device. The server keeps the same sizes (`image.max_edge` / `hd_max_edge`, `quality=hd`), stores `hd` and the bubble shows an "HD" badge. Standard photos are now kept at 1600 px instead of 2560 px.
+- Tests: `FileTypesTest` (10: Excel, PowerPoint, TXT, CSV, ZIP, RAR, MP3 accepted; six disguised/forbidden files refused; text download headers; standard vs HD sizes), `files.test.js` (3). Checked in Chrome: a 4000×3000 photo became 1600×1200 (26 KB) standard and 3072×2304 HD, a small photo was sent unchanged; file bubbles, HD badge and tray HD switch rendered correctly.
+
+### M17 — GIFs and stickers ✅
+- **GIF files** can be sent and stay animated: they are stored unchanged (other photos are still re-encoded), shown with a "GIF" badge and "👾 GIF" in previews; editing and HD are skipped for them.
+- **GIF search** (optional, `CHAT_TENOR_KEY`): a "GIFs" tab in the emoji panel with trending GIFs, search and "More". The key stays on the server (`GET /gifs`); a chosen GIF is downloaded **by the server** from Tenor's media host only (through the SafeFetcher protections, max 8 MB, must really be a GIF) and stored like any attachment, so the other person never loads anything from Tenor. Tenor's image host is added to the page's image policy only when the key is set. "Powered by Tenor" credit is shown.
+- **Stickers** (new message type `sticker`, 512×512 WebP): a "Stickers" tab with **My stickers** (most recently used first, remove button), **From a photo** (sticker maker: fill or whole photo, square / rounded / circle, white outline, transparent background) and **Emoji stickers** (24 big emoji rendered as stickers). Received stickers can be saved with "Save to my stickers". Stickers are shown without a bubble. The server re-encodes every sticker image, de-duplicates per person, keeps up to 200 and copies the file into each message (removing a sticker never breaks sent messages). Only the owner can see/delete their collection; another person's sticker id is refused.
+- Tests: `StickerAndGifTest` (7: sticker from photo is a transparent 512 WebP and de-duplicated, owner-only access, sending copies the file and the receiver can save it, foreign stickers and non-sticker messages refused, GIF upload stored byte-for-byte, GIF search off without a key, search results + sending via the server with only Tenor media accepted, rogue/non-GIF downloads refused), `stickers.test.js` (2); the old test that expected GIF uploads to be rejected now uses a BMP. Checked in Chrome: sticker/GIF tabs, emoji sticker rendering (WebP upload), GIF list with "More" and sending, sticker maker (circle + outline, transparent corners, WebP result), sticker and GIF bubbles.
+
+### M18 — Location and live location ✅
+- The paperclip now opens an **attach menu** (Photos, videos & files · Location; later features add Contact and Poll).
+- **Location** dialog finds your position (high accuracy, shows "Accurate to 9 m") and offers **Send your current location** or **Share live location** for 15 minutes, 1 hour or 8 hours. Clear messages when location is blocked, unavailable or too slow.
+- New message type `location` (coordinates rounded to 6 decimals, accuracy in metres). Bubble: map-style card with a pin (no map images are loaded from other sites, for privacy and map-licence reasons), title and details, **Open in Maps** (Google Maps link) and, for your own active live location, **Stop sharing**. Previews "📍 Location" / "📍 Live location".
+- **Live location:** this device watches its position and sends updates at most every 15 s (and only when it moved ≥ 15 m, otherwise once a minute) with `PATCH /messages/{id}/location` (sender only, 12/min); the other person sees the card move through the normal `message.updated` broadcast/sync. It ends at the chosen time, with "Stop sharing" (`DELETE`), or when sharing stops elsewhere; ended cards show "Live location ended · Last updated …". Sharing resumes when the chat is reopened. **Limitation:** updates are sent while the chat is open in that browser tab or in the app (no background tracking).
+- Forwarding a location sends the last known point as a normal location. Page policy now allows location for this site (`geolocation=(self)`).
+- Android: `ACCESS_COARSE_LOCATION` / `ACCESS_FINE_LOCATION` added to the manifest — **a new APK build is needed** for location in the Android app (the website works now).
+- Tests: `LocationMessageTest` (5: rounding and both sides, invalid coordinates/durations/extra fields refused, live updates broadcast + sender-only + stop, automatic end + forwarding the last point, Permissions-Policy), `location.test.js` (4: distance, update throttling, end detection, card + stop button). Checked in Chrome with a simulated GPS: attach menu, dialog with accuracy, live 15-minute share (correct payload, one watcher), the first move within 15 s was skipped and an 80 m move after 20 s was sent, Stop sharing cleared the watcher and showed "Live location ended"; static and ended cards rendered.
+
+### M19 — Contact cards ✅
+- "Contact" in the attach menu opens a picker: the **phone book** in the Android app (already-granted contacts permission), **Choose from phone** where the browser has the Contact Picker (Android Chrome), otherwise your **saved contacts**; search by name or number; or **Type a contact** (name + number).
+- New message type `contact`: name (cleaned, 100 chars) and up to 5 numbers. If a number belongs to someone in the **sender's own saved contacts**, the card links to that account and shows **Message** (opens the chat). Numbers are never looked up among all users, so contact cards cannot be used to find out who is registered.
+- Card: initials, name, numbers, @username when linked, and **Message / Save contact / Call** (Save downloads a proper vCard 3.0 from `/messages/{id}/contact.vcf`, participants only, escaped per RFC 6350). Preview "👤 Contact: name". Forwarding keeps the card.
+- Tests: `ContactCardTest` (4: linking only from saved contacts, invalid cards refused, vCard download + escaping + participants only, forwarding), `contact-share.test.js` (3). Checked in Chrome: cards on both sides with the right buttons, picker list and search ("hina" → Hina Office), choosing a contact sends `{name, phones}`.
+
+### M20 — Polls ✅
+- "Poll" in the attach menu: question (255 chars), options (a new row appears as you type, 2–12, duplicates ignored), **Allow multiple answers** (on by default, like WhatsApp), with clear errors.
+- New message type `poll`; the question and numbered options are stored with the message and votes in `poll_votes` (one row per chosen option). `PUT /messages/{id}/vote {options: [...]}` replaces your answers (empty = remove); single-answer polls refuse more than one; unknown options, other people and blocked chats are refused. Votes are broadcast with `message.updated` and picked up by sync.
+- Bubble: question, "Select one / Select one or more", each option with a round or square check, count and green bar, total votes; hovering an option shows who voted ("You", name). Tapping updates at once and rolls back if saving fails. Preview "📊 Poll: question". Forwarding sends the poll without votes; deleting for everyone removes the votes.
+- Tests: `PollTest` (5: creation/cleanup, validation, single-answer replace/remove + broadcast, multiple answers + who can vote, history/forward/delete), `poll.test.js` (4). Checked in Chrome: moving a single answer, adding a multiple answer, bars on both bubble colours, creator adding rows and sending `{question, options, multiple}`, duplicate-options error.
+
+### M21 — Disappearing messages ✅
+- Chat menu → **Disappearing messages** (shows the current setting): Off, 24 hours, 7 days or 90 days. Either person can change it (not while blocked); `PUT /conversations/{id}/disappearing`.
+- Changing it leaves a centred **notice** in the chat for both people ("⏱️ Disappearing messages turned on: new messages disappear after 7 days" / "…turned off"), new message type `system` (never disappears, no menu, cannot be forwarded, reacted to or pinned, and does not send a notification).
+- New messages get `messages.expires_at` (earlier messages are not affected); bubbles show a small timer icon and the chat header a timer next to the name.
+- `php artisan chat:expire-messages` (scheduled every minute) removes expired messages **for both people** together with their files; reactions, stars, pins and poll votes go with them; the chat's last message is recalculated and a `messages.expired` event updates open screens. Open chats also hide expired messages on their own (every 15 s), so polling clients stay correct. Needs the scheduler cron (already part of the aaPanel guide).
+- Tests: `DisappearingMessageTest` (5: notice + end time + same value twice + turning off, notices do not notify, allowed durations/participants/blocked, removal with files and cascades + last message + event to both, notices cannot be forwarded/reacted/pinned), `disappearing.test.js` (2). Checked in Chrome: notice chip, timer icons in bubbles and header, dialog with the current value selected and saving 7 days.
+
+### M22 — View once ✅
+- A dashed **"1"** switch sends photos and videos (tray) or a voice message (voice preview) as **view once**; GIFs and files cannot be view once, and view once media is never grouped into an album.
+- The server stores `view_once` and never gives links for it: the normal attachment route refuses it, previews say "📷 View once photo / 🎥 View once video / 🎤 View once voice message" (no caption), and it cannot be forwarded, starred, pinned or downloaded from the menu.
+- The **receiver** taps "Photo / Video / Voice message" once: `POST /messages/{id}/view-once` records `opened_at`, tells the sender ("Opened") and returns a **signed link valid for 2 minutes**; the photo opens in the viewer without a download button (no context menu, no download/picture-in-picture controls for video), voice plays in a small player. A second open returns 410; the sender cannot open it. `php artisan chat:purge-view-once` (every minute) deletes the file 5 minutes after opening. (A screenshot or screen recording cannot be prevented in a browser.)
+- **Also fixed:** Laravel file responses were sent with `Cache-Control: public` even though our header said `private`; attachments, link-preview images, stickers and view once media are now marked private so shared caches never keep them.
+- Tests: `ViewOnceTest` (4: no links/preview details + normal route refused, receiver-only single open + signed link + expiry, file removal after 5 minutes, video/voice allowed but not documents + no forwarding), an extra private-cache assertion in `VideoMessageTest`, `view-once.test.js` (3). Checked in Chrome: bubbles for receiver/sender in opened/unopened states, "1" and HD switches in the tray, opening shows the photo without download and the bubble becomes "Opened".
+
+### Phase 1 summary
+- All 23 roadmap items (M1–M23) are done. Server: 283 PHPUnit tests; browser logic: 57 Vitest tests; each UI piece was checked in Chrome with test pages (the real app needs a login).
+- **Before using on the live site:** run `php artisan migrate` (new tables/columns: reactions, stars, pins, link previews, stickers, poll votes, forward count, disappearing messages), `npm run build`, `php artisan config:cache`, and make sure the scheduler cron runs (new every-minute tasks: `chat:expire-messages`, `chat:purge-view-once`; daily `model:prune`).
+- **Optional settings:** `CHAT_TENOR_KEY` (GIF search), `CHAT_LINK_PREVIEWS`, `CHAT_MAX_VIDEO_KB` (raise PHP/Nginx upload limits too).
+- **Android app:** a new APK build is needed only for location sharing (new location permissions); everything else works through the existing app.
+
+### UI check (M1–M10)
+- The real app needs a login, so the new templates, forward dialog, reaction bar, pinned bar, search bar and message info were rendered with the production CSS in a local test page and checked visually. Fixed: the reaction pill on sent messages covered the time — the pill now sits on the bottom-left of every bubble.
+
+### Verification (Phase 1 complete)
+- ✅ PHPUnit — **283 tests passed** (199 after M10, 236 after M11, 241 after M12, 243 after M13–M15, 253 after M16, 260 after M17, 265 after M18, 269 after M19, 274 after M20, 279 after M21).
+- ✅ Vitest — **57 tests passed** (`npm test`; 17 after M10, 22 after M11, 25 after M12, 29 after M13, 33 after M14, 36 after M15, 39 after M16, 41 after M17, 45 after M18, 48 after M19, 52 after M20, 54 after M21).
+- ✅ `npm run build`.
+
+### M23 — Paste a photo from the clipboard ✅
+- Already supported by the composer (paste an image → attachment preview); marked done.

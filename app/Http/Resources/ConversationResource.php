@@ -49,6 +49,8 @@ class ConversationResource extends JsonResource
                 'created_at' => $latest->created_at?->toIso8601String(),
             ] : null,
             'unread_count' => (int) ($this->unread_count ?? 0),
+            'disappearing_seconds' => $this->disappearing_seconds,
+            'pinned_messages' => $this->when(isset($this->pinned_messages), fn () => $this->pinned_messages),
             'blocked_by_me' => $this->when(isset($this->blocked_by_me), fn () => (bool) $this->blocked_by_me),
             'blocked_me' => $this->when(isset($this->blocked_me), fn () => (bool) $this->blocked_me),
             'updated_at' => $this->updated_at?->toIso8601String(),

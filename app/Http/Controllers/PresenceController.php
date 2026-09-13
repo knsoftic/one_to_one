@@ -10,6 +10,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\Rule;
 
 class PresenceController extends Controller
 {
@@ -53,9 +54,12 @@ class PresenceController extends Controller
     {
         Gate::authorize('sendMessage', $conversation);
 
-        $validated = $request->validate(['typing' => ['required', 'boolean']]);
+        $validated = $request->validate([
+            'typing' => ['required', 'boolean'],
+            'action' => ['nullable', Rule::in(TypingService::ACTIONS)],
+        ]);
 
-        $this->typing->set($conversation, $request->user(), (bool) $validated['typing']);
+        $this->typing->set($conversation, $request->user(), (bool) $validated['typing'], $validated['action'] ?? TypingService::ACTION_TYPING);
 
         return response()->json(['ok' => true]);
     }

@@ -13,16 +13,20 @@ import { fileURLToPath } from 'node:url';
 import * as lucide from 'lucide';
 
 const ICONS = [
-    'activity', 'arrow-down', 'arrow-left', 'at-sign', 'ban', 'battery-charging', 'bell', 'bell-off', 'camera', 'check',
-    'check-check', 'contact', 'chevron-down', 'chevron-left', 'chevron-right', 'circle-alert', 'circle-check',
-    'circle-pause', 'circle-x', 'clock', 'cloud-off', 'copy', 'corner-up-left', 'download', 'ellipsis-vertical',
-    'external-link', 'eye', 'eye-off', 'file', 'file-text', 'image', 'info', 'key-round',
-    'layout-dashboard', 'loader-circle', 'lock', 'log-out', 'mail', 'menu', 'message-circle',
-    'message-square-plus', 'message-square-text', 'mic', 'mic-off', 'minimize-2', 'monitor', 'moon', 'palette', 'paperclip',
-    'pause', 'pencil', 'phone', 'phone-incoming', 'phone-missed', 'phone-off', 'phone-outgoing', 'play', 'refresh-cw', 'search', 'send-horizontal', 'settings',
-    'shield', 'shield-check', 'signal-low', 'smile', 'sparkles', 'square', 'sun', 'switch-camera', 'trash-2', 'trending-up',
-    'undo-2', 'upload', 'user', 'user-check', 'user-cog', 'user-plus', 'user-round', 'user-x',
-    'users', 'video', 'video-off', 'volume-1', 'volume-2', 'wifi', 'wifi-off', 'x', 'zoom-in',
+    'activity', 'aperture', 'arrow-down', 'arrow-left', 'at-sign', 'ban', 'battery-charging', 'bell', 'bell-off',
+    'brush', 'camera', 'chart-column', 'check', 'check-check', 'chevron-down', 'chevron-left', 'chevron-right',
+    'chevron-up', 'circle-alert', 'circle-check', 'circle-dot', 'circle-pause', 'circle-stop', 'circle-x', 'clock',
+    'cloud-off', 'contact', 'copy', 'corner-up-left', 'crop', 'download', 'ellipsis', 'ellipsis-vertical', 'eraser',
+    'external-link', 'eye', 'eye-off', 'file', 'file-archive', 'file-music', 'file-spreadsheet', 'file-text', 'film',
+    'forward', 'hourglass', 'image', 'image-play', 'image-plus', 'info', 'key-round', 'layout-dashboard', 'link',
+    'list-checks', 'loader-circle', 'locate-fixed', 'lock', 'log-out', 'mail', 'map-pin', 'menu', 'message-circle',
+    'message-square-plus', 'message-square-text', 'mic', 'mic-off', 'minimize-2', 'monitor', 'moon', 'navigation',
+    'palette', 'paperclip', 'pause', 'pencil', 'phone', 'phone-incoming', 'phone-missed', 'phone-off',
+    'phone-outgoing', 'pin', 'pin-off', 'play', 'plus', 'presentation', 'radio', 'refresh-cw', 'rotate-cw', 'search',
+    'send-horizontal', 'settings', 'shield', 'shield-check', 'signal-low', 'smile', 'smile-plus', 'sparkles',
+    'square', 'square-check-big', 'star', 'star-off', 'sticker', 'sun', 'switch-camera', 'timer', 'trash-2',
+    'trending-up', 'type', 'undo-2', 'upload', 'user', 'user-check', 'user-cog', 'user-plus', 'user-round', 'user-x',
+    'users', 'video', 'video-off', 'volume-1', 'volume-2', 'vote', 'wifi', 'wifi-off', 'x', 'zoom-in',
 ];
 
 const pascal = (name) => name.replace(/(^|-)([a-z0-9])/g, (_, __, c) => c.toUpperCase());

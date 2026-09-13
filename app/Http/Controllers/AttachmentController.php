@@ -14,13 +14,16 @@ use Symfony\Component\HttpFoundation\HeaderUtils;
  */
 class AttachmentController extends Controller
 {
-    private const INLINE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+    private const INLINE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'];
 
     public function __construct(private readonly AttachmentService $attachments) {}
 
     public function show(Request $request, Message $message): BinaryFileResponse
     {
         Gate::authorize('view', $message);
+
+        // View once media is only served through its one-time link (M22).
+        abort_if(($message->attachment_meta['view_once'] ?? false), 404);
 
         $variant = $request->query('variant') === 'thumbnail' ? 'thumbnail' : 'original';
         $path = $this->attachments->path($message, $variant)
@@ -30,14 +33,16 @@ class AttachmentController extends Controller
 
         $isThumbnail = $variant === 'thumbnail' && str_ends_with($path, '_thumb.webp');
         $mime = $isThumbnail ? 'image/webp' : ($message->attachment_mime ?: 'application/octet-stream');
-        $isAudio = str_starts_with($mime, 'audio/') || $mime === 'video/webm' || $mime === 'application/ogg';
+        // Audio and video play inline; the file response supports Range requests (seeking).
+        $isMedia = str_starts_with($mime, 'audio/') || str_starts_with($mime, 'video/') || $mime === 'application/ogg';
 
-        $disposition = ! $request->boolean('download') && (in_array($mime, self::INLINE_TYPES, true) || $isAudio)
+        $disposition = ! $request->boolean('download') && (in_array($mime, self::INLINE_TYPES, true) || $isMedia)
             ? HeaderUtils::DISPOSITION_INLINE
             : HeaderUtils::DISPOSITION_ATTACHMENT;
 
         $name = (string) $message->attachment_name;
 
+        // Private to the signed-in person (file responses default to public caching).
         return response()->file($path, [
             'Content-Type' => $mime,
             'Content-Disposition' => HeaderUtils::makeDisposition(
@@ -51,6 +56,6 @@ class AttachmentController extends Controller
             // (browsers refuse to render sandboxed PDFs, so PDFs skip "sandbox").
             'Content-Security-Policy' => "default-src 'none'; img-src 'self'; media-src 'self'; style-src 'unsafe-inline'"
                 .($mime === 'application/pdf' ? '' : '; sandbox'),
-        ]);
+        ])->setPrivate();
     }
 }

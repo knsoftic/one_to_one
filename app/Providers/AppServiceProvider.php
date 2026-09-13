@@ -73,6 +73,12 @@ class AppServiceProvider extends ServiceProvider
 
         RateLimiter::for('chat-search', fn (Request $request) => Limit::perMinute(60)->by('search:'.($request->user()?->id ?? $request->ip())));
 
+        // Each preview may contact an outside website: keep it modest.
+        RateLimiter::for('link-preview', fn (Request $request) => Limit::perMinute(30)->by('link-preview:'.($request->user()?->id ?? $request->ip())));
+
+        // A sharing phone reports its position every ~15 s.
+        RateLimiter::for('live-location', fn (Request $request) => Limit::perMinute(12)->by('live-location:'.($request->user()?->id ?? $request->ip())));
+
         RateLimiter::for('chat-typing', fn (Request $request) => Limit::perMinute(60)->by('typing:'.($request->user()?->id ?? $request->ip())));
 
         RateLimiter::for('chat-sync', fn (Request $request) => Limit::perMinute(90)->by('sync:'.($request->user()?->id ?? $request->ip())));

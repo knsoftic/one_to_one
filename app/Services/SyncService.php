@@ -53,7 +53,8 @@ class SyncService
         $query = fn (string $column) => Message::query()
             ->where($column, $user->getKey())
             ->where('updated_at', '>=', $since)
-            ->with('replyTo')
+            ->with(Message::DISPLAY_RELATIONS)
+            ->withViewerState($user)
             ->orderBy('updated_at')
             ->limit(self::MESSAGE_LIMIT)
             ->get();
@@ -76,10 +77,13 @@ class SyncService
 
         $conversation = Conversation::query()->forUser($user)->find($conversationId);
 
+        $activity = $conversation ? $this->typing->otherActivity($conversation, $user) : null;
+
         return $conversation ? [
             'conversation_id' => $conversation->id,
             'user_id' => $conversation->otherParticipantId($user),
-            'typing' => $this->typing->isOtherTyping($conversation, $user),
+            'typing' => $activity !== null,
+            'action' => $activity ?? TypingService::ACTION_TYPING,
         ] : null;
     }
 

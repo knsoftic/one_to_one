@@ -19,6 +19,7 @@ class UserTyping implements ShouldBroadcastNow
         public int $userId,
         public int $recipientId,
         public bool $typing,
+        public string $action = 'typing',
     ) {}
 
     public function broadcastOn(): array
@@ -37,6 +38,8 @@ class UserTyping implements ShouldBroadcastNow
             'conversation_id' => $this->conversationId,
             'user_id' => $this->userId,
             'typing' => $this->typing,
+            // "typing" or "recording" (voice message)
+            'action' => $this->action,
         ];
     }
 }

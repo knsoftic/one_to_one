@@ -3,15 +3,18 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\Chat\DeleteMessageRequest;
+use App\Http\Requests\Chat\ForwardMessageRequest;
 use App\Http\Requests\Chat\SendMessageRequest;
 use App\Http\Requests\Chat\UpdateMessageRequest;
 use App\Http\Resources\MessageResource;
 use App\Models\Conversation;
 use App\Models\Message;
+use App\Models\Sticker;
 use App\Services\MessageService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use RuntimeException;
 
 class MessageController extends Controller
 {
@@ -48,22 +51,72 @@ class MessageController extends Controller
     public function store(SendMessageRequest $request, Conversation $conversation): JsonResponse
     {
         $type = $request->attachmentType();
-        $data = $request->safe()->only(['message', 'reply_to_id', 'duration']);
+        $data = $request->safe()->only(['message', 'reply_to_id', 'duration', 'link_preview', 'album_id', 'quality', 'view_once']);
 
-        $message = $type === Message::TYPE_TEXT
-            ? $this->messages->sendText($request->user(), $conversation, $data)
-            : $this->messages->sendAttachment(
-                $request->user(),
-                $conversation,
-                $request->file($type === Message::TYPE_VOICE ? 'voice' : 'attachment'),
-                $type,
-                $data,
-            );
+        try {
+            $message = match (true) {
+                $request->filled('sticker_id') => $this->messages->sendSticker(
+                    $request->user(), $conversation, Sticker::findOrFail((int) $request->input('sticker_id')), $data,
+                ),
+                $request->filled('poll') => $this->messages->sendPoll($request->user(), $conversation, (array) $request->validated('poll'), $data),
+                $request->filled('contact') => $this->messages->sendContact($request->user(), $conversation, (array) $request->validated('contact'), $data),
+                $request->filled('location') => $this->messages->sendLocation($request->user(), $conversation, (array) $request->validated('location'), $data),
+                $request->filled('gif_id') => $this->messages->sendGif($request->user(), $conversation, (string) $request->input('gif_id'), $data),
+                $type === Message::TYPE_TEXT => $this->messages->sendText($request->user(), $conversation, $data),
+                default => $this->messages->sendAttachment(
+                    $request->user(),
+                    $conversation,
+                    $request->file($type === Message::TYPE_VOICE ? 'voice' : 'attachment'),
+                    $type,
+                    $data + ['thumbnail' => $type === Message::TYPE_VIDEO ? $request->file('thumbnail') : null],
+                ),
+            };
+        } catch (RuntimeException $e) {
+            abort(422, $e->getMessage());
+        }
 
         return response()->json(
             (new MessageResource($message))->resolve($request) + ['client_id' => $request->input('client_id')],
             201
         );
+    }
+
+    /**
+     * Find messages in this chat (newest first).
+     */
+    public function search(Request $request, Conversation $conversation): JsonResponse
+    {
+        Gate::authorize('view', $conversation);
+        $validated = $request->validate(['q' => ['required', 'string', 'min:2', 'max:100']]);
+
+        $user = $request->user();
+        $results = $this->messages->search($conversation, $user, trim($validated['q']));
+
+        return response()->json([
+            'data' => $results->map(fn (Message $message) => [
+                'id' => $message->id,
+                'is_mine' => $message->isSentBy($user),
+                'type' => $message->message_type,
+                'preview' => $message->preview(120),
+                'created_at' => $message->created_at?->toIso8601String(),
+            ])->values(),
+        ]);
+    }
+
+    /**
+     * Forward a message to up to five chats.
+     */
+    public function forward(ForwardMessageRequest $request, Message $message): JsonResponse
+    {
+        try {
+            $messages = $this->messages->forward($request->user(), $message, $request->conversations());
+        } catch (RuntimeException $e) {
+            abort(422, $e->getMessage());
+        }
+
+        return response()->json([
+            'data' => MessageResource::collection(collect($messages))->resolve($request),
+        ], 201);
     }
 
     /**

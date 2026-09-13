@@ -13,6 +13,18 @@ return [
 
     'max_message_length' => 5000,
 
+    // Title, description and image under the first link of a message (fetched by the server).
+    'link_previews' => [
+        'enabled' => (bool) env('CHAT_LINK_PREVIEWS', true),
+    ],
+
+    // GIF search (Tenor). Off without an API key; GIF files can always be sent.
+    'gifs' => [
+        'tenor_key' => env('CHAT_TENOR_KEY'),
+        'content_filter' => env('CHAT_TENOR_CONTENT_FILTER', 'medium'),
+        'max_kb' => 8192,
+    ],
+
     // 0 = no time limit.
     'edit_window_minutes' => (int) env('CHAT_EDIT_WINDOW_MINUTES', 0),
     'delete_for_everyone_window_minutes' => (int) env('CHAT_DELETE_FOR_EVERYONE_WINDOW_MINUTES', 0),
@@ -49,21 +61,55 @@ return [
         'disk' => 'chat',
 
         'image' => [
-            'extensions' => ['jpg', 'jpeg', 'png'],
+            // GIFs are stored unchanged so they stay animated.
+            'extensions' => ['jpg', 'jpeg', 'png', 'gif'],
             'max_kb' => (int) env('CHAT_MAX_IMAGE_KB', 5120),
             'max_dimension' => 8000,
             'thumbnail_width' => 480,
+            // Longest edge kept on the server: standard photos like WhatsApp, "HD" when the sender picks it.
+            'max_edge' => 1600,
+            'hd_max_edge' => 3072,
         ],
 
         'document' => [
-            'extensions' => ['pdf', 'doc', 'docx'],
-            // Detected content types (libmagic reports Word files in several ways).
-            'mimetypes' => [
-                'application/pdf', 'application/x-pdf',
-                'application/msword', 'application/vnd.ms-office', 'application/cdfv2', 'application/CDFV2', 'application/x-ole-storage',
-                'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/zip',
+            // Extension => content types libmagic may report for it; a file must match its own extension's list.
+            // Programs and installers (exe, apk, bat, js…) are never accepted.
+            'types' => [
+                'pdf' => ['application/pdf', 'application/x-pdf'],
+                'doc' => ['application/msword', 'application/vnd.ms-office', 'application/cdfv2', 'application/x-ole-storage'],
+                'docx' => ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/zip'],
+                'xls' => ['application/vnd.ms-excel', 'application/vnd.ms-office', 'application/cdfv2', 'application/x-ole-storage'],
+                'xlsx' => ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/zip'],
+                'ppt' => ['application/vnd.ms-powerpoint', 'application/vnd.ms-office', 'application/cdfv2', 'application/x-ole-storage'],
+                'pptx' => ['application/vnd.openxmlformats-officedocument.presentationml.presentation', 'application/zip'],
+                'odt' => ['application/vnd.oasis.opendocument.text', 'application/zip'],
+                'ods' => ['application/vnd.oasis.opendocument.spreadsheet', 'application/zip'],
+                'odp' => ['application/vnd.oasis.opendocument.presentation', 'application/zip'],
+                'rtf' => ['text/rtf', 'application/rtf'],
+                'txt' => ['text/plain'],
+                'csv' => ['text/csv', 'text/plain', 'application/csv', 'text/x-csv'],
+                'zip' => ['application/zip', 'application/x-zip-compressed'],
+                'rar' => ['application/x-rar', 'application/vnd.rar', 'application/x-rar-compressed'],
+                '7z' => ['application/x-7z-compressed'],
+                'mp3' => ['audio/mpeg', 'audio/mp3', 'audio/x-mpeg'],
+                'm4a' => ['audio/mp4', 'audio/x-m4a', 'video/mp4'],
             ],
+            'extensions' => ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'odt', 'ods', 'odp', 'rtf', 'txt', 'csv', 'zip', 'rar', '7z', 'mp3', 'm4a'],
             'max_kb' => (int) env('CHAT_MAX_DOCUMENT_KB', 10240),
+        ],
+
+        // Played in the browser: MP4 (H.264) everywhere, WebM on Android/Chrome, MOV/3GP from phones.
+        // Keep max_kb below PHP's upload_max_filesize / post_max_size and Nginx client_max_body_size.
+        'video' => [
+            'extensions' => ['mp4', 'm4v', 'webm', 'mov', '3gp'],
+            'mimetypes' => [
+                'video/mp4', 'video/x-m4v', 'application/mp4', 'video/webm', 'video/quicktime',
+                'video/3gpp', 'video/3gpp2', 'audio/mp4', 'audio/3gpp',
+            ],
+            'max_kb' => (int) env('CHAT_MAX_VIDEO_KB', 16384),
+            'max_seconds' => 3 * 3600,
+            // Poster frame captured by the sender's browser.
+            'thumbnail_max_kb' => 1024,
         ],
 
         'voice' => [
@@ -75,6 +121,10 @@ return [
             ],
             'max_kb' => (int) env('CHAT_MAX_VOICE_KB', 10240),
             'max_seconds' => 300,
+        ],
+
+        'sticker' => [
+            'max_kb' => 2048,
         ],
 
         'avatar' => [

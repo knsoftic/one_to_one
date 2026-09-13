@@ -94,11 +94,12 @@ class ImageService
      * Re-encode an image (drops metadata) and cap its longest edge.
      *
      * @param  'jpeg'|'png'  $format
+     * @param  int  $quality  JPEG quality (0–100)
      * @return array{binary:string,width:int,height:int}
      *
      * @throws RuntimeException
      */
-    public function reencode(string $absolutePath, int $maxEdge, string $format = 'jpeg'): array
+    public function reencode(string $absolutePath, int $maxEdge, string $format = 'jpeg', int $quality = 88): array
     {
         $source = $this->load($absolutePath);
         $width = imagesx($source);
@@ -119,12 +120,45 @@ class ImageService
         imagecopyresampled($canvas, $source, 0, 0, 0, 0, $targetWidth, $targetHeight, $width, $height);
 
         ob_start();
-        $format === 'png' ? imagepng($canvas, null, 6) : imagejpeg($canvas, null, 88);
+        $format === 'png' ? imagepng($canvas, null, 6) : imagejpeg($canvas, null, max(0, min(100, $quality)));
         $binary = (string) ob_get_clean();
 
         unset($source, $canvas);
 
         return ['binary' => $binary, 'width' => $targetWidth, 'height' => $targetHeight];
+    }
+
+    /**
+     * A square sticker: the image fitted inside size×size on a transparent
+     * background, encoded as WebP (transparency kept).
+     *
+     * @throws RuntimeException
+     */
+    public function sticker(string $absolutePath, int $size): string
+    {
+        $source = $this->load($absolutePath);
+        $width = imagesx($source);
+        $height = imagesy($source);
+        $scale = min($size / $width, $size / $height);
+        $targetWidth = max(1, (int) round($width * $scale));
+        $targetHeight = max(1, (int) round($height * $scale));
+
+        $canvas = $this->canvas($size, $size);
+        imagealphablending($canvas, true);
+        imagecopyresampled(
+            $canvas, $source,
+            intdiv($size - $targetWidth, 2), intdiv($size - $targetHeight, 2),
+            0, 0,
+            $targetWidth, $targetHeight,
+            $width, $height
+        );
+        imagealphablending($canvas, false);
+        imagesavealpha($canvas, true);
+
+        $binary = $this->encodeWebp($canvas, 90);
+        unset($source, $canvas);
+
+        return $binary;
     }
 
     /**

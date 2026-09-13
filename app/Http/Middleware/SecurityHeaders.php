@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\GifService;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Vite;
@@ -27,8 +28,8 @@ class SecurityHeaders
             'X-Content-Type-Options' => 'nosniff',
             'X-Frame-Options' => 'SAMEORIGIN',
             'Referrer-Policy' => 'strict-origin-when-cross-origin',
-            // Microphone is needed for voice notes; everything else is disabled.
-            'Permissions-Policy' => 'microphone=(self), camera=(self), geolocation=(), payment=()',
+            // Microphone (voice notes, calls), camera (calls, in-app camera) and location sharing; everything else is disabled.
+            'Permissions-Policy' => 'microphone=(self), camera=(self), geolocation=(self), payment=()',
             'Cross-Origin-Opener-Policy' => 'same-origin',
         ];
 
@@ -68,7 +69,8 @@ class SecurityHeaders
             "default-src 'self'",
             "script-src 'self' 'nonce-{$nonce}'",
             "style-src 'self' 'unsafe-inline'",
-            "img-src 'self' data: blob:",
+            // GIF search previews come from Tenor's media host (only when GIF search is on).
+            "img-src 'self' data: blob:".(filled(config('chat.gifs.tenor_key')) ? ' https://'.GifService::MEDIA_HOST : ''),
             "media-src 'self' blob:",
             "font-src 'self' data:",
             'connect-src '.implode(' ', $connect),

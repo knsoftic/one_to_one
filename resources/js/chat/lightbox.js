@@ -4,7 +4,7 @@ import { icon } from '../lib/icons';
 /**
  * Full-screen image preview (click an image in the chat).
  */
-export function openLightbox({ src, name = '', download = '' }) {
+export function openLightbox({ src, name = '', download = '', protect = false }) {
     const previouslyFocused = document.activeElement;
     const overlay = document.createElement('div');
     overlay.className = 'lightbox';
@@ -27,6 +27,8 @@ export function openLightbox({ src, name = '', download = '' }) {
     `;
 
     const image = overlay.querySelector('.lightbox-image');
+    // View once (M22): no saving through the context menu.
+    if (protect) overlay.addEventListener('contextmenu', (event) => event.preventDefault());
     image.addEventListener('load', () => overlay.classList.add('is-loaded'));
 
     image.addEventListener('click', (event) => {

@@ -47,6 +47,7 @@
                         </button>
                         <div class="dropdown-menu" data-align="right" role="menu" hidden>
                             <button type="button" class="dropdown-item" data-action="new-chat" role="menuitem"><x-icon name="message-square-plus" /> New chat</button>
+                            <button type="button" class="dropdown-item" data-action="open-starred" role="menuitem"><x-icon name="star" /> Starred messages</button>
                             <a href="{{ route('profile.edit') }}" class="dropdown-item" role="menuitem"><x-icon name="settings" /> Settings</a>
                             <a href="{{ route('profile.edit', ['tab' => 'preferences']) }}" class="dropdown-item" role="menuitem"><x-icon name="bell" /> Notifications</a>
                             @if ($user->isAdmin() && Route::has('admin.dashboard'))
@@ -167,6 +168,23 @@
                     </div>
                 </div>
             </div>
+
+            {{-- ======================= Starred messages view ======================= --}}
+            <div class="sidebar-view starred-view" data-sidebar-view="starred" hidden>
+                <header class="contacts-header">
+                    <button type="button" class="btn-icon" data-action="close-starred" aria-label="Back to chats">
+                        <x-icon name="arrow-left" />
+                    </button>
+                    <div class="min-w-0 flex-1">
+                        <div class="contacts-title">Starred messages</div>
+                        <div class="contacts-subtitle">Only you can see these</div>
+                    </div>
+                </header>
+                <div class="sidebar-scroll" data-starred-scroll>
+                    <div data-starred-list></div>
+                    <div class="flex justify-center py-3" data-starred-more hidden><span class="spinner"></span></div>
+                </div>
+            </div>
         </aside>
 
         {{-- Mobile bottom navigation --}}
@@ -222,6 +240,9 @@
                     </div>
 
                     <div class="chat-header-actions">
+                        <button type="button" class="btn-icon chat-search-toggle" data-action="chat-search" aria-label="Search in chat" title="Search in chat">
+                            <x-icon name="search" />
+                        </button>
                         @if (config('chat.calls.enabled', true))
                             <button type="button" class="btn-icon" data-action="call-video" data-call-button data-call-label="Video call" aria-label="Video call" title="Video call" hidden>
                                 <x-icon name="video" />
@@ -237,13 +258,39 @@
                             <div class="dropdown-menu" data-align="right" role="menu" hidden data-conversation-menu></div>
                         </div>
                     </div>
+
+                    {{-- Search inside this chat (covers the header while open) --}}
+                    <div class="chat-search" data-chat-search hidden>
+                        <button type="button" class="btn-icon" data-chat-search-close aria-label="Close search">
+                            <x-icon name="arrow-left" />
+                        </button>
+                        <input type="search" class="chat-search-input" data-chat-search-input placeholder="Search messages" aria-label="Search messages in this chat" autocomplete="off" maxlength="100" enterkeyhint="search">
+                        <span class="chat-search-count" data-chat-search-count aria-live="polite"></span>
+                        <button type="button" class="btn-icon" data-chat-search-older aria-label="Older match" disabled>
+                            <x-icon name="chevron-up" />
+                        </button>
+                        <button type="button" class="btn-icon" data-chat-search-newer aria-label="Newer match" disabled>
+                            <x-icon name="chevron-down" />
+                        </button>
+                        <div class="chat-search-results dropdown-menu" data-chat-search-results role="listbox" aria-label="Search results" hidden></div>
+                    </div>
                 </header>
+
+                {{-- Pinned messages --}}
+                <button type="button" class="pinned-bar" data-pinned-bar hidden>
+                    <span class="pinned-bar-icon"><x-icon name="pin" /></span>
+                    <span class="pinned-bar-body">
+                        <span class="pinned-bar-label" data-pinned-label>Pinned message</span>
+                        <span class="pinned-bar-text" data-pinned-text></span>
+                    </span>
+                    <span class="pinned-bar-dots" data-pinned-dots aria-hidden="true"></span>
+                </button>
 
                 <div class="chat-messages" data-messages tabindex="0" aria-label="Messages">
                     <div class="older-loader" data-older-sentinel hidden><span class="spinner"></span></div>
                     <div class="message-list" data-message-list role="log" aria-live="polite"></div>
                     <div class="typing-row" data-typing-row hidden>
-                        <div class="typing-bubble" aria-label="Typing"><span></span><span></span><span></span></div>
+                        <div class="typing-bubble" aria-label="Typing"><span></span><span></span><span></span><x-icon name="mic" class="typing-mic" /></div>
                     </div>
                 </div>
 
@@ -265,6 +312,7 @@
 
                     <div class="composer-extras" data-composer-extras>
                         <div data-composer-context></div>
+                        <div data-link-preview></div>
                         <div data-attachment-preview></div>
                     </div>
 
@@ -288,6 +336,7 @@
                         <button type="button" class="btn-icon voice-stop" data-voice-stop aria-label="Stop recording" title="Stop">
                             <x-icon name="square" />
                         </button>
+                        <button type="button" class="view-once-toggle" data-voice-once aria-pressed="false" title="Send as view once" hidden>1</button>
                         <button type="button" class="composer-send" data-voice-send aria-label="Send voice message" hidden>
                             <x-icon name="send-horizontal" />
                         </button>
@@ -305,11 +354,14 @@
                                       maxlength="{{ config('chat.max_message_length') }}" aria-label="Message" data-composer-input></textarea>
 
                             <div class="composer-inline-actions" data-composer-inline-actions>
-                                <button type="button" class="btn-icon btn-icon-sm" data-attach-button aria-label="Attach a file" title="Attach photo or document">
+                                <button type="button" class="btn-icon btn-icon-sm" data-attach-button aria-label="Attach a file" title="Attach photos, videos or files">
                                     <x-icon name="paperclip" />
                                 </button>
-                                <input type="file" class="sr-only" tabindex="-1" data-attach-input
-                                       accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,image/jpeg,image/png,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+                                <button type="button" class="btn-icon btn-icon-sm" data-camera-button aria-label="Open camera" title="Camera" hidden>
+                                    <x-icon name="camera" />
+                                </button>
+                                <input type="file" class="sr-only" tabindex="-1" data-attach-input multiple
+                                       accept="{{ collect(config('chat.uploads.image.extensions'))->merge(config('chat.uploads.video.extensions'))->merge(config('chat.uploads.document.extensions'))->map(fn ($extension) => '.'.$extension)->implode(',') }},image/jpeg,image/png,video/*">
                             </div>
                         </div>
 

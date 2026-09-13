@@ -65,3 +65,9 @@ export function formatLastSeen(value) {
     if (days < 7) return `last seen ${weekdayLong.format(date)} at ${time}`;
     return `last seen ${fullDate.format(date)} at ${time}`;
 }
+
+/** "Today, 3:45 PM" / "Yesterday, 9:02 AM" / "Mon, Sep 8, 7:10 PM" — for message info. */
+export function formatDateTime(value) {
+    if (!value) return '';
+    return `${formatDayLabel(value)}, ${formatTime(value)}`;
+}

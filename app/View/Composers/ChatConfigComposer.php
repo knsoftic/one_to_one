@@ -3,6 +3,7 @@
 namespace App\View\Composers;
 
 use App\Http\Resources\UserResource;
+use App\Services\GifService;
 use Illuminate\Support\Facades\Route;
 use Illuminate\View\View;
 
@@ -39,6 +40,22 @@ class ChatConfigComposer
             'delivered' => ['messages.delivered', []],
             'messageUpdate' => ['messages.update', ['message' => $id]],
             'messageDestroy' => ['messages.destroy', ['message' => $id]],
+            'messageForward' => ['messages.forward', ['message' => $id]],
+            'messagesSearch' => ['messages.search', ['conversation' => $id]],
+            'messageStar' => ['messages.star', ['message' => $id]],
+            'messagePin' => ['messages.pin', ['message' => $id]],
+            'starred' => ['starred.index', []],
+            'linkPreview' => ['link-previews.show', []],
+            'messageLocation' => ['messages.location.update', ['message' => $id]],
+            'messageVote' => ['messages.vote', ['message' => $id]],
+            'disappearing' => ['conversations.disappearing', ['conversation' => $id]],
+            'viewOnce' => ['messages.view-once', ['message' => $id]],
+            'stickers' => ['stickers.index', []],
+            'stickersStore' => ['stickers.store', []],
+            'stickerDestroy' => ['stickers.destroy', ['sticker' => $id]],
+            'messageSaveSticker' => ['messages.sticker.save', ['message' => $id]],
+            'gifs' => ['gifs.index', []],
+            'messageReaction' => ['messages.reaction.update', ['message' => $id]],
             'heartbeat' => ['presence.heartbeat', []],
             'offline' => ['presence.offline', []],
             'sync' => ['chat.sync', []],
@@ -67,6 +84,11 @@ class ChatConfigComposer
             }
         }
 
+        // GIF search is offered only when a Tenor key is configured.
+        if (! app(GifService::class)->enabled()) {
+            unset($routes['gifs']);
+        }
+
         $reverb = config('broadcasting.connections.reverb');
 
         $view->with('chatConfig', [
@@ -79,6 +101,10 @@ class ChatConfigComposer
                 'perPage' => config('chat.messages_per_page'),
                 'image' => config('chat.uploads.image'),
                 'document' => config('chat.uploads.document'),
+                'video' => [
+                    'extensions' => config('chat.uploads.video.extensions'),
+                    'max_kb' => config('chat.uploads.video.max_kb'),
+                ],
                 'voice' => [
                     'max_kb' => config('chat.uploads.voice.max_kb'),
                     'max_seconds' => config('chat.uploads.voice.max_seconds'),
