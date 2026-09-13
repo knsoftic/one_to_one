@@ -4,6 +4,7 @@ A modern, secure, real-time **one-to-one chat** web application built with **Lar
 
 - Private conversations between exactly two people, delivered instantly
 - Text, emoji, images, PDF/DOC/DOCX documents and voice notes
+- **Voice and video calls** (WebRTC): ringing on every device, mute, camera on/off, switch camera, call history in the chat
 - Reply, edit, copy, delete for me / delete for everyone
 - ✓ sent · ✓✓ delivered · blue ✓✓ seen receipts, typing indicator, online status & "last seen"
 - Recent chats with unread badges, user search, block / unblock
@@ -18,7 +19,7 @@ See [`development-progress.md`](development-progress.md) for the phase-by-phase 
 
 **Deploying on aaPanel?** Follow the step-by-step guide: [`docs/DEPLOYMENT-AAPANEL.md`](docs/DEPLOYMENT-AAPANEL.md) (chat.hunario.com).
 
-**Android app:** a Capacitor app in [`mobile/`](mobile/README.md) wraps the live site and adds full phone-book contact matching, WhatsApp-style push notifications (Firebase, with Reply / Mark as read and a fallback for phones without Google services), native downloads and the Android back button.
+**Android app:** a Capacitor app in [`mobile/`](mobile/README.md) wraps the live site and adds full phone-book contact matching, WhatsApp-style ringing for calls, push notifications (Firebase, with Reply / Mark as read and a fallback for phones without Google services), native downloads and the Android back button.
 
 ---
 
@@ -330,7 +331,7 @@ CREATE DATABASE one_to_one_chat_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unico
 php artisan test
 ```
 
-The suite (151 tests) covers authentication, profiles, conversations, messaging, realtime events, receipts, presence, polling sync, attachments (with real content-type detection), message actions, notifications, blocking, phone contacts, mobile app device notifications, the admin panel and security headers.
+The suite (171 tests) covers authentication, profiles, conversations, messaging, realtime events, receipts, presence, polling sync, attachments (with real content-type detection), message actions, notifications, blocking, phone contacts, mobile app device notifications, the admin panel and security headers.
 
 Code style: `vendor/bin/pint`
 
@@ -423,6 +424,9 @@ All chat settings live in [`config/chat.php`](config/chat.php) and can be tuned 
 | `CHAT_DELETE_FOR_EVERYONE_WINDOW_MINUTES` | 0 | "Delete for everyone" time limit (0 = unlimited) |
 | `CHAT_POLLING_INTERVAL_MS` | 4000 | Polling interval when WebSockets are unavailable |
 | `CHAT_CSP` | true | Content-Security-Policy header |
+| `CHAT_CALLS_ENABLED` | true | Voice & video call buttons |
+| `CHAT_CALL_RING_SECONDS` | 45 | Unanswered calls become missed |
+| `CHAT_CALL_TURN_URLS` / `CHAT_CALL_TURN_SECRET` | – | TURN relay for calls on mobile data (coturn, see the aaPanel guide step 19) |
 
 Artisan commands:
 
@@ -430,6 +434,7 @@ Artisan commands:
 |---------|-------------|
 | `php artisan chat:make-admin {email}` | Grant admin access to an existing user |
 | `php artisan chat:sweep-presence` | Mark users without recent activity offline (scheduled every minute) |
+| `php artisan chat:expire-calls` | Close unanswered and abandoned calls (scheduled every minute) |
 | `npm run icons` | Regenerate `resources/icons/icons.json` from Lucide |
 
 ---

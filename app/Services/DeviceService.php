@@ -137,6 +137,10 @@ class DeviceService
                 // __ID__ is replaced by the conversation id on the phone.
                 'reply' => route('device.reply', ['conversation' => '__ID__']),
                 'read' => route('device.read', ['conversation' => '__ID__']),
+                // __ID__ is replaced by the call id.
+                'call_ringing' => route('device.calls.ringing', ['call' => '__ID__']),
+                'call_decline' => route('device.calls.decline', ['call' => '__ID__']),
+                'call_end' => route('device.calls.end', ['call' => '__ID__']),
             ],
         ];
     }

@@ -22,7 +22,13 @@ const PERMISSIONS = [
         name: 'microphone',
         icon: 'mic',
         title: 'Microphone',
-        text: 'Record and send voice messages.',
+        text: 'Voice calls, video calls and voice messages.',
+    },
+    {
+        name: 'camera',
+        icon: 'video',
+        title: 'Camera',
+        text: 'Video calls.',
     },
 ];
 

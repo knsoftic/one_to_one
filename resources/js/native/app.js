@@ -32,6 +32,7 @@ export function initNativeApp(config) {
 
     if (appConfig.user && document.querySelector('[data-chat-app]')) {
         trackActiveConversation();
+        bindCalls();
         setUpChatPage().catch((error) => console.warn('App setup incomplete:', error?.message ?? error));
     }
 
@@ -125,7 +126,8 @@ async function enableNotifications() {
     const status = await NativeApp.getNotificationStatus();
 
     // Already set up for this account: the app restarts the background connection by itself.
-    if (!status.enabled || Number(status.userId) !== Number(appConfig.user.id)) {
+    // Settings saved by an older app version lack the call endpoints: register again.
+    if (!status.enabled || Number(status.userId) !== Number(appConfig.user.id) || status.callsReady === false) {
         const info = await NativeApp.getInfo().catch(() => ({}));
         const { data } = await axios.post(appConfig.routes.devices, {
             platform: 'android',
@@ -137,6 +139,58 @@ async function enableNotifications() {
     // New messages now arrive as phone notifications (also while the app is open),
     // so the web app skips its own toast and chime.
     if (window.Chat) window.Chat.nativeNotifications = true;
+}
+
+/**
+ * Calls inside the app: the phone's own ringtone, the ongoing-call service (keeps
+ * talking with the screen off or in another app), speaker / earpiece and Hang up
+ * from the notification.
+ */
+function bindCalls() {
+    const attach = () => {
+        window.Chat?.calls?.setNativeBridge({
+            ringtone: true,
+            setSpeaker: (on) => NativeApp.setSpeakerphone({ on }).catch(() => {}),
+        });
+    };
+    if (window.Chat?.calls) attach();
+    else document.addEventListener('chat:ready', attach, { once: true });
+
+    document.addEventListener('call:state', ({ detail }) => {
+        const { state, call, type, peer, speaker } = detail;
+
+        switch (state) {
+            case 'incoming':
+                NativeApp.startRingtone().catch(() => {});
+                break;
+            case 'incoming-answered':
+            case 'incoming-dismissed':
+                NativeApp.stopRingtone().catch(() => {});
+                break;
+            case 'outgoing':
+            case 'active':
+                NativeApp.startCall({
+                    callId: call?.id ?? 0,
+                    conversationId: call?.conversation_id ?? 0,
+                    type: type ?? 'audio',
+                    name: peer?.name ?? '',
+                    speaker: Boolean(speaker),
+                }).catch(() => {});
+                break;
+            case 'connected':
+                NativeApp.updateCall({ connectedAt: Date.now() }).catch(() => {});
+                break;
+            case 'ended':
+                NativeApp.endCall().catch(() => {});
+                break;
+            default:
+                break;
+        }
+    });
+
+    NativeApp.addListener('callAction', ({ action }) => {
+        if (action === 'hangup') window.Chat?.calls?.hangUp();
+    });
 }
 
 /** Tell the app which chat is on screen: its messages don't need a phone notification. */

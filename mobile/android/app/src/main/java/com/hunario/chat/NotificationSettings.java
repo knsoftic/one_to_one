@@ -36,6 +36,9 @@ final class NotificationSettings {
     final String deliveredUrl;
     final String replyUrl;
     final String readUrl;
+    final String callRingingUrl;
+    final String callDeclineUrl;
+    final String callEndUrl;
     final boolean serverPush;
     final String mode;
     final int pollIntervalSeconds;
@@ -55,6 +58,9 @@ final class NotificationSettings {
         deliveredUrl = prefs.getString("delivered_url", "");
         replyUrl = prefs.getString("reply_url", "");
         readUrl = prefs.getString("read_url", "");
+        callRingingUrl = prefs.getString("call_ringing_url", "");
+        callDeclineUrl = prefs.getString("call_decline_url", "");
+        callEndUrl = prefs.getString("call_end_url", "");
         serverPush = prefs.getBoolean("server_push", false);
         mode = prefs.getString("mode", "");
         pollIntervalSeconds = Math.max(15, prefs.getInt("poll_interval", 60));
@@ -77,9 +83,9 @@ final class NotificationSettings {
         return !websocketUrl.isEmpty() && !authUrl.isEmpty() && !channel.isEmpty();
     }
 
-    /** Endpoint for a conversation (the server sends templates with __ID__). */
-    static String forConversation(String template, long conversationId) {
-        return template.replace("__ID__", String.valueOf(conversationId));
+    /** Endpoint for a conversation or call (the server sends templates with __ID__). */
+    static String forConversation(String template, long id) {
+        return template == null || template.isEmpty() ? "" : template.replace("__ID__", String.valueOf(id));
     }
 
     /** Save the server's connection details and switch notifications on. */
@@ -106,6 +112,9 @@ final class NotificationSettings {
             .putString("delivered_url", endpoints.optString("delivered", ""))
             .putString("reply_url", endpoints.optString("reply", ""))
             .putString("read_url", endpoints.optString("read", ""))
+            .putString("call_ringing_url", endpoints.optString("call_ringing", ""))
+            .putString("call_decline_url", endpoints.optString("call_decline", ""))
+            .putString("call_end_url", endpoints.optString("call_end", ""))
             .putBoolean("server_push", push != null && push.optBoolean("fcm", false))
             .putInt("poll_interval", details.optInt("poll_interval_seconds", 60))
             .putBoolean("show_preview", details.optBoolean("show_preview", true))

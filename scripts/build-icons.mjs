@@ -18,11 +18,11 @@ const ICONS = [
     'circle-pause', 'circle-x', 'clock', 'cloud-off', 'copy', 'corner-up-left', 'download', 'ellipsis-vertical',
     'external-link', 'eye', 'eye-off', 'file', 'file-text', 'image', 'info', 'key-round',
     'layout-dashboard', 'loader-circle', 'lock', 'log-out', 'mail', 'menu', 'message-circle',
-    'message-square-plus', 'message-square-text', 'mic', 'monitor', 'moon', 'palette', 'paperclip',
-    'pause', 'pencil', 'phone', 'play', 'refresh-cw', 'search', 'send-horizontal', 'settings',
-    'shield', 'shield-check', 'signal-low', 'smile', 'sparkles', 'square', 'sun', 'trash-2', 'trending-up',
+    'message-square-plus', 'message-square-text', 'mic', 'mic-off', 'minimize-2', 'monitor', 'moon', 'palette', 'paperclip',
+    'pause', 'pencil', 'phone', 'phone-incoming', 'phone-missed', 'phone-off', 'phone-outgoing', 'play', 'refresh-cw', 'search', 'send-horizontal', 'settings',
+    'shield', 'shield-check', 'signal-low', 'smile', 'sparkles', 'square', 'sun', 'switch-camera', 'trash-2', 'trending-up',
     'undo-2', 'upload', 'user', 'user-check', 'user-cog', 'user-plus', 'user-round', 'user-x',
-    'users', 'volume-2', 'wifi', 'wifi-off', 'x', 'zoom-in',
+    'users', 'video', 'video-off', 'volume-1', 'volume-2', 'wifi', 'wifi-off', 'x', 'zoom-in',
 ];
 
 const pascal = (name) => name.replace(/(^|-)([a-z0-9])/g, (_, __, c) => c.toUpperCase());

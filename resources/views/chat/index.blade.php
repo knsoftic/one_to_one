@@ -230,6 +230,14 @@
                     </div>
 
                     <div class="chat-header-actions">
+                        @if (config('chat.calls.enabled', true))
+                            <button type="button" class="btn-icon" data-action="call-video" data-call-button data-call-label="Video call" aria-label="Video call" title="Video call" hidden>
+                                <x-icon name="video" />
+                            </button>
+                            <button type="button" class="btn-icon" data-action="call-audio" data-call-button data-call-label="Voice call" aria-label="Voice call" title="Voice call" hidden>
+                                <x-icon name="phone" />
+                            </button>
+                        @endif
                         <div class="dropdown">
                             <button type="button" class="btn-icon" data-dropdown-toggle aria-haspopup="menu" aria-expanded="false" aria-label="Conversation options">
                                 <x-icon name="ellipsis-vertical" />

@@ -57,8 +57,9 @@ export function conversationItem(conversation, { active = false, typing = false 
     if (typing) {
         preview = html`<span class="conversation-preview-text is-typing">typing…</span>`;
     } else if (last) {
-        const ticks = last.is_mine && !last.is_deleted ? statusTicks(last.status) : '';
-        const prefix = last.is_mine && !last.is_deleted ? 'You: ' : '';
+        const plainMine = last.is_mine && !last.is_deleted && last.type !== 'call';
+        const ticks = plainMine ? statusTicks(last.status) : '';
+        const prefix = plainMine ? 'You: ' : '';
         preview =
             raw(ticks).value +
             html`<span class="conversation-preview-text${last.is_deleted ? ' is-deleted' : ''}">${prefix}${last.preview}</span>`;
@@ -180,8 +181,54 @@ function messageMeta(message) {
     const parts = [];
     if (message.is_edited) parts.push('<span class="message-edited">Edited</span>');
     parts.push(html`<time datetime="${message.created_at}">${formatTime(message.created_at)}</time>`);
-    if (message.is_mine && !message.is_deleted) parts.push(statusTicks(message.status));
+    if (message.is_mine && !message.is_deleted && message.type !== 'call') parts.push(statusTicks(message.status));
     return `<span class="message-meta" data-message-meta>${parts.join('')}</span>`;
+}
+
+const MISSED_CALL_REASONS = ['missed', 'cancelled', 'busy'];
+
+/**
+ * How a call-history entry reads for the current user (the sender is the caller).
+ */
+export function callSummary(message) {
+    const call = message.call ?? {};
+    const video = call.type === 'video';
+    const kind = video ? 'video call' : 'voice call';
+    const Kind = video ? 'Video call' : 'Voice call';
+    const missed = !message.is_mine && MISSED_CALL_REASONS.includes(call.reason);
+    const duration = call.reason === 'completed' && call.duration != null ? formatDuration(call.duration) : '';
+
+    if (message.is_mine) {
+        const outcome = { missed: 'No answer', cancelled: 'Cancelled', busy: 'Busy', declined: 'Declined', failed: "Couldn't connect" };
+        return { title: Kind, detail: duration || outcome[call.reason] || '', iconName: video ? 'video' : 'phone-outgoing', missed, video };
+    }
+
+    if (missed) {
+        return { title: `Missed ${kind}`, detail: 'Tap to call back', iconName: 'phone-missed', missed, video };
+    }
+
+    return {
+        title: call.reason === 'declined' ? `Declined ${kind}` : Kind,
+        detail: duration || (call.reason === 'failed' ? "Couldn't connect" : ''),
+        iconName: video ? 'video' : 'phone-incoming',
+        missed,
+        video,
+    };
+}
+
+function callHistory(message) {
+    const summary = callSummary(message);
+
+    return html`
+        <button type="button" class="call-log${summary.missed ? ' is-missed' : ''}" data-action="call-back"
+                data-call-type="${summary.video ? 'video' : 'audio'}" title="Call again">
+            <span class="call-log-icon">${raw(icon(summary.iconName))}</span>
+            <span class="call-log-body">
+                <span class="call-log-title">${summary.title}</span>
+                ${raw(summary.detail ? html`<span class="call-log-detail">${summary.detail}</span>` : '')}
+            </span>
+        </button>
+    `;
 }
 
 /**
@@ -196,6 +243,10 @@ export function previewOf(message) {
             return `📄 ${message.attachment?.name || 'Document'}`;
         case 'voice':
             return '🎤 Voice message';
+        case 'call': {
+            const summary = callSummary(message);
+            return `${summary.video ? '📹' : '📞'} ${summary.title}`;
+        }
         default: {
             const text = String(message.body || '').replace(/\s+/g, ' ').trim();
             return text.length > 80 ? `${text.slice(0, 80)}…` : text;
@@ -287,6 +338,8 @@ function messageContent(message) {
     if (message.is_deleted) {
         return `<span class="message-deleted">${icon('ban')}${message.is_mine ? 'You deleted this message' : 'This message was deleted'}</span>`;
     }
+
+    if (message.type === 'call') return callHistory(message);
 
     let attachment = '';
     if (message.attachment) {

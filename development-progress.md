@@ -352,3 +352,34 @@ The user chose Firebase Cloud Messaging (free) for push, with notifications that
 - ✅ PHPUnit — **151 tests passed** (11 new: token save/move/clear, `push.fcm` flag, data payload with saved name/avatar/notification id, no push without credentials or with notifications off, read push, stale token, delivered, Reply incl. block/participant rules, Mark as read).
 - ✅ APK builds without and with a (placeholder) `google-services.json` — `processDebugGoogleServices` runs and `google_app_id` is generated; Android lint 0 errors.
 - ⏳ Needs the real Firebase project: `google-services.json` for the APK and the service-account JSON on the server; then on-device checks.
+
+---
+
+## Enhancements — Voice & video calls
+
+WhatsApp-style one-to-one calls in the browser and the Android app. Media is peer-to-peer (WebRTC); the server coordinates the call and relays signaling.
+
+### Server
+- `calls` (ringing → ongoing → ended with `completed / declined / missed / cancelled / busy / failed`, answering device, duration, last heartbeat per side) and `call_signals` (offer / answer / ICE candidate / media state per device, deleted when the call ends).
+- `CallService`: start (row-locked against double calls; callee already in a call → ends as *busy*), ringing ack, accept on exactly one device (409 for the others), decline, hang up, signaling, heartbeat, `expireStale()` (unanswered after ring timeout → missed; both devices silent → closed with the duration until they were last heard from). Every ended call adds a **call-history message** (`message_type = call`), unread for the callee only when missed; missed calls notify like messages ("Missed voice call from …", push included).
+- Events `call.incoming` (callee), `call.updated` (both), `call.signal` (recipient; session descriptions above 6 KB are fetched over HTTP because of Reverb's request size limit).
+- `IceServerService`: STUN + optional TURN with coturn short-lived HMAC credentials (`CHAT_CALL_TURN_*`).
+- Firebase pushes `call` (high priority, TTL = ring timeout) and `call_state` (stop ringing when answered elsewhere / ended); device API to mark ringing, decline and hang up from the phone while the app is closed.
+- Routes under `/conversations/{id}/calls` and `/calls/{call}/…` with policies (participants only, 404 otherwise; blocked users 403) and rate limits; polling sync includes active calls; `chat:expire-calls` scheduled every minute; call history cannot be deleted for everyone.
+
+### Web
+- `resources/js/chat/calls.js`: call buttons in the chat header and "call again" on history bubbles; full-screen call view (incoming / calling / ringing / connecting / timer / reconnecting / ended), mute, camera on/off, switch camera, minimise to a floating pill, remote mute/camera-off indicators, generated ringtone/ringback, background-tab browser notification.
+- One client id per tab/phone; candidates queued until the matching description is applied; ICE restart by the caller (up to 3×) and "Couldn't connect" after 35 s; polling for state and signals so calls also work without WebSockets; heartbeats; ending the call when the page is closed.
+- Call history bubbles and chat-list previews from each side's perspective ("Missed voice call", "Video call · 3:24", "No answer").
+- `resources/css/calls.css`; Permissions-Policy allows the camera.
+
+### Android
+- Full-screen incoming call over the lock screen (`IncomingCallActivity`) and ringing `CallStyle` notification with Answer / Decline (`CallNotifier`, plain actions when full-screen intents are not allowed), from Firebase or the fallback WebSocket; rings inside the open app instead when the chat page can take it (`CallDispatcher`).
+- Answer opens the chat with `?call=ID&answer=1` and connects immediately; `OngoingCallService` (microphone/camera foreground service) keeps the call alive in the background with an "Ongoing call" notification and Hang up, earpiece/speaker routing and the proximity sensor; `CallRinger` plays the phone's ringtone while the app is open.
+- Camera permission added to the permissions asked on first open.
+
+### Verification
+- ✅ PHPUnit — **171 tests passed** (20 new in `CallTest`: start/permissions/busy, ringing, single-device answer, decline, cancel → missed, duration, strangers, history deletion, signal routing and cleanup, sync, stale calls, TURN credentials, pushes, phone decline).
+- ✅ Vite build; call screen rendered in a browser harness (incoming and connected states).
+- ✅ Android debug APK builds; Android lint 0 errors.
+- ⏳ Needs real devices: two accounts calling each other (Wi-Fi and mobile data), and a TURN server on the production server for mobile networks (aaPanel guide step 19).

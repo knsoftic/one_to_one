@@ -4,6 +4,8 @@ namespace App\Listeners;
 
 use App\Events\MessageSent;
 use App\Jobs\SendMessagePush;
+use App\Models\Call;
+use App\Models\Message;
 use App\Notifications\NewMessageNotification;
 use App\Services\PushService;
 use Illuminate\Support\Facades\Log;
@@ -24,6 +26,12 @@ class SendNewMessageNotification
         $receiver = $message->receiver;
 
         if (! $receiver || ! $receiver->isActive()) {
+            return;
+        }
+
+        // Call history only notifies the person called, and only about missed calls.
+        if ($message->message_type === Message::TYPE_CALL
+            && ! in_array($message->attachment_meta['reason'] ?? null, Call::MISSED_REASONS, true)) {
             return;
         }
 

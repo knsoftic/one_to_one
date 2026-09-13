@@ -37,11 +37,16 @@ final class AvatarLoader {
 
     /** Must be called off the main thread. */
     static Bitmap load(Context context, NotificationSettings settings, ChatNotification message) {
+        return load(context, settings, message.avatarUrl, message.initials, message.avatarHue);
+    }
+
+    /** Must be called off the main thread. */
+    static Bitmap load(Context context, NotificationSettings settings, String avatarUrl, String initials, int hue) {
         Bitmap photo = null;
-        if (!message.avatarUrl.isEmpty() && isOwnServer(message.avatarUrl, settings.serverUrl)) {
-            photo = cachedOrDownloaded(context, message.avatarUrl);
+        if (avatarUrl != null && !avatarUrl.isEmpty() && isOwnServer(avatarUrl, settings.serverUrl)) {
+            photo = cachedOrDownloaded(context, avatarUrl);
         }
-        return photo != null ? photo : initials(message.initials, message.avatarHue);
+        return photo != null ? photo : initials(initials, hue);
     }
 
     private static Bitmap cachedOrDownloaded(Context context, String url) {

@@ -6,6 +6,7 @@
 @import './chat.css';
 @import './admin.css';
 @import './native.css';
+@import './calls.css';
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';

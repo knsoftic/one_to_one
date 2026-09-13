@@ -82,5 +82,13 @@ class AppServiceProvider extends ServiceProvider
             Limit::perMinute(6)->by('contacts:'.($request->user()?->id ?? $request->ip())),
             Limit::perDay(50)->by('contacts-day:'.($request->user()?->id ?? $request->ip())),
         ]);
+
+        RateLimiter::for('calls-start', fn (Request $request) => [
+            Limit::perMinute(10)->by('calls:'.($request->user()?->id ?? $request->ip())),
+            Limit::perHour(120)->by('calls-hour:'.($request->user()?->id ?? $request->ip())),
+        ]);
+
+        // ICE candidates, session descriptions and polling while the WebSocket is down.
+        RateLimiter::for('calls-signal', fn (Request $request) => Limit::perMinute(600)->by('call-signals:'.($request->user()?->id ?? $request->ip())));
     }
 }

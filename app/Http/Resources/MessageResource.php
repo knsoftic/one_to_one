@@ -38,6 +38,12 @@ class MessageResource extends JsonResource
             'is_edited' => (bool) $this->is_edited && ! $deleted,
             'edited_at' => $this->edited_at?->toIso8601String(),
             'attachment' => $this->when(! $deleted && $this->attachment !== null, fn () => $this->attachmentPayload()),
+            'call' => $this->when(! $deleted && $this->message_type === Message::TYPE_CALL, fn () => [
+                'id' => $this->attachment_meta['call_id'] ?? null,
+                'type' => $this->attachment_meta['call_type'] ?? 'audio',
+                'reason' => $this->attachment_meta['reason'] ?? null,
+                'duration' => $this->attachment_meta['duration'] ?? null,
+            ]),
             'reply_to' => $this->replyPayload($viewerId),
             'status' => $this->status(),
             'sent_at' => ($this->sent_at ?? $this->created_at)?->toIso8601String(),

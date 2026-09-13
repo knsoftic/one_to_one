@@ -305,6 +305,23 @@ public class ChatNotificationService extends Service {
                 case NOTIFICATION_EVENT:
                     NotificationFeed.presentRealtime(this, settings, dataOf(frame));
                     break;
+                case "call.incoming": {
+                    JSONObject call = dataOf(frame).optJSONObject("call");
+                    if (call != null) {
+                        final NotificationSettings current = settings;
+                        final IncomingCall incoming = IncomingCall.fromJson(call, 45);
+                        // Loads the caller photo and may wait for the open app: keep the socket thread free.
+                        new Thread(() -> CallDispatcher.incoming(getApplicationContext(), current, incoming), "one2one-call").start();
+                    }
+                    break;
+                }
+                case "call.updated": {
+                    JSONObject call = dataOf(frame).optJSONObject("call");
+                    if (call != null) {
+                        CallDispatcher.stateChanged(this, call.optLong("id", 0), call.optString("status", ""));
+                    }
+                    break;
+                }
                 default:
                     break;
             }

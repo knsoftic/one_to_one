@@ -2,7 +2,9 @@
 
 namespace App\Services;
 
+use App\Http\Resources\CallResource;
 use App\Http\Resources\MessageResource;
+use App\Models\Call;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\User;
@@ -39,6 +41,10 @@ class SyncService
             )->values(),
             'typing' => $this->typingState($user, $conversationId),
             'presence' => $this->contactPresence($user),
+            // Ringing and ongoing calls (incoming calls still ring while polling).
+            'calls' => CallResource::collection(
+                Call::query()->active()->involving($user)->with(['caller', 'callee'])->latest('id')->limit(5)->get()
+            )->resolve($request),
         ];
     }
 

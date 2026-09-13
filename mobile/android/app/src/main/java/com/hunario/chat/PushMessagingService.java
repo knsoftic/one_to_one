@@ -36,6 +36,14 @@ public class PushMessagingService extends FirebaseMessagingService {
             List<Long> ids = new ArrayList<>();
             ids.add(message.messageId);
             NotificationFeed.markDelivered(settings, ids);
+        } else if ("call".equals(type)) {
+            CallDispatcher.incoming(this, settings, IncomingCall.fromPush(data));
+        } else if ("call_state".equals(type)) {
+            try {
+                CallDispatcher.stateChanged(this, Long.parseLong(String.valueOf(data.get("call_id"))), data.get("status"));
+            } catch (NumberFormatException ignored) {
+                // Malformed payload.
+            }
         } else if ("read".equals(type)) {
             String conversationId = data.get("conversation_id");
             if (conversationId != null) {

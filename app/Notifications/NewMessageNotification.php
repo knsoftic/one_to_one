@@ -35,7 +35,9 @@ class NewMessageNotification extends Notification
 
         return [
             'type' => 'new_message',
-            'title' => "{$sender->name} sent you a message",
+            'title' => $this->message->message_type === Message::TYPE_CALL
+                ? ltrim(mb_substr($this->message->callPreview(), 2)).' from '.$sender->name
+                : "{$sender->name} sent you a message",
             'body' => $this->message->preview(100),
             'conversation_id' => $this->message->conversation_id,
             'message_id' => $this->message->id,

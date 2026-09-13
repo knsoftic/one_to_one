@@ -29,6 +29,18 @@
     <string name="action_mark_read">Mark as read</string>
     <string name="reply_not_sent">%1$s — not sent. Tap to open the chat.</string>
     <string name="summary_messages_chats">%1$s from %2$d chats</string>
+
+    <!-- Calls -->
+    <string name="channel_calls">Incoming calls</string>
+    <string name="channel_calls_description">Rings for incoming voice and video calls</string>
+    <string name="channel_ongoing_calls">Ongoing calls</string>
+    <string name="incoming_voice_call">Incoming voice call</string>
+    <string name="incoming_video_call">Incoming video call</string>
+    <string name="ongoing_voice_call">Ongoing voice call</string>
+    <string name="ongoing_video_call">Ongoing video call</string>
+    <string name="call_connecting">Connecting…</string>
+    <string name="call_answer">Answer</string>
+    <string name="call_decline">Decline</string>
     <plurals name="new_messages">
         <item quantity="one">%d new message</item>
         <item quantity="other">%d new messages</item>

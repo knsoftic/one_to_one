@@ -22,6 +22,7 @@ import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import com.getcapacitor.annotation.Permission;
 import com.getcapacitor.annotation.PermissionCallback;
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -34,7 +35,8 @@ import org.json.JSONObject;
  * App-specific native features used by the web app:
  *  - getInfo(): app version
  *  - getContacts(): read-only phone book (names + numbers) for matching registered users
- *  - background message notifications without Firebase (see ChatNotificationService)
+ *  - message notifications (Firebase push or the fallback connection)
+ *  - calls: ringtone, ongoing-call service, speaker, Hang up from the notification
  */
 @CapacitorPlugin(
     name = "One2OneNative",
@@ -42,6 +44,7 @@ import org.json.JSONObject;
         @Permission(strings = { Manifest.permission.READ_CONTACTS }, alias = NativeAppPlugin.CONTACTS),
         @Permission(strings = { Manifest.permission.POST_NOTIFICATIONS }, alias = NativeAppPlugin.NOTIFICATIONS),
         @Permission(strings = { Manifest.permission.RECORD_AUDIO }, alias = NativeAppPlugin.MICROPHONE),
+        @Permission(strings = { Manifest.permission.CAMERA }, alias = NativeAppPlugin.CAMERA),
     }
 )
 public class NativeAppPlugin extends Plugin {
@@ -49,11 +52,103 @@ public class NativeAppPlugin extends Plugin {
     static final String CONTACTS = "contacts";
     static final String NOTIFICATIONS = "notifications";
     static final String MICROPHONE = "microphone";
+    static final String CAMERA = "camera";
+
+    private static WeakReference<NativeAppPlugin> instance = new WeakReference<>(null);
 
     private static final int MAX_CONTACTS = 20000;
     private static final int MAX_PHONES_PER_CONTACT = 10;
 
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
+
+    @Override
+    public void load() {
+        super.load();
+        instance = new WeakReference<>(this);
+    }
+
+    /**
+     * Forward a button pressed outside the web view (Hang up on the ongoing-call
+     * notification) to the web app.
+     *
+     * @return false when no page is listening (the app should end the call itself)
+     */
+    static boolean emitCallAction(String action, long callId) {
+        NativeAppPlugin plugin = instance.get();
+        if (plugin == null || plugin.bridge == null || !plugin.hasListeners("callAction")) {
+            return false;
+        }
+        JSObject data = new JSObject();
+        data.put("action", action);
+        data.put("callId", callId);
+        plugin.notifyListeners("callAction", data, true);
+        return true;
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Calls                                                               */
+    /* ------------------------------------------------------------------ */
+
+    /** The phone's ringtone + vibration for a call ringing while the app is open. */
+    @PluginMethod
+    public void startRingtone(PluginCall call) {
+        CallRinger.start(getContext());
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void stopRingtone(PluginCall call) {
+        CallRinger.stop();
+        call.resolve();
+    }
+
+    /**
+     * A call started on this phone ({ callId, conversationId, type, name, speaker }): keep it
+     * running in the background and show the ongoing-call notification.
+     */
+    @PluginMethod
+    public void startCall(PluginCall call) {
+        JSObject data = call.getData();
+        long callId = data.optLong("callId", 0);
+
+        CallRinger.stop();
+        if (callId > 0) {
+            CallNotifier.cancelIncoming(getContext(), callId);
+        }
+
+        OngoingCallService.start(
+            getContext(),
+            callId,
+            data.optLong("conversationId", 0),
+            "video".equals(data.optString("type")),
+            data.optString("name", ""),
+            data.optBoolean("speaker", "video".equals(data.optString("type")))
+        );
+        MainActivity.showOverLockScreen(true);
+        call.resolve();
+    }
+
+    /** The call connected ({ connectedAt } in milliseconds): the notification shows a timer. */
+    @PluginMethod
+    public void updateCall(PluginCall call) {
+        OngoingCallService.markConnected(getContext(), call.getData().optLong("connectedAt", System.currentTimeMillis()));
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void endCall(PluginCall call) {
+        CallRinger.stop();
+        OngoingCallService.stop(getContext());
+        MainActivity.showOverLockScreen(false);
+        call.resolve();
+    }
+
+    /** { on: true } = loudspeaker, false = earpiece or headset. */
+    @PluginMethod
+    public void setSpeakerphone(PluginCall call) {
+        OngoingCallService.setSpeaker(getContext(), call.getData().optBoolean("on", false));
+        call.resolve();
+    }
 
     @PluginMethod
     public void getInfo(PluginCall call) {
@@ -84,12 +179,12 @@ public class NativeAppPlugin extends Plugin {
         call.resolve(permissionStates());
     }
 
-    /** Show the system dialog for one permission ({ name: "notifications" | "contacts" | "microphone" }). */
+    /** Show the system dialog for one permission ({ name: "notifications" | "contacts" | "microphone" | "camera" }). */
     @PluginMethod
     public void requestPermission(PluginCall call) {
         String name = call.getString("name", "");
 
-        if (!CONTACTS.equals(name) && !NOTIFICATIONS.equals(name) && !MICROPHONE.equals(name)) {
+        if (!CONTACTS.equals(name) && !NOTIFICATIONS.equals(name) && !MICROPHONE.equals(name) && !CAMERA.equals(name)) {
             call.reject("Unknown permission.", "UNKNOWN_PERMISSION");
             return;
         }
@@ -119,6 +214,7 @@ public class NativeAppPlugin extends Plugin {
         result.put(NOTIFICATIONS, stateOf(NOTIFICATIONS));
         result.put(CONTACTS, stateOf(CONTACTS));
         result.put(MICROPHONE, stateOf(MICROPHONE));
+        result.put(CAMERA, stateOf(CAMERA));
         result.put("batteryUnrestricted", isIgnoringBatteryOptimizations());
         return result;
     }
@@ -224,6 +320,8 @@ public class NativeAppPlugin extends Plugin {
         result.put("running", ChatNotificationService.isRunning());
         // "push" = Firebase, "socket" = the app's own background connection, "" = not decided yet.
         result.put("mode", settings.mode);
+        // Saved before calls existed: register again to get the call endpoints.
+        result.put("callsReady", !settings.callDeclineUrl.isEmpty());
         result.put("permission", notificationPermission());
         result.put("ignoringBatteryOptimizations", isIgnoringBatteryOptimizations());
         call.resolve(result);

@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\User;
+use App\Services\CallService;
 use App\Services\PresenceService;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -31,6 +32,11 @@ Artisan::command('chat:sweep-presence', function (PresenceService $presence) {
     $this->info("Marked {$count} inactive user(s) offline.");
 })->purpose('Mark users without recent activity as offline');
 
+Artisan::command('chat:expire-calls', function (CallService $calls) {
+    $count = $calls->expireStale();
+    $this->info("Closed {$count} unanswered or abandoned call(s).");
+})->purpose('End calls nobody answered and calls whose devices disconnected');
+
 /*
 |--------------------------------------------------------------------------
 | Scheduled tasks (run `php artisan schedule:work` or a cron entry)
@@ -38,3 +44,4 @@ Artisan::command('chat:sweep-presence', function (PresenceService $presence) {
 */
 
 Schedule::command('chat:sweep-presence')->everyMinute()->withoutOverlapping();
+Schedule::command('chat:expire-calls')->everyMinute()->withoutOverlapping();

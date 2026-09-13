@@ -6,6 +6,7 @@ import { MessageActions } from './actions';
 import { createApi } from './api';
 import { AttachmentComposer } from './attachments';
 import { BlockManager } from './blocks';
+import { CallManager } from './calls';
 import { ContactsPanel } from './contacts';
 import { Notifier } from './notifications';
 import { EmojiPicker } from './emoji';
@@ -124,6 +125,7 @@ export class ChatApp {
         this.blocks = new BlockManager(this);
         this.notifier = new Notifier(this);
         this.contactsPanel = new ContactsPanel(this);
+        this.calls = new CallManager(this);
         bindVoicePlayers(this.el.messageList);
         this.bindMobileNav();
         this.updateSendState();
@@ -696,6 +698,7 @@ export class ChatApp {
             : '';
 
         if (notice) this.emojiPicker.close();
+        this.calls?.updateHeader(conversation);
     }
 
     /* ================================================================== */
@@ -1356,8 +1359,10 @@ export class ChatApp {
         this.setTyping(conversationId, false);
 
         const viewing = this.active?.id === conversationId && this.isViewingActive();
+        // Answered or declined calls arrive already read; only missed calls count as unread.
+        const alreadyRead = message.type === 'call' && Boolean(message.seen_at);
         this.appendMessage(message);
-        this.touchConversation(message, { incrementUnread: !viewing });
+        this.touchConversation(message, { incrementUnread: !viewing && !alreadyRead });
 
         if (viewing) {
             this.markSeenSoon();
@@ -1615,6 +1620,7 @@ export class ChatApp {
         }
 
         if (data.typing) this.setTyping(Number(data.typing.conversation_id), Boolean(data.typing.typing));
+        if (Array.isArray(data.calls)) this.calls?.syncCalls(data.calls);
         if (presenceChanged) this.refreshPresenceViews();
         if (unknownConversation || data.truncated) this.loadConversations();
     }

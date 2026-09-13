@@ -45,6 +45,8 @@ export class Notifier {
         document.addEventListener('chat:incoming', (event) => {
             const { message, viewing } = event.detail;
             if (viewing) return;
+            // Call history only alerts about missed calls.
+            if (message.type === 'call' && message.seen_at) return;
 
             const sender = this.chat.users.get(Number(message.sender_id)) ?? {};
             this.present({

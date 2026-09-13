@@ -5,6 +5,7 @@ use App\Http\Controllers\AttachmentController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\BlockController;
+use App\Http\Controllers\CallController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\ConversationController;
@@ -131,6 +132,23 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/chat/sync', SyncController::class)->middleware('throttle:chat-sync')->name('chat.sync');
 
     // Users
+    // Voice & video calls
+    Route::post('/conversations/{conversation}/calls', [CallController::class, 'store'])
+        ->whereNumber('conversation')
+        ->middleware('throttle:calls-start')
+        ->name('calls.store');
+    Route::get('/calls/active', [CallController::class, 'active'])->middleware('throttle:chat-actions')->name('calls.active');
+    Route::prefix('/calls/{call}')->whereNumber('call')->group(function () {
+        Route::get('/', [CallController::class, 'show'])->middleware('throttle:calls-signal')->name('calls.show');
+        Route::post('/ringing', [CallController::class, 'ringing'])->middleware('throttle:chat-actions')->name('calls.ringing');
+        Route::post('/accept', [CallController::class, 'accept'])->middleware('throttle:chat-actions')->name('calls.accept');
+        Route::post('/decline', [CallController::class, 'decline'])->middleware('throttle:chat-actions')->name('calls.decline');
+        Route::post('/end', [CallController::class, 'end'])->middleware('throttle:chat-actions')->name('calls.end');
+        Route::post('/heartbeat', [CallController::class, 'heartbeat'])->middleware('throttle:chat-actions')->name('calls.heartbeat');
+        Route::post('/signals', [CallController::class, 'storeSignal'])->middleware('throttle:calls-signal')->name('calls.signals.store');
+        Route::get('/signals', [CallController::class, 'signals'])->middleware('throttle:calls-signal')->name('calls.signals');
+    });
+
     Route::get('/users/search', [UserController::class, 'search'])->middleware('throttle:chat-search')->name('users.search');
     Route::get('/users/online', [UserController::class, 'online'])->name('users.online');
 

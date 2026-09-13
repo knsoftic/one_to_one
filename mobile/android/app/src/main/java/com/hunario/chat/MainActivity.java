@@ -14,6 +14,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.WindowManager;
 import android.webkit.CookieManager;
 import android.webkit.URLUtil;
 import android.webkit.WebView;
@@ -24,12 +25,19 @@ import androidx.core.splashscreen.SplashScreen;
 import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.Logger;
 import com.getcapacitor.WebViewListener;
+import java.lang.ref.WeakReference;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import org.json.JSONObject;
 
 public class MainActivity extends BridgeActivity {
 
     static final String EXTRA_OPEN_URL = "com.hunario.chat.OPEN_URL";
     static final String EXTRA_CONVERSATION_ID = "com.hunario.chat.CONVERSATION_ID";
+    static final String EXTRA_CALL_ID = "com.hunario.chat.CALL_ID";
+    static final String EXTRA_CALL_ANSWER = "com.hunario.chat.CALL_ANSWER";
+
+    private static WeakReference<MainActivity> current = new WeakReference<>(null);
 
     /** Never keep the splash screen longer than this, even on a very slow network. */
     private static final long SPLASH_TIMEOUT_MS = 8000;
@@ -57,6 +65,65 @@ public class MainActivity extends BridgeActivity {
         return inForeground && conversationId > 0 && activeConversationId == conversationId;
     }
 
+    static boolean isInForeground() {
+        return inForeground;
+    }
+
+    /** During a call the app stays visible over the lock screen, like the phone app. */
+    static void showOverLockScreen(boolean show) {
+        MainActivity activity = current.get();
+        if (activity == null) {
+            return;
+        }
+        activity.runOnUiThread(() -> {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+                activity.setShowWhenLocked(show);
+                activity.setTurnScreenOn(show);
+            } else if (show) {
+                activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON);
+            } else {
+                activity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON);
+            }
+            if (show) {
+                activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            } else {
+                activity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            }
+        });
+    }
+
+    /**
+     * Run a script in the open page and wait briefly for its result (called from background threads).
+     *
+     * @return the script's JSON result, or null when no page answered in time
+     */
+    static String evaluateInPage(String script, long timeoutMs) {
+        MainActivity activity = current.get();
+        if (activity == null || activity.bridge == null || activity.bridge.getWebView() == null || !inForeground) {
+            return null;
+        }
+
+        final CountDownLatch latch = new CountDownLatch(1);
+        final String[] result = { null };
+        activity.runOnUiThread(() -> {
+            try {
+                activity.bridge.getWebView().evaluateJavascript(script, (value) -> {
+                    result[0] = value;
+                    latch.countDown();
+                });
+            } catch (RuntimeException exception) {
+                latch.countDown();
+            }
+        });
+
+        try {
+            latch.await(timeoutMs, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+        }
+        return result[0];
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         SplashScreen splashScreen = SplashScreen.installSplashScreen(this);
@@ -64,6 +131,8 @@ public class MainActivity extends BridgeActivity {
 
         registerPlugin(NativeAppPlugin.class);
         super.onCreate(savedInstanceState);
+        current = new WeakReference<>(this);
+        handleCallIntent(getIntent());
 
         handler.postDelayed(() -> contentReady = true, SPLASH_TIMEOUT_MS);
 
@@ -127,8 +196,25 @@ public class MainActivity extends BridgeActivity {
         super.onNewIntent(intent);
         setIntent(intent);
 
+        long callId = handleCallIntent(intent);
+        boolean answer = intent.getBooleanExtra(EXTRA_CALL_ANSWER, false);
+
         String url = openUrlFrom(intent);
         if (url == null || bridge == null || bridge.getWebView() == null) {
+            return;
+        }
+
+        if (callId > 0) {
+            // The chat page is open: answer in place; otherwise load the call link.
+            String callScript =
+                "(function(){if(window.Chat&&window.Chat.calls&&window.Chat.calls.enabled){window.Chat.calls.resumeFromLink(" +
+                callId +
+                "," +
+                answer +
+                ");}else{window.location.assign(" +
+                JSONObject.quote(url) +
+                ");}})();";
+            bridge.getWebView().evaluateJavascript(callScript, null);
             return;
         }
 
@@ -143,9 +229,25 @@ public class MainActivity extends BridgeActivity {
         bridge.getWebView().evaluateJavascript(script, null);
     }
 
+    /**
+     * Opened by answering a call: stop ringing and show the app over the lock screen.
+     *
+     * @return the call id, or 0 when the intent is not about a call
+     */
+    private long handleCallIntent(Intent intent) {
+        long callId = intent == null ? 0 : intent.getLongExtra(EXTRA_CALL_ID, 0);
+        if (callId > 0) {
+            CallNotifier.cancelIncoming(this, callId);
+            CallRinger.stop();
+            showOverLockScreen(true);
+        }
+        return callId;
+    }
+
     @Override
     public void onResume() {
         super.onResume();
+        current = new WeakReference<>(this);
         inForeground = true;
     }
 

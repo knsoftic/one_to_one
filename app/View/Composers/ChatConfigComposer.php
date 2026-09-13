@@ -49,6 +49,16 @@ class ChatConfigComposer
             'contactsSync' => ['contacts.sync', []],
             'contactDestroy' => ['contacts.destroy', ['contact' => $id]],
             'notificationsRead' => ['notifications.read', []],
+            'callsStore' => ['calls.store', ['conversation' => $id]],
+            'callsActive' => ['calls.active', []],
+            'callShow' => ['calls.show', ['call' => $id]],
+            'callRinging' => ['calls.ringing', ['call' => $id]],
+            'callAccept' => ['calls.accept', ['call' => $id]],
+            'callDecline' => ['calls.decline', ['call' => $id]],
+            'callEnd' => ['calls.end', ['call' => $id]],
+            'callHeartbeat' => ['calls.heartbeat', ['call' => $id]],
+            'callSignalsStore' => ['calls.signals.store', ['call' => $id]],
+            'callSignals' => ['calls.signals', ['call' => $id]],
         ];
 
         foreach ($optional as $key => [$name, $params]) {
@@ -88,6 +98,11 @@ class ChatConfigComposer
                 'port' => (int) ($reverb['options']['port'] ?? 443),
                 'scheme' => $reverb['options']['scheme'] ?? 'https',
                 'pollingIntervalMs' => config('chat.polling_interval_ms'),
+            ],
+            'calls' => [
+                'enabled' => (bool) config('chat.calls.enabled', true) && Route::has('calls.store'),
+                'ringTimeoutSeconds' => (int) config('chat.calls.ring_timeout_seconds', 45),
+                'heartbeatSeconds' => (int) config('chat.calls.heartbeat_seconds', 20),
             ],
         ]);
     }

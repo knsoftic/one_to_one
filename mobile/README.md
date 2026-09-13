@@ -11,7 +11,8 @@ What the app adds on top of the website:
 | **Phone contacts like WhatsApp** | Reads names + numbers from the phone book (read-only permission, asked when the app opens) and matches them on the server with `POST /contacts/sync`. Refreshed quietly every 12 h. |
 | **Push notifications like WhatsApp** | **Firebase Cloud Messaging** (free) delivers messages when the app is closed, in the background or open (except for the chat on screen). The app draws each notification: sender photo, the chat's recent messages in conversation style, **Reply** and **Mark as read** buttons, a group summary for several chats, Android 11+ conversation shortcut. The sender gets ✓✓ delivered as soon as the phone receives it; the notification disappears when the chat is read on another device. |
 | **Fallback without Google Play services** | The app's own background service (Reverb WebSocket + polling, 15-minute safety check, restart after reboot) shows the same notifications. Used automatically when Firebase isn't available. |
-| **Permissions on first open** | When the chat opens, the app explains and asks for Notifications, Contacts and Microphone — only those not granted yet (and not permanently blocked), at most once per launch — then asks once to run in the background. |
+| **Voice & video calls** | Incoming calls ring like a phone call — full-screen over the lock screen with the caller photo, Answer and Decline, even when the app is closed (Firebase push, or the fallback connection). During a call: phone ringtone, earpiece / speaker, screen off at your ear, keeps going with the screen off or in another app, "Ongoing call" notification with Hang up. |
+| **Permissions on first open** | When the chat opens, the app explains and asks for Notifications, Contacts, Microphone and Camera — only those not granted yet (and not permanently blocked), at most once per launch — then asks once to run in the background. |
 | **No / slow internet** | A bar at the top shows *No internet connection*, *Can't reach the server*, *Slow internet connection* and *Back online*. If the app can't load at all it shows an offline screen that retries by itself; a page still loading after 8 s shows a "Slow internet connection" screen with *Try again*. |
 | **Downloads** | Documents and "Download" go to the system download manager (`Downloads/One2One Chat`). |
 | **Voice notes** | Uses the microphone permission granted when the app opens (or asked the first time you record). |
@@ -29,6 +30,12 @@ mobile/
         ├── PushMessagingService.java      # Firebase push receiver
         ├── PushRegistrar.java             # Firebase token / fallback choice
         ├── ChatNotification.java          # one incoming message (push, WebSocket or feed)
+        ├── CallDispatcher.java            # incoming call: ring in the open app or full-screen
+        ├── CallNotifier.java              # ringing call notification (Answer / Decline)
+        ├── IncomingCallActivity.java      # full-screen incoming call over the lock screen
+        ├── OngoingCallService.java        # call in the background, speaker, proximity sensor
+        ├── CallRinger.java                # ringtone + vibration while the app is open
+        ├── CallActionReceiver.java        # Decline / Hang up buttons
         ├── AvatarLoader.java              # round sender photo or initials
         ├── NativeAppPlugin.java           # contacts, notification settings, battery exemption
         ├── ChatNotificationService.java   # fallback background connection (WebSocket + polling)

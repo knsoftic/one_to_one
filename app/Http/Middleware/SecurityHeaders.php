@@ -28,7 +28,7 @@ class SecurityHeaders
             'X-Frame-Options' => 'SAMEORIGIN',
             'Referrer-Policy' => 'strict-origin-when-cross-origin',
             // Microphone is needed for voice notes; everything else is disabled.
-            'Permissions-Policy' => 'microphone=(self), camera=(), geolocation=(), payment=()',
+            'Permissions-Policy' => 'microphone=(self), camera=(self), geolocation=(), payment=()',
             'Cross-Origin-Opener-Policy' => 'same-origin',
         ];
 

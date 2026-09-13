@@ -37,6 +37,7 @@ Cron (every minute) ──▶ php artisan schedule:run
 16. [Security checklist](#16-security-checklist)
 17. [Troubleshooting](#17-troubleshooting)
 18. [Android app push notifications](#18-android-app-push-notifications)
+19. [Voice & video calls (TURN server)](#19-voice--video-calls-turn-server)
 
 ---
 
@@ -565,6 +566,7 @@ cd /www/wwwroot/chat.hunario.com
 - [ ] aaPanel itself: change the default panel port/entrance, enable 2FA, keep the panel and system updated
 - [ ] Backups: **aaPanel → Cron → Backup database** (daily) and back up `/www/wwwroot/chat.hunario.com/storage/app` (uploads and avatars)
 - [ ] Optional: enable aaPanel's Nginx firewall/WAF, fail2ban for SSH
+- [ ] TURN (step 19): long random `static-auth-secret`, private IP ranges denied, only ports 3478, 5349 and the relay range open
 
 ---
 
@@ -587,7 +589,8 @@ cd /www/wwwroot/chat.hunario.com
 | **413 Request Entity Too Large** | Increase `client_max_body_size` (Nginx) and `upload_max_filesize` / `post_max_size` (PHP). |
 | **Profile pictures don't show** | Re-create the storage link (step 8, `ln -sfn ...`). |
 | **419 Page Expired** | Use `https://` (secure cookies), make sure `APP_URL` matches, clear browser cookies, `php artisan config:cache`. |
-| **Microphone not available** | Voice notes require HTTPS and browser microphone permission. |
+| **Microphone not available** | Voice notes and calls require HTTPS and browser microphone permission. |
+| **Calls ring but never connect** | A TURN server is needed on mobile data and strict networks: see step 19. |
 | **Users never show as offline** | Cron task not running (step 12). Check **aaPanel → Cron → Log**. |
 | **`open_basedir restriction in effect`** | Disable *Anti-XSS attack* in the site's *Site directory* settings. |
 | **Changes not visible after update** | `php artisan optimize:clear && php artisan optimize && php artisan view:cache`, rebuild assets, hard-refresh the browser. |
@@ -648,3 +651,131 @@ CHAT_MOBILE_POLL_SECONDS=60             # fallback connection only
 
 Signing out in the app, changing or resetting the password, or suspending the account stops notifications on that
 phone. Tokens of uninstalled apps are removed automatically.
+
+---
+
+## 19. Voice & video calls (TURN server)
+
+Calls work in the browser and in the Android app as soon as the latest code is deployed: the call buttons are in the
+chat header, calls ring on every device of the person called (full-screen ringing on Android, even when the app is
+closed — step 18) and each call is saved in the chat history.
+
+Audio and video travel **directly between the two devices** (WebRTC). The server only relays the set-up messages, so
+calls cost almost no server bandwidth. Google's free STUN servers let most Wi-Fi networks connect. On **mobile data**
+and strict office/hotel networks a direct connection is often impossible; then the call needs a **TURN server** that
+relays the media. Without one those calls stay on "Connecting…" and end with "Couldn't connect".
+
+Install [coturn](https://github.com/coturn/coturn) on the same server (free, open source):
+
+### 19.1 Install
+
+```bash
+apt update && apt install -y coturn        # Ubuntu / Debian
+# CentOS / AlmaLinux / Rocky: dnf install -y epel-release && dnf install -y coturn
+openssl rand -hex 32                       # copy this: the TURN shared secret
+curl -4 -s https://ifconfig.me; echo       # the server's public IPv4
+```
+
+### 19.2 Configure
+
+Replace `/etc/turnserver.conf` (Ubuntu/Debian) or `/etc/coturn/turnserver.conf` (CentOS family) with:
+
+```ini
+listening-port=3478
+tls-listening-port=5349
+min-port=49160
+max-port=49200
+external-ip=YOUR_PUBLIC_IP
+
+realm=chat.hunario.com
+server-name=chat.hunario.com
+use-auth-secret
+static-auth-secret=THE_SECRET_FROM_19.1
+fingerprint
+
+cert=/etc/coturn/certs/fullchain.pem
+pkey=/etc/coturn/certs/privkey.pem
+no-tlsv1
+no-tlsv1_1
+
+# Never relay into the server's own or private networks
+no-multicast-peers
+denied-peer-ip=0.0.0.0-0.255.255.255
+denied-peer-ip=10.0.0.0-10.255.255.255
+denied-peer-ip=100.64.0.0-100.127.255.255
+denied-peer-ip=127.0.0.0-127.255.255.255
+denied-peer-ip=169.254.0.0-169.254.255.255
+denied-peer-ip=172.16.0.0-172.31.255.255
+denied-peer-ip=192.168.0.0-192.168.255.255
+no-cli
+total-quota=100
+stale-nonce=600
+simple-log
+log-file=/var/log/turnserver.log
+```
+
+Each relayed call uses about two ports from `min-port`–`max-port`; widen the range for more simultaneous calls.
+
+TLS (`turns:` on 5349) gets calls through networks that only allow HTTPS-like traffic. Copy the site's certificate
+(aaPanel keeps it root-only) and let a monthly cron job refresh the copy after Let's Encrypt renewals:
+
+```bash
+mkdir -p /etc/coturn/certs
+cp /www/server/panel/vhost/cert/chat.hunario.com/fullchain.pem /etc/coturn/certs/
+cp /www/server/panel/vhost/cert/chat.hunario.com/privkey.pem /etc/coturn/certs/
+chown -R turnserver:turnserver /etc/coturn/certs 2>/dev/null || chown -R coturn:coturn /etc/coturn/certs
+chmod 600 /etc/coturn/certs/privkey.pem
+```
+
+Start it:
+
+```bash
+sed -i 's/^#\?TURNSERVER_ENABLED=.*/TURNSERVER_ENABLED=1/' /etc/default/coturn 2>/dev/null
+systemctl enable --now coturn
+systemctl restart coturn && systemctl status coturn --no-pager
+```
+
+### 19.3 Open the ports
+
+In **aaPanel → Security → Firewall** *and* in your cloud provider's firewall / security group:
+
+| Port | Protocol | Purpose |
+|------|----------|---------|
+| 3478 | TCP + UDP | TURN |
+| 5349 | TCP + UDP | TURN over TLS |
+| 49160–49200 | UDP | Relayed audio/video |
+
+### 19.4 Connect the app
+
+In `.env` (same secret as in `turnserver.conf`):
+
+```dotenv
+CHAT_CALL_TURN_URLS="turn:chat.hunario.com:3478?transport=udp,turn:chat.hunario.com:3478?transport=tcp,turns:chat.hunario.com:5349?transport=tcp"
+CHAT_CALL_TURN_SECRET=THE_SECRET_FROM_19.1
+```
+
+```bash
+/www/server/php/82/bin/php artisan config:cache
+```
+
+Every user now receives TURN credentials that expire after 12 hours (`CHAT_CALL_TURN_TTL`), so a copied password is
+useless. Other call settings:
+
+```dotenv
+CHAT_CALLS_ENABLED=true        # false hides the call buttons
+CHAT_CALL_RING_SECONDS=45      # unanswered calls become "missed" after this
+```
+
+**Test:** make a call between a phone on **mobile data** (Wi-Fi off) and a computer. It should connect within a few
+seconds. `tail -f /var/log/turnserver.log` shows `session ... new` lines while a call is being relayed.
+
+### 19.5 Call troubleshooting
+
+| Problem | Fix |
+|---------|-----|
+| Call buttons missing | `CHAT_CALLS_ENABLED=false`, or cached config: `php artisan config:cache`. |
+| "Calls need a secure (https) connection" | Open the site over `https://`. Browsers only allow camera and microphone on HTTPS. |
+| "Allow microphone access to make calls" | The browser or phone blocked the microphone/camera. Allow it in the site settings (lock icon) or in Android → Apps → One2One Chat → Permissions. |
+| Rings, but stays on "Connecting…" / "Couldn't connect" | No TURN server, wrong secret, ports closed, or `external-ip` wrong. Check steps 19.2–19.4 and `/var/log/turnserver.log`. |
+| The other person never rings | Reverb/polling not working (steps 10–11), or on Android: push not configured (step 18). The ringing screen needs *Display over lock screen / full-screen notifications* allowed on Android 14+. |
+| Calls stay "ringing" after a crash | The scheduler closes abandoned calls every minute (step 12 cron). |

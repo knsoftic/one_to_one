@@ -142,6 +142,32 @@ return [
         'project_id' => env('FCM_PROJECT_ID'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Voice & video calls (WebRTC)
+    |--------------------------------------------------------------------------
+    |
+    | Media flows directly between the two devices. STUN lets most networks
+    | connect; a TURN server (e.g. coturn) relays calls on strict networks such
+    | as many mobile carriers. With CHAT_CALL_TURN_SECRET (coturn
+    | "use-auth-secret") every user gets short-lived TURN credentials.
+    |
+    */
+
+    'calls' => [
+        'enabled' => (bool) env('CHAT_CALLS_ENABLED', true),
+        'ring_timeout_seconds' => (int) env('CHAT_CALL_RING_SECONDS', 45),
+        // An ongoing call is closed when neither device reported in for this long.
+        'stale_after_seconds' => (int) env('CHAT_CALL_STALE_SECONDS', 90),
+        'heartbeat_seconds' => 20,
+        'stun_urls' => env('CHAT_CALL_STUN_URLS', 'stun:stun.l.google.com:19302,stun:stun1.l.google.com:19302'),
+        'turn_urls' => env('CHAT_CALL_TURN_URLS'),
+        'turn_secret' => env('CHAT_CALL_TURN_SECRET'),
+        'turn_username' => env('CHAT_CALL_TURN_USERNAME'),
+        'turn_password' => env('CHAT_CALL_TURN_PASSWORD'),
+        'turn_ttl_seconds' => (int) env('CHAT_CALL_TURN_TTL', 43200),
+    ],
+
     'admin' => [
         'name' => env('ADMIN_NAME', 'Administrator'),
         'username' => env('ADMIN_USERNAME', 'admin'),

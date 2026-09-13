@@ -91,7 +91,7 @@ export class MessageActions {
             if (!bubble || event.touches.length !== 1) return;
             const row = bubble.closest('[data-message-id]');
             const message = this.messageFor(row);
-            if (!message || message.is_deleted || this.conversationBlocked()) return;
+            if (!message || message.is_deleted || message.type === 'call' || this.conversationBlocked()) return;
 
             const touch = event.touches[0];
             gesture = { x: touch.clientX, y: touch.clientY, row, message, dx: 0, horizontal: null };
@@ -156,7 +156,8 @@ export class MessageActions {
     }
 
     canDeleteForEveryone(message) {
-        return message.is_mine && !message.is_deleted && this.withinWindow(message, this.chat.config.limits.deleteWindowMinutes);
+        return message.is_mine && !message.is_deleted && message.type !== 'call'
+            && this.withinWindow(message, this.chat.config.limits.deleteWindowMinutes);
     }
 
     openMenu(row, anchor, point = null) {
@@ -165,7 +166,8 @@ export class MessageActions {
         this.closeMenu();
 
         const items = [];
-        if (!message.is_deleted && !this.conversationBlocked()) items.push({ action: 'reply', icon: 'corner-up-left', label: 'Reply' });
+        const isCall = message.type === 'call';
+        if (!message.is_deleted && !isCall && !this.conversationBlocked()) items.push({ action: 'reply', icon: 'corner-up-left', label: 'Reply' });
         if (!message.is_deleted && message.body) items.push({ action: 'copy', icon: 'copy', label: 'Copy text' });
         if (message.attachment?.download_url && !message.is_deleted) items.push({ action: 'download', icon: 'download', label: 'Download' });
         if (this.canEdit(message)) items.push({ action: 'edit', icon: 'pencil', label: 'Edit' });

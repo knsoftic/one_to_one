@@ -71,6 +71,10 @@ class MessagePolicy
             return Response::deny('This message was already deleted.');
         }
 
+        if ($message->message_type === Message::TYPE_CALL) {
+            return Response::deny('Call history can only be deleted for you.');
+        }
+
         if ($this->windowPassed($message, (int) config('chat.delete_for_everyone_window_minutes'))) {
             return Response::deny('This message is too old to be deleted for everyone.');
         }

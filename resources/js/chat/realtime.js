@@ -79,6 +79,9 @@ export class Realtime {
             .listen('.message.status', (e) => this.chat.onStatusUpdate(e))
             .listen('.user.typing', (e) => this.chat.onTyping(e))
             .listen('.block.changed', (e) => this.chat.onBlockChanged?.(e))
+            .listen('.call.incoming', (e) => this.chat.calls?.onIncoming(e.call))
+            .listen('.call.updated', (e) => this.chat.calls?.onCallUpdated(e.call))
+            .listen('.call.signal', (e) => this.chat.calls?.onSignal(e.signal))
             .notification((notification) => this.chat.onNotification?.(notification));
 
         this.echo

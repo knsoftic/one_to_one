@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\DeviceApiController;
+use App\Http\Controllers\DeviceCallController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -26,5 +27,10 @@ Route::middleware(['device', 'throttle:device-api'])->prefix('device')->group(fu
     Route::post('/conversations/{conversation}/read', [DeviceApiController::class, 'read'])
         ->whereNumber('conversation')
         ->name('device.read');
+    Route::prefix('/calls/{call}')->whereNumber('call')->group(function () {
+        Route::post('/ringing', [DeviceCallController::class, 'ringing'])->name('device.calls.ringing');
+        Route::post('/decline', [DeviceCallController::class, 'decline'])->name('device.calls.decline');
+        Route::post('/end', [DeviceCallController::class, 'end'])->name('device.calls.end');
+    });
     Route::delete('/', [DeviceApiController::class, 'revoke'])->name('device.revoke');
 });

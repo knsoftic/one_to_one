@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Models\Conversation;
+use App\Models\Message;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -40,7 +41,9 @@ class ConversationResource extends JsonResource
                 'sender_id' => $latest->sender_id,
                 'is_mine' => (int) $latest->sender_id === (int) $viewer->getKey(),
                 'type' => $latest->message_type,
-                'preview' => $latest->preview(80),
+                'preview' => $latest->message_type === Message::TYPE_CALL
+                    ? $latest->callPreview(outgoing: (int) $latest->sender_id === (int) $viewer->getKey())
+                    : $latest->preview(80),
                 'is_deleted' => (bool) $latest->deleted_for_everyone,
                 'status' => $latest->status(),
                 'created_at' => $latest->created_at?->toIso8601String(),

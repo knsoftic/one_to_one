@@ -24,6 +24,9 @@ class Message extends Model
 
     public const TYPES = [self::TYPE_TEXT, self::TYPE_IMAGE, self::TYPE_DOCUMENT, self::TYPE_VOICE];
 
+    /** Call-history entry created by the server (never sent by users). */
+    public const TYPE_CALL = 'call';
+
     public const STATUS_SENT = 'sent';
 
     public const STATUS_DELIVERED = 'delivered';
@@ -171,7 +174,30 @@ class Message extends Model
             self::TYPE_IMAGE => '📷 '.($this->message ? str($this->message)->limit($limit) : 'Photo'),
             self::TYPE_DOCUMENT => '📄 '.($this->attachment_name ?: 'Document'),
             self::TYPE_VOICE => '🎤 Voice message',
+            self::TYPE_CALL => $this->callPreview(),
             default => (string) str((string) $this->message)->squish()->limit($limit),
+        };
+    }
+
+    /**
+     * Call history text: as the person called sees it (used in their notifications),
+     * or as the caller sees it with $outgoing.
+     */
+    public function callPreview(bool $outgoing = false): string
+    {
+        $meta = $this->attachment_meta ?? [];
+        $video = ($meta['call_type'] ?? Call::TYPE_AUDIO) === Call::TYPE_VIDEO;
+        $kind = $video ? 'video call' : 'voice call';
+        $icon = $video ? '📹' : '📞';
+
+        if ($outgoing) {
+            return $icon.' '.ucfirst($kind);
+        }
+
+        return match ($meta['reason'] ?? null) {
+            Call::REASON_MISSED, Call::REASON_CANCELLED, Call::REASON_BUSY => "{$icon} Missed {$kind}",
+            Call::REASON_DECLINED => "{$icon} Declined {$kind}",
+            default => $icon.' '.ucfirst($kind),
         };
     }
 }
