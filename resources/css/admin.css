@@ -100,7 +100,7 @@
     height: var(--h);
     min-height: 4px;
     border-radius: 10px 10px 4px 4px;
-    background: linear-gradient(180deg, #818cf8, var(--c-primary));
+    background: var(--c-primary);
     transform-origin: bottom;
     animation: grow-bar 0.7s var(--ease-out) both;
 }

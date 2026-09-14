@@ -789,3 +789,12 @@ Status updates live 24 hours. **"My contacts"** means the people you saved in yo
 - Verification (Phase 5 complete): PHPUnit **362 passed**, Vitest **146 passed**, Pint ✅, build ✅.
 - Deploy notes: `php artisan migrate` (statuses tables) and `npm run build`; the scheduler (cron) must run for expired updates to be cleaned up. No new APK needed.
 
+
+## WhatsApp-style UI (before Phase 6) ✅
+The whole app now looks like WhatsApp — WhatsApp Web on computers, the WhatsApp app on phones and in the Android app (it shows the same site, so no new APK) — in light and dark.
+- **Colours and type:** WhatsApp's palette in `theme.css` (green `#00a884`, chat wallpaper `#efeae2` / `#0b141a`, outgoing bubbles `#d9fdd3` / `#005c4b`, blue ticks `#53bdeb`, grey panels and icons) and system fonts (Segoe UI / Roboto / SF) instead of Inter. The chat wallpaper is our own doodle pattern (not WhatsApp's image); name, logo and favicon stay our own, now in green.
+- **Computers:** a navigation rail on the left (Chats with unread count, Status with a dot, Channels, Communities, Calls with missed count, then Starred, theme, Settings and your photo), a "Chats" header with new chat, notifications and the menu (New group, New community, New broadcast, Starred messages, Theme, Settings, Log out), search pill, filter chips, flat chat rows with separators, grey chat header, wallpaper, WhatsApp bubbles with the small tail on the first message of a run, grey composer bar, and a "One2One Chat Web" welcome screen with a green bottom line.
+- **Phones / Android app:** the app name in green at the top, search pill and chips, a rounded green FAB, bottom tabs **Chats · Updates · Communities · Calls** with WhatsApp's pill highlight, white chat header, floating composer over the wallpaper with a round green mic/send button. Each section has its own header; Updates (Status) now also links to Channels, like WhatsApp's Updates tab.
+- Also restyled: menus, dialogs, toasts, reply/status quotes, link cards, files, voice notes and polls inside the new bubbles, side panels (group/channel info), login/register (green band and white card like WhatsApp Web's login), settings and error pages.
+- Code: `resources/css/whatsapp.css` (loaded last), tokens in `theme.css`, rail/header/tabs/welcome in `chat/index.blade.php`, the rail and tabs open every section (`bindMobileNav`), every unread badge updates.
+- Checked in the browser with the real page rendered (desktop light/dark, phone list and chat, login, settings). Tests: PHPUnit **362 passed**, Vitest **146 passed**, build ✅.

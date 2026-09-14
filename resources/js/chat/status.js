@@ -210,6 +210,16 @@ export class Statuses {
             ${raw(viewed.length ? html`<div class="sidebar-section-title">Viewed updates</div>${raw(viewed.map(personRow).join(''))}` : '')}
             ${raw(muted.length ? html`<details class="status-muted"${raw(this.mutedOpen ? ' open' : '')}><summary class="sidebar-section-title">Muted updates (${muted.length})</summary>${raw(muted.map(personRow).join(''))}</details>` : '')}
             ${raw(this.loaded && !this.error && !(this.feed.updates ?? []).length ? '<p class="receipt-empty status-empty">No updates from your contacts right now. Updates disappear after 24 hours.</p>' : '')}
+            ${raw(this.chat.api.has('channels') ? html`
+                <div class="sidebar-section-title status-channels-title">Channels</div>
+                <button type="button" class="status-row" data-status-channels>
+                    <span class="avatar avatar-md"><span class="avatar-fallback is-accent">${raw(icon('rss'))}</span></span>
+                    <span class="status-row-body">
+                        <span class="status-row-name">Find channels</span>
+                        <span class="status-row-meta">Follow updates from people and topics you care about</span>
+                    </span>
+                    ${raw(icon('chevron-right'))}
+                </button>` : '')}
             <button type="button" class="status-privacy-row" data-status-privacy>
                 ${raw(icon('lock', 'icon-xs'))}
                 <span>Status privacy: <strong>${PRIVACY_LABELS[this.feed.privacy] ?? PRIVACY_LABELS.contacts}</strong></span>
@@ -225,6 +235,7 @@ export class Statuses {
         if (t.closest('[data-status-new-text]')) return this.textComposer();
         if (t.closest('[data-status-new-media]')) return this.fileInput.click();
         if (t.closest('[data-status-privacy]')) return this.privacyDialog();
+        if (t.closest('[data-status-channels]')) return this.chat.channels?.open();
         if (t.closest('[data-status-mine]')) return this.openMine();
         const person = t.closest('[data-status-user]');
         if (person) return this.openUser(Number(person.dataset.statusUser));

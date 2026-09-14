@@ -1,4 +1,3 @@
-import '@fontsource-variable/inter';
 import './bootstrap';
 
 import { readJsonScript } from './lib/dom';

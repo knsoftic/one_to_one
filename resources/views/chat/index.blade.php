@@ -4,32 +4,57 @@
         {{-- ================================================================
              Sidebar
              ================================================================ --}}
+        {{-- Navigation rail (desktop, like WhatsApp Web) --}}
+        <nav class="app-rail" aria-label="Sections">
+            <div class="app-rail-group">
+                <button type="button" class="app-rail-item is-active" data-mobile-tab="chats" aria-label="Chats" title="Chats" aria-current="page">
+                    <x-icon name="message-circle" />
+                    <span class="badge badge-primary" data-mobile-unread hidden>0</span>
+                </button>
+                <button type="button" class="app-rail-item" data-mobile-tab="status" aria-label="Status" title="Status">
+                    <x-icon name="circle-dashed" />
+                    <span class="status-dot" data-status-dot hidden></span>
+                </button>
+                <button type="button" class="app-rail-item" data-mobile-tab="channels" aria-label="Channels" title="Channels">
+                    <x-icon name="rss" />
+                </button>
+                <button type="button" class="app-rail-item" data-mobile-tab="communities" aria-label="Communities" title="Communities">
+                    <x-icon name="users-round" />
+                </button>
+                <button type="button" class="app-rail-item" data-mobile-tab="calls" aria-label="Calls" title="Calls">
+                    <x-icon name="phone" />
+                    <span class="badge badge-danger" data-calls-badge hidden>0</span>
+                </button>
+            </div>
+            <div class="app-rail-group">
+                <button type="button" class="app-rail-item" data-mobile-tab="starred" aria-label="Starred messages" title="Starred messages">
+                    <x-icon name="star" />
+                </button>
+                <x-theme-toggle class="app-rail-item" />
+                <a href="{{ route('profile.edit') }}" class="app-rail-item" aria-label="Settings" title="Settings">
+                    <x-icon name="settings" />
+                </a>
+                <span class="app-rail-divider" aria-hidden="true"></span>
+                <a href="{{ route('profile.edit') }}" class="app-rail-me" aria-label="Profile" title="Profile">
+                    <x-avatar :user="$user" size="sm" data-me-avatar />
+                </a>
+            </div>
+        </nav>
+
         <aside class="chat-sidebar" aria-label="Conversations" data-sidebar data-mode="chats">
             <header class="sidebar-header">
-                <a href="{{ route('profile.edit') }}" class="sidebar-me" title="Profile settings">
-                    <x-avatar :user="$user" size="md" status class="is-online" data-me-avatar />
-                    <span class="min-w-0">
-                        <span class="sidebar-me-name">{{ $user->name }}</span>
-                        <span class="sidebar-me-status" data-connection-status>
-                            <span class="connection-dot"></span>
-                            <span data-connection-label>Online</span>
-                        </span>
+                <div class="sidebar-heading">
+                    <h1 class="sidebar-title"><span class="sidebar-title-web">Chats</span><span class="sidebar-title-app">{{ config('app.name') }}</span></h1>
+                    <span class="sidebar-me-status" data-connection-status>
+                        <span class="connection-dot"></span>
+                        <span data-connection-label>Online</span>
                     </span>
-                </a>
+                </div>
 
-                <div class="flex items-center">
-                    <button type="button" class="btn-icon header-status" data-action="open-status" aria-label="Status" title="Status">
-                        <x-icon name="circle-dashed" />
-                        <span class="status-dot" data-status-dot hidden></span>
-                    </button>
-                    <button type="button" class="btn-icon header-calls" data-action="open-calls" aria-label="Calls" title="Calls">
-                        <x-icon name="phone" />
-                        <span class="badge badge-danger header-calls-badge" data-calls-badge hidden>0</span>
-                    </button>
+                <div class="sidebar-header-actions">
                     <button type="button" class="btn-icon header-new-chat" data-action="new-chat" aria-label="New chat" title="New chat">
                         <x-icon name="message-square-plus" />
                     </button>
-                    <x-theme-toggle class="header-theme-toggle" />
 
                     {{-- Notification centre --}}
                     <div class="dropdown notif-dropdown">
@@ -54,15 +79,12 @@
                             <x-icon name="ellipsis-vertical" />
                         </button>
                         <div class="dropdown-menu" data-align="right" role="menu" hidden>
-                            <button type="button" class="dropdown-item" data-action="new-chat" role="menuitem"><x-icon name="message-square-plus" /> New chat</button>
                             <button type="button" class="dropdown-item" data-action="new-group" role="menuitem"><x-icon name="users" /> New group</button>
+                            <button type="button" class="dropdown-item" data-action="new-community" role="menuitem"><x-icon name="users-round" /> New community</button>
                             <button type="button" class="dropdown-item" data-action="new-broadcast" role="menuitem"><x-icon name="megaphone" /> New broadcast</button>
-                            <button type="button" class="dropdown-item" data-action="open-communities" role="menuitem"><x-icon name="users-round" /> Communities</button>
-                            <button type="button" class="dropdown-item" data-action="open-channels" role="menuitem"><x-icon name="rss" /> Channels</button>
-                            <button type="button" class="dropdown-item" data-action="open-calls" role="menuitem"><x-icon name="phone" /> Calls</button>
                             <button type="button" class="dropdown-item" data-action="open-starred" role="menuitem"><x-icon name="star" /> Starred messages</button>
+                            <button type="button" class="dropdown-item" data-theme-cycle role="menuitem"><x-icon name="moon" /> Theme</button>
                             <a href="{{ route('profile.edit') }}" class="dropdown-item" role="menuitem"><x-icon name="settings" /> Settings</a>
-                            <a href="{{ route('profile.edit', ['tab' => 'preferences']) }}" class="dropdown-item" role="menuitem"><x-icon name="bell" /> Notifications</a>
                             @if ($user->isAdmin() && Route::has('admin.dashboard'))
                                 <a href="{{ route('admin.dashboard') }}" class="dropdown-item" role="menuitem"><x-icon name="layout-dashboard" /> Admin panel</a>
                             @endif
@@ -81,7 +103,7 @@
             <div class="sidebar-search">
                 <div class="input-wrap">
                     <x-icon name="search" />
-                    <input type="search" class="form-control search-input" placeholder="Search name, username, email or mobile"
+                    <input type="search" class="form-control search-input" placeholder="Search" title="Search by name, username, email or mobile"
                            autocomplete="off" spellcheck="false" maxlength="100" aria-label="Search users" data-search-input>
                     <button type="button" class="input-action" data-search-clear aria-label="Clear search" hidden><x-icon name="x" class="icon-sm" /></button>
                 </div>
@@ -303,18 +325,14 @@
                 <span class="mobile-nav-icon"><x-icon name="circle-dashed" /><span class="status-dot" data-status-dot hidden></span></span>
                 <span>Updates</span>
             </button>
+            <button type="button" class="mobile-nav-item" data-mobile-tab="communities">
+                <span class="mobile-nav-icon"><x-icon name="users-round" /></span>
+                <span>Communities</span>
+            </button>
             <button type="button" class="mobile-nav-item" data-mobile-tab="calls">
                 <span class="mobile-nav-icon"><x-icon name="phone" /><span class="badge badge-danger mobile-nav-badge" data-calls-badge hidden>0</span></span>
                 <span>Calls</span>
             </button>
-            <button type="button" class="mobile-nav-item" data-mobile-tab="contacts">
-                <span class="mobile-nav-icon"><x-icon name="users" /></span>
-                <span>Contacts</span>
-            </button>
-            <a href="{{ route('profile.edit') }}" class="mobile-nav-item">
-                <span class="mobile-nav-icon"><x-avatar :user="$user" size="xs" /></span>
-                <span>You</span>
-            </a>
         </nav>
 
         {{-- ================================================================
@@ -324,16 +342,33 @@
             {{-- Welcome / empty state --}}
             <div class="chat-welcome" data-chat-welcome @if ($initialConversationId) hidden @endif>
                 <div>
-                    <div class="chat-welcome-art"><x-icon name="message-circle" class="icon-xl" /></div>
-                    <h1 class="text-2xl font-extrabold tracking-tight">Welcome, {{ \Illuminate\Support\Str::before($user->name, ' ') }}</h1>
-                    <p class="text-muted mt-2 max-w-sm mx-auto">
-                        Pick a conversation from the list or search for someone to start a private chat.
+                    <div class="chat-welcome-art" aria-hidden="true">
+                        <svg viewBox="0 0 320 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <ellipse cx="160" cy="176" rx="130" ry="14" fill="currentColor" opacity=".06"/>
+                            <rect x="58" y="34" width="176" height="116" rx="10" fill="var(--c-surface)" stroke="var(--c-border-strong)" stroke-width="3"/>
+                            <rect x="70" y="46" width="152" height="92" rx="4" fill="var(--c-chat-bg)"/>
+                            <path d="M40 150h212a8 8 0 0 1-8 10H48a8 8 0 0 1-8-10z" fill="var(--c-border-strong)"/>
+                            <rect x="80" y="58" width="70" height="16" rx="5" fill="var(--c-surface)"/>
+                            <rect x="132" y="82" width="80" height="16" rx="5" fill="var(--c-bubble-out)"/>
+                            <rect x="80" y="106" width="56" height="16" rx="5" fill="var(--c-surface)"/>
+                            <rect x="226" y="72" width="62" height="104" rx="12" fill="var(--c-surface)" stroke="var(--c-border-strong)" stroke-width="3"/>
+                            <rect x="234" y="86" width="46" height="74" rx="4" fill="var(--c-chat-bg)"/>
+                            <rect x="239" y="94" width="28" height="10" rx="4" fill="var(--c-surface)"/>
+                            <rect x="248" y="110" width="28" height="10" rx="4" fill="var(--c-bubble-out)"/>
+                            <circle cx="257" cy="168" r="3" fill="var(--c-border-strong)"/>
+                            <circle cx="262" cy="46" r="18" fill="var(--c-primary)"/>
+                            <path d="M253 46l6 6 11-12" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </div>
+                    <h1 class="chat-welcome-title">{{ config('app.name') }} Web</h1>
+                    <p class="chat-welcome-text">
+                        Hi {{ \Illuminate\Support\Str::before($user->name, ' ') }}! Send and receive messages, make calls and share status updates right from your computer. Pick a chat on the left or start a new one.
                     </p>
                     <button type="button" class="btn btn-primary mt-6" data-action="new-chat">
                         <x-icon name="message-square-plus" /> Start a new chat
                     </button>
-                    <p class="text-xs text-subtle mt-6 flex items-center justify-center gap-1.5">
-                        <x-icon name="lock" class="icon-xs" /> Conversations are private between the two participants.
+                    <p class="chat-welcome-foot">
+                        <x-icon name="lock" class="icon-xs" /> Conversations are private between the people in them.
                     </p>
                 </div>
             </div>

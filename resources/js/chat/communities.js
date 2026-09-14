@@ -36,7 +36,7 @@ export class Communities {
         };
 
         if (!this.el.view || !chat.api.has('communities')) {
-            document.querySelectorAll('[data-action="open-communities"], [data-action="new-community"]').forEach((el) => el.remove());
+            document.querySelectorAll('[data-action="open-communities"], [data-action="new-community"], [data-mobile-tab="communities"]').forEach((el) => el.remove());
             return;
         }
 

@@ -52,6 +52,7 @@ function setup(data = feed()) {
         showListView: vi.fn(),
         normalizeMessage: (message) => ({ ...message, is_mine: true }),
         onOwnMessageStored: vi.fn(),
+        channels: { open: vi.fn() },
     };
     return { chat, statuses: new Statuses(chat) };
 }
@@ -102,13 +103,15 @@ describe('Phase 5 status helpers', () => {
 
 describe('Phase 5 status view', () => {
     it('lists my status and the updates in recent, viewed and muted parts, with a dot for new ones', async () => {
-        const { statuses } = setup();
+        const { statuses, chat } = setup();
         await statuses.open();
 
         expect(document.querySelector('[data-sidebar]').dataset.mode).toBe('status');
         expect(document.querySelector('[data-status-mine] .status-row-meta').textContent).toContain('1 update');
         const titles = [...document.querySelectorAll('.sidebar-section-title')].map((el) => el.textContent);
-        expect(titles).toEqual(['Recent updates', 'Viewed updates', 'Muted updates (1)']);
+        expect(titles).toEqual(['Recent updates', 'Viewed updates', 'Muted updates (1)', 'Channels']);
+        document.querySelector('[data-status-channels]').click();
+        expect(chat.channels.open).toHaveBeenCalled();
         expect(document.querySelector('[data-status-dot]').hidden).toBe(false);
         expect(document.querySelector('.status-privacy-row').textContent).toContain('My contacts');
     });
@@ -126,7 +129,7 @@ describe('Phase 5 status view', () => {
         // Ayesha was the only recent one: the viewer closes and she moves to "Viewed updates".
         expect(document.querySelector('.status-viewer')).toBeNull();
         expect(document.querySelector('[data-status-dot]').hidden).toBe(true);
-        expect([...document.querySelectorAll('.sidebar-section-title')].map((el) => el.textContent)).toEqual(['Viewed updates', 'Muted updates (1)']);
+        expect([...document.querySelectorAll('.sidebar-section-title')].map((el) => el.textContent)).toEqual(['Viewed updates', 'Muted updates (1)', 'Channels']);
     });
 
     it('replies and reacts to an update', async () => {

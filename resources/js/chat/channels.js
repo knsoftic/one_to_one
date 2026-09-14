@@ -81,7 +81,7 @@ export class Channels {
         };
 
         if (!this.el.view || !chat.api.has('channels')) {
-            document.querySelectorAll('[data-action="open-channels"], [data-action="new-channel"]').forEach((el) => el.remove());
+            document.querySelectorAll('[data-action="open-channels"], [data-action="new-channel"], [data-mobile-tab="channels"]').forEach((el) => el.remove());
             return;
         }
 

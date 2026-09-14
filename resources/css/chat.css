@@ -1211,7 +1211,7 @@ button.channel-row:hover, .channel-row:has(.channel-row-main:hover) { background
 /* Text updates: colour and font */
 .status-text { color: #fff; }
 .status-text.is-bg-teal { background: #0f766e; }
-.status-text.is-bg-indigo { background: #4338ca; }
+.status-text.is-bg-indigo { background: #3b3fa3; }
 .status-text.is-bg-violet { background: #7c3aed; }
 .status-text.is-bg-rose { background: #be123c; }
 .status-text.is-bg-amber { background: #b45309; }

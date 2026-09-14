@@ -408,14 +408,20 @@ export class ChatApp {
     bindMobileNav() {
         const tabs = document.querySelectorAll('[data-mobile-tab]');
 
+        const sections = {
+            contacts: () => this.contactsPanel.open(),
+            calls: () => this.callLog?.open(),
+            status: () => this.statuses?.open(),
+            channels: () => this.channels?.open(),
+            communities: () => this.communities?.open(),
+            starred: () => this.starred?.open(),
+        };
+
         tabs.forEach((tab) =>
             tab.addEventListener('click', () => {
-                if (tab.dataset.mobileTab === 'contacts') {
-                    this.contactsPanel.open();
-                } else if (tab.dataset.mobileTab === 'calls') {
-                    this.callLog?.open();
-                } else if (tab.dataset.mobileTab === 'status') {
-                    this.statuses?.open();
+                const open = sections[tab.dataset.mobileTab];
+                if (open) {
+                    open();
                 } else if (this.contactsPanel.isOpen) {
                     this.contactsPanel.close();
                 } else if (this.starred?.isOpen) {
@@ -595,11 +601,10 @@ export class ChatApp {
         badge.textContent = total > 99 ? '99+' : String(total);
         document.title = total > 0 ? `(${total}) ${this.baseTitle}` : this.baseTitle;
 
-        const mobileBadge = document.querySelector('[data-mobile-unread]');
-        if (mobileBadge) {
-            mobileBadge.hidden = total === 0;
-            mobileBadge.textContent = total > 99 ? '99+' : String(total);
-        }
+        document.querySelectorAll('[data-mobile-unread]').forEach((badge) => {
+            badge.hidden = total === 0;
+            badge.textContent = total > 99 ? '99+' : String(total);
+        });
         document.dispatchEvent(new CustomEvent('chat:unread', { detail: { total } }));
     }
 
