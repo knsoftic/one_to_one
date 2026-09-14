@@ -82,6 +82,7 @@ export class StarredMessages {
 
     open() {
         if (this.chat.contactsPanel?.isOpen) this.chat.contactsPanel.close();
+        if (this.chat.callLog?.isOpen) this.chat.callLog.close({ silent: true });
         this.el.sidebar.dataset.mode = 'starred';
         this.el.chatsView.hidden = true;
         this.el.view.hidden = false;

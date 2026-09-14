@@ -65,17 +65,19 @@ light/dark theme · admin panel.
 | C8 | **Invite friends** | Jo contact app par nahi, usse WhatsApp/SMS se download link bhejna | 🟢 | [x] |
 | C9 | **Chat lock** | Kisi chat ko fingerprint/PIN ke peeche chhupana | 🟡 | [x] |
 
-## Phase 3 — Calls
+## Phase 3 — Calls — ✅ mukammal
+
+> Tafseel aur tests: `development-progress.md` → "Roadmap Phase 3". Naye migrations chalane honge (call_rooms, call_room_participants, call_links); naya APK nahi chahiye.
 
 | # | Feature | Kya milega | Mehnat | Status |
 |---|---------|-----------|--------|--------|
-| K1 | **Calls tab** | Saari calls ki list (missed laal mein), wahin se call back | 🟢 | [ ] |
-| K2 | **Voice call → video call** | Chalti call mein camera on karke video mein badalna | 🟡 | [ ] |
-| K3 | **Picture-in-picture** | Video call chhoti floating window mein, chat bhi chalti rahe | 🟡 | [ ] |
-| K4 | **Screen sharing** | Desktop/phone ki screen dikhana | 🟡 | [ ] |
-| K5 | **Call quality indicator** | Kamzor internet par "Poor connection" aur low-data mode | 🟢 | [ ] |
-| K6 | **Group calls** | 3–8 log audio/video (media server chahiye) | 🔴 | [ ] |
-| K7 | **Call links** | Link bhej kar call mein bulana | 🟡 | [ ] |
+| K1 | **Calls tab** | Saari calls ki list (missed laal mein), wahin se call back | 🟢 | [x] |
+| K2 | **Voice call → video call** | Chalti call mein camera on karke video mein badalna | 🟡 | [x] |
+| K3 | **Picture-in-picture** | Video call chhoti floating window mein, chat bhi chalti rahe | 🟡 | [x] |
+| K4 | **Screen sharing** | Desktop/phone ki screen dikhana | 🟡 | [x] |
+| K5 | **Call quality indicator** | Kamzor internet par "Poor connection" aur low-data mode | 🟢 | [x] |
+| K6 | **Group calls** | 3–8 log audio/video (media server chahiye) | 🔴 | [x] |
+| K7 | **Call links** | Link bhej kar call mein bulana | 🟡 | [x] |
 
 ## Phase 4 — Groups
 

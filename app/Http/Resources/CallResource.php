@@ -31,6 +31,13 @@ class CallResource extends JsonResource
             'end_reason' => $this->end_reason,
             'caller_id' => $this->caller_id,
             'callee_id' => $this->callee_id,
+            // Group call this call rings into (K6): who is already talking.
+            'call_room_id' => $this->call_room_id,
+            'room' => $this->when($this->call_room_id !== null, fn () => [
+                'id' => $this->call_room_id,
+                'participants' => $this->resource->room?->participants()->joined()->with('user:id,name')->get()
+                    ->map(fn ($p) => ['user_id' => $p->user_id, 'name' => $p->user?->name])->values()->all() ?? [],
+            ]),
             'caller_client' => $this->caller_client,
             'callee_client' => $this->callee_client,
             'caller' => $this->whenLoaded('caller', fn () => (new UserResource($this->caller))->resolve($request)),

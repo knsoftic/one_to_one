@@ -206,6 +206,8 @@ return [
 
     'calls' => [
         'enabled' => (bool) env('CHAT_CALLS_ENABLED', true),
+        // Group calls (K6): everyone connects to everyone, so keep it small.
+        'max_group_participants' => (int) env('CHAT_CALL_MAX_GROUP', 4),
         'ring_timeout_seconds' => (int) env('CHAT_CALL_RING_SECONDS', 45),
         // An ongoing call is closed when neither device reported in for this long.
         'stale_after_seconds' => (int) env('CHAT_CALL_STALE_SECONDS', 90),

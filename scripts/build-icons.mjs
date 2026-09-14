@@ -29,6 +29,8 @@ const ICONS = [
     'sun', 'switch-camera', 'tag', 'timer', 'trash-2', 'trending-up', 'type', 'undo-2', 'upload', 'user',
     'user-check', 'user-cog', 'user-plus', 'user-round', 'user-round-plus', 'user-x', 'users', 'video', 'video-off',
     'volume-1', 'volume-2', 'vote', 'wifi', 'wifi-off', 'x', 'zoom-in',
+    // Phase 3 — calls
+    'gauge', 'link-2', 'maximize-2', 'monitor-up', 'monitor-x', 'picture-in-picture-2', 'signal', 'signal-high', 'signal-medium',
 ];
 
 const pascal = (name) => name.replace(/(^|-)([a-z0-9])/g, (_, __, c) => c.toUpperCase());

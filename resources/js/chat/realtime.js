@@ -86,6 +86,7 @@ export class Realtime {
             .listen('.call.incoming', (e) => this.chat.calls?.onIncoming(e.call))
             .listen('.call.updated', (e) => this.chat.calls?.onCallUpdated(e.call))
             .listen('.call.signal', (e) => this.chat.calls?.onSignal(e.signal))
+            .listen('.call.room', (e) => this.chat.calls?.group?.onRoomUpdated(e.room))
             .notification((notification) => this.chat.onNotification?.(notification));
 
         this.echo

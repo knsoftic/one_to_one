@@ -2,6 +2,7 @@ import axios from '../bootstrap';
 import { errorMessage, formatDuration } from '../lib/dom';
 import { icon } from '../lib/icons';
 import { toast } from '../lib/toast';
+import { GroupCall } from './group-call';
 import * as T from './templates';
 
 /**
@@ -28,6 +29,11 @@ const MAX_ICE_RESTARTS = 3;
 const END_SCREEN_MS = 1800;
 const ERROR_SCREEN_MS = 3500;
 
+const STATS_INTERVAL_MS = 2000;
+const LOW_DATA_KEY = 'calls:low-data';
+/** Low data mode (K5): what a call may send. */
+const LOW_DATA = { videoBitrate: 150_000, videoFramerate: 15, videoScale: 2, audioBitrate: 24_000 };
+
 const END_TEXT = {
     declined: 'Call declined',
     busy: 'On another call',
@@ -36,6 +42,80 @@ const END_TEXT = {
     failed: "Couldn't connect",
     completed: 'Call ended',
 };
+
+/**
+ * Connection numbers from a WebRTC stats report (K5).
+ *
+ * @param {object[]} stats entries of RTCPeerConnection.getStats()
+ * @param {{lost?: number, received?: number}} previous counters from the last sample
+ * @returns {{rtt: number, jitter: number, loss: number, counters: {lost: number, received: number}}}
+ */
+export function readCallStats(stats, previous = {}) {
+    let rtt = null;
+    let jitter = 0;
+    let lost = 0;
+    let received = 0;
+    let remoteLoss = 0;
+
+    for (const entry of stats) {
+        if (entry.type === 'candidate-pair' && entry.state === 'succeeded' && (entry.nominated || entry.selected) && typeof entry.currentRoundTripTime === 'number') {
+            rtt = entry.currentRoundTripTime;
+        }
+        // What the other side reports about the media we send.
+        if (entry.type === 'remote-inbound-rtp') {
+            if (typeof entry.fractionLost === 'number') remoteLoss = Math.max(remoteLoss, entry.fractionLost);
+            if (rtt === null && typeof entry.roundTripTime === 'number') rtt = entry.roundTripTime;
+        }
+        // What we receive (audio is always flowing in a call).
+        if (entry.type === 'inbound-rtp' && entry.kind === 'audio') {
+            lost += Math.max(0, entry.packetsLost || 0);
+            received += entry.packetsReceived || 0;
+            jitter = Math.max(jitter, entry.jitter || 0);
+        }
+    }
+
+    const newLost = Math.max(0, lost - (previous.lost ?? lost));
+    const newReceived = Math.max(0, received - (previous.received ?? received));
+    const inboundLoss = newLost + newReceived > 0 ? newLost / (newLost + newReceived) : 0;
+
+    return { rtt: rtt ?? 0, jitter, loss: Math.max(inboundLoss, remoteLoss), counters: { lost, received } };
+}
+
+/** "good", "weak" or "poor" from round-trip time (s), packet loss (0–1) and jitter (s). */
+export function rateConnection({ rtt = 0, loss = 0, jitter = 0 }) {
+    if (loss >= 0.1 || rtt >= 0.6 || jitter >= 0.1) return 'poor';
+    if (loss >= 0.03 || rtt >= 0.3 || jitter >= 0.05) return 'weak';
+    return 'good';
+}
+
+/** Avoid flicker: a level shows only after two samples in a row. */
+export function smoothQuality(history) {
+    const [a, b] = history.slice(-2);
+    if (!b) return 'good';
+    if (a === 'poor' && b === 'poor') return 'poor';
+    if (a !== 'good' && b !== 'good') return 'weak';
+    return 'good';
+}
+
+/**
+ * Keep the floating call window inside the screen (K3).
+ *
+ * @returns {{x: number, y: number}} top-left corner
+ */
+export function clampPipPosition(x, y, width, height, viewportWidth, viewportHeight, margin = 8) {
+    return {
+        x: Math.round(Math.min(Math.max(margin, x), Math.max(margin, viewportWidth - width - margin))),
+        y: Math.round(Math.min(Math.max(margin, y), Math.max(margin, viewportHeight - height - margin))),
+    };
+}
+
+function readLowDataPreference() {
+    try {
+        return localStorage.getItem(LOW_DATA_KEY) === '1';
+    } catch {
+        return false;
+    }
+}
 
 export const callsSupported = () =>
     Boolean(window.RTCPeerConnection && navigator.mediaDevices?.getUserMedia && window.isSecureContext);
@@ -134,6 +214,8 @@ export class CallManager {
 
         this.renderRoot();
         this.bind();
+        // Group calls (K6).
+        if (chat.api.has('callRoomShow')) this.group = new GroupCall(this);
         this.updateHeader(chat.activeConversation());
 
         if (this.enabled) this.restore();
@@ -144,7 +226,7 @@ export class CallManager {
     /* ------------------------------------------------------------------ */
 
     get busy() {
-        return Boolean(this.session || this.incoming);
+        return Boolean(this.session || this.incoming || this.group?.active);
     }
 
     /** Called by the Android app to route audio and ring natively. */
@@ -253,14 +335,21 @@ export class CallManager {
         if (session.status === 'ended') return this.stopStream(session.localStream);
 
         this.attachLocal();
+        // An invite to a group call (K6) connects to everyone in it after answering.
+        const groupCall = Boolean(session.call.call_room_id && this.group);
         // Ready before accepting: the caller's offer can arrive right after.
-        this.createPeer(session);
+        if (!groupCall) this.createPeer(session);
 
         try {
             const data = await this.post('callAccept', session.call.id, { client_id: this.clientId });
             this.applyCallData(session, data);
         } catch (error) {
             this.teardown(session, errorMessage(error, "Couldn't answer the call."), { error: true });
+            return;
+        }
+
+        if (groupCall) {
+            this.group.joinFromSession(session, session.iceServers);
             return;
         }
 
@@ -289,6 +378,10 @@ export class CallManager {
     }
 
     hangUp(reason = 'hangup') {
+        if (this.group?.active && !this.session) {
+            this.group.leave();
+            return;
+        }
         const session = this.session;
         if (!session || session.status === 'ended') return;
 
@@ -413,6 +506,10 @@ export class CallManager {
             return;
         }
 
+        if (call.type === 'video' && session.type !== 'video' && session.status === 'connected') {
+            this.becomeVideo(session);
+        }
+
         if (session.role === 'caller') {
             if (call.status === 'ringing' && call.ringing_at && session.status === 'outgoing' && !session.ringing) {
                 session.ringing = true;
@@ -426,6 +523,10 @@ export class CallManager {
     }
 
     onSignal(signal) {
+        if (signal.call_room_id) {
+            this.group?.onSignal(signal);
+            return;
+        }
         const session = this.session;
         if (!session || Number(session.call.id) !== Number(signal.call_id)) return;
         if (signal.to_client && signal.to_client !== this.clientId) return;
@@ -490,6 +591,10 @@ export class CallManager {
             remoteVideoLive: false,
             clockOffset: 0,
             minimized: false,
+            quality: 'good',
+            qualityHistory: [],
+            lowData: readLowDataPreference(),
+            remoteLowData: false,
             timers: {},
             intervals: {},
         };
@@ -527,12 +632,14 @@ export class CallManager {
         session.pc = pc;
 
         session.localStream?.getTracks().forEach((track) => pc.addTrack(track, session.localStream));
-        // Still receive what this device can't send (no microphone / no camera).
+        // Still receive what this device can't send (no microphone).
         if (!session.localStream?.getAudioTracks().length) {
             pc.addTransceiver('audio', { direction: 'recvonly' });
         }
-        if (session.type === 'video' && !session.localStream?.getVideoTracks().length) {
-            pc.addTransceiver('video', { direction: 'recvonly' });
+        // Every call has a video line, sending nothing until a camera is on, so either
+        // side can switch a voice call to video without renegotiating (K2).
+        if (session.role === 'caller' && !session.localStream?.getVideoTracks().length) {
+            pc.addTransceiver('video', { direction: 'sendrecv' });
         }
 
         pc.onicecandidate = ({ candidate }) => {
@@ -551,6 +658,11 @@ export class CallManager {
             if (event.track.kind === 'video') {
                 const update = () => {
                     session.remoteVideoLive = !event.track.muted && event.track.readyState === 'live';
+                    // The other person turned their camera on during a voice call (K2).
+                    if (session.remoteVideoLive && session.type !== 'video' && session === this.session) {
+                        session.remoteTurnedOnVideo = true;
+                        this.becomeVideo(session);
+                    }
                     this.render();
                 };
                 event.track.onunmute = update;
@@ -593,6 +705,8 @@ export class CallManager {
                     this.emit('connected');
                     this.sendMediaState(session);
                     this.detectCameras(session);
+                    this.startQualityMonitor(session);
+                    if (session.lowData) this.applyDataLimits(session);
                 }
                 this.setStatus('connected');
                 this.startDurationTimer(session);
@@ -720,6 +834,7 @@ export class CallManager {
             case 'offer': {
                 if (session.role !== 'callee' || !pc) return;
                 await pc.setRemoteDescription(data);
+                this.openVideoLine(session);
                 await this.flushCandidates(session);
                 const answer = await pc.createAnswer();
                 await pc.setLocalDescription(answer);
@@ -743,6 +858,15 @@ export class CallManager {
             case 'media':
                 session.remoteMuted = Boolean(data.muted);
                 session.remoteCameraOff = Boolean(data.cameraOff);
+                session.remoteScreen = Boolean(data.screen);
+                if (Boolean(data.lowData) !== session.remoteLowData) {
+                    session.remoteLowData = Boolean(data.lowData);
+                    this.applyDataLimits(session);
+                }
+                if (data.video && session.type !== 'video') {
+                    session.remoteTurnedOnVideo = true;
+                    this.becomeVideo(session);
+                }
                 this.render();
                 break;
 
@@ -759,7 +883,119 @@ export class CallManager {
     }
 
     sendMediaState(session) {
-        this.sendSignal(session, 'media', { muted: session.muted, cameraOff: session.cameraOff });
+        this.sendSignal(session, 'media', {
+            muted: session.muted,
+            cameraOff: session.cameraOff,
+            video: session.type === 'video',
+            screen: Boolean(session.screenSharing),
+            lowData: Boolean(session.lowData),
+        });
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Call quality & low data mode (K5)                                   */
+    /* ------------------------------------------------------------------ */
+
+    startQualityMonitor(session) {
+        if (session.intervals.stats || !session.pc?.getStats) return;
+        session.intervals.stats = setInterval(() => this.sampleQuality(session), STATS_INTERVAL_MS);
+    }
+
+    async sampleQuality(session) {
+        if (session !== this.session || session.status === 'ended' || !session.pc?.getStats) return;
+        try {
+            const report = await session.pc.getStats();
+            const sample = readCallStats([...report.values()], session.statsCounters);
+            session.statsCounters = sample.counters;
+            session.qualityHistory = [...session.qualityHistory, rateConnection(sample)].slice(-3);
+            const quality = smoothQuality(session.qualityHistory);
+            if (quality !== session.quality) {
+                session.quality = quality;
+                this.render();
+            }
+        } catch {
+            /* stats are best effort */
+        }
+    }
+
+    /** Use less data: lower video resolution, frame rate and bitrate, and audio bitrate. */
+    async toggleLowData() {
+        const session = this.session;
+        if (!session || session.status === 'ended') return;
+        session.lowData = !session.lowData;
+        try {
+            localStorage.setItem(LOW_DATA_KEY, session.lowData ? '1' : '0');
+        } catch {
+            /* storage unavailable */
+        }
+        await this.applyDataLimits(session);
+        this.sendMediaState(session);
+        toast.info(session.lowData ? 'Low data mode on: video quality is lowered to use less data.' : 'Low data mode off.', { timeout: 2500 });
+        this.render();
+    }
+
+    /** Low data mode applies when either person turned it on. */
+    async applyDataLimits(session) {
+        const low = Boolean(session.lowData || session.remoteLowData);
+        for (const transceiver of session.pc?.getTransceivers?.() ?? []) {
+            const kind = transceiver.receiver?.track?.kind;
+            const sender = transceiver.sender;
+            if (!sender?.getParameters || !kind) continue;
+            try {
+                const params = sender.getParameters();
+                if (!params.encodings?.length) continue;
+                const encoding = params.encodings[0];
+                if (kind === 'video') {
+                    if (low) {
+                        Object.assign(encoding, { maxBitrate: LOW_DATA.videoBitrate, maxFramerate: LOW_DATA.videoFramerate, scaleResolutionDownBy: LOW_DATA.videoScale });
+                    } else {
+                        delete encoding.maxBitrate;
+                        delete encoding.maxFramerate;
+                        encoding.scaleResolutionDownBy = 1;
+                    }
+                } else if (low) {
+                    encoding.maxBitrate = LOW_DATA.audioBitrate;
+                } else {
+                    delete encoding.maxBitrate;
+                }
+                await sender.setParameters(params);
+            } catch {
+                /* this browser can't change it during the call */
+            }
+        }
+    }
+
+    renderQuality(session, view) {
+        const pill = this.el.quality;
+        const show = Boolean(session && view === 'connected' && (session.lowData || session.quality !== 'good'));
+        pill.hidden = !show;
+        if (!show) return;
+
+        const quality = session.quality;
+        pill.dataset.quality = quality;
+        pill.classList.toggle('is-low-data', Boolean(session.lowData));
+        const label = { poor: 'Poor connection', weak: 'Weak connection' }[quality];
+        pill.innerHTML = session.lowData
+            ? `${icon('gauge')}<span>Low data mode${label ? ` · ${label}` : ''}</span><strong>Turn off</strong>`
+            : `${icon(quality === 'poor' ? 'signal-low' : 'signal-medium')}<span>${label}</span><strong>Use less data</strong>`;
+        pill.setAttribute('aria-label', session.lowData ? 'Low data mode is on. Turn it off' : `${label}. Use less data`);
+    }
+
+    /** Callee: answer the offer's video line as send-and-receive, ready for a camera later (K2). */
+    openVideoLine(session) {
+        session.pc?.getTransceivers?.().forEach((transceiver) => {
+            if (transceiver.receiver?.track?.kind === 'video' && !transceiver.stopped && ['recvonly', 'inactive'].includes(transceiver.direction)) {
+                transceiver.direction = 'sendrecv';
+            }
+        });
+    }
+
+    videoSender(session) {
+        return session.pc?.getTransceivers?.().find((transceiver) => transceiver.receiver?.track?.kind === 'video' && !transceiver.stopped)?.sender ?? null;
+    }
+
+    hasLiveCamera(session) {
+        return Boolean(session?.localStream?.getVideoTracks().some((track) => track.readyState === 'live'));
     }
 
     /* ------------------------------------------------------------------ */
@@ -862,6 +1098,11 @@ export class CallManager {
             /* already closed */
         }
         this.stopStream(session.localStream);
+        session.screenTrack?.stop();
+        session.screenSharing = false;
+        if (document.pictureInPictureElement) document.exitPictureInPicture?.().catch(() => {});
+        this.setAutoPictureInPicture(false);
+        this.el.pipVideo.srcObject = null;
         this.el.remoteVideo.srcObject = null;
         this.el.remoteAudio.srcObject = null;
         this.el.localVideo.srcObject = null;
@@ -995,8 +1236,8 @@ export class CallManager {
     toggleCamera() {
         const session = this.session;
         if (!session || session.status === 'ended') return;
-        if (session.noCamera) {
-            toast.info('No camera available.');
+        if (!this.hasLiveCamera(session)) {
+            this.turnOnCamera();
             return;
         }
         session.cameraOff = !session.cameraOff;
@@ -1041,6 +1282,150 @@ export class CallManager {
         }
     }
 
+    /**
+     * Start this device's camera during the call: a voice call becomes a video call (K2).
+     */
+    async turnOnCamera() {
+        const session = this.session;
+        if (!session || session.status !== 'connected' || session.switchingVideo) {
+            if (session && session.status !== 'connected') toast.info('Wait until the call connects.');
+            return;
+        }
+        if (session.screenSharing) {
+            toast.info('Stop sharing your screen first.');
+            return;
+        }
+        const sender = this.videoSender(session);
+        if (!sender) {
+            toast.info('Video is not available in this call.');
+            return;
+        }
+
+        session.switchingVideo = true;
+        this.render();
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: this.videoConstraints('user') });
+            const track = stream.getVideoTracks()[0];
+            if (session !== this.session || session.status === 'ended') {
+                track.stop();
+                return;
+            }
+            await sender.replaceTrack(track);
+            session.localStream ??= new MediaStream();
+            session.localStream.getVideoTracks().forEach((old) => {
+                old.stop();
+                session.localStream.removeTrack(old);
+            });
+            session.localStream.addTrack(track);
+            Object.assign(session, { facing: 'user', cameraOff: false, noCamera: false });
+
+            this.becomeVideo(session);
+            this.sendMediaState(session);
+            this.detectCameras(session);
+            if (session.call.id) this.post('callVideo', session.call.id).catch(() => {});
+        } catch (error) {
+            toast.error(['NotAllowedError', 'SecurityError'].includes(error?.name) ? 'Allow camera access to turn on video.' : this.mediaError(error, 'video'));
+        } finally {
+            session.switchingVideo = false;
+            this.render();
+        }
+    }
+
+    get screenShareSupported() {
+        return Boolean(navigator.mediaDevices?.getDisplayMedia) && !this.native;
+    }
+
+    /**
+     * Show your screen (or a window / tab) instead of the camera (K4). Uses the call's
+     * video line, so voice and video calls both work without reconnecting.
+     */
+    async toggleScreenShare() {
+        const session = this.session;
+        if (!session || session.status !== 'connected') return;
+        if (session.screenSharing) {
+            await this.stopScreenShare(session);
+            return;
+        }
+        if (!this.screenShareSupported) {
+            toast.info('Screen sharing works in Chrome, Edge, Firefox and Safari on a computer.');
+            return;
+        }
+        const sender = this.videoSender(session);
+        if (!sender || session.startingShare) return;
+
+        session.startingShare = true;
+        try {
+            const stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { ideal: 15, max: 30 } }, audio: false });
+            const track = stream.getVideoTracks()[0];
+            if (!track || session !== this.session || session.status === 'ended') {
+                stream.getTracks().forEach((t) => t.stop());
+                return;
+            }
+            // Text and slides stay sharp; the browser lowers the frame rate instead of the resolution.
+            if ('contentHint' in track) track.contentHint = 'detail';
+            await sender.replaceTrack(track);
+
+            session.screenTrack = track;
+            session.screenSharing = true;
+            track.onended = () => this.stopScreenShare(session);
+            this.showScreenPreview(session);
+            this.sendMediaState(session);
+        } catch (error) {
+            if (error?.name !== 'NotAllowedError' && error?.name !== 'AbortError') {
+                toast.error("Couldn't share your screen.");
+            }
+        } finally {
+            session.startingShare = false;
+            this.render();
+        }
+    }
+
+    /** Back to the camera (if it was on) or to no video. */
+    async stopScreenShare(session = this.session) {
+        if (!session?.screenSharing) return;
+        const track = session.screenTrack;
+        session.screenSharing = false;
+        session.screenTrack = null;
+        if (track) {
+            track.onended = null;
+            track.stop();
+        }
+
+        if (session.status !== 'ended') {
+            const camera = session.localStream?.getVideoTracks().find((t) => t.readyState === 'live') ?? null;
+            try {
+                await this.videoSender(session)?.replaceTrack(camera);
+            } catch {
+                /* the call is closing */
+            }
+            this.attachLocal();
+            this.sendMediaState(session);
+        }
+        this.render();
+    }
+
+    /** Your own screen in the small preview while sharing. */
+    showScreenPreview(session) {
+        const video = this.el.localVideo;
+        video.srcObject = new MediaStream([session.screenTrack]);
+        video.play?.().catch(() => {});
+    }
+
+    /** The call shows video from now on (camera turned on here or by the other person). */
+    becomeVideo(session) {
+        if (session.type === 'video') return;
+        session.type = 'video';
+        this.attachLocal();
+        this.attachRemote();
+        // Phone app: keep the camera allowed in the background and use the loudspeaker.
+        this.emit('active');
+        if (!session.speaker) {
+            session.speaker = true;
+            this.native?.setSpeaker?.(true);
+        }
+        this.render();
+    }
+
     toggleSpeaker() {
         const session = this.session;
         if (!session || !this.native?.setSpeaker) return;
@@ -1052,6 +1437,10 @@ export class CallManager {
     attachLocal() {
         const session = this.session;
         const video = this.el.localVideo;
+        if (session?.screenSharing && session.screenTrack) {
+            this.showScreenPreview(session);
+            return;
+        }
         if (!session?.localStream || session.type !== 'video') {
             video.srcObject = null;
             return;
@@ -1074,6 +1463,7 @@ export class CallManager {
             session.needsTap = true;
             this.render();
         });
+        if (session.minimized) this.renderMinimized();
     }
 
     /* ------------------------------------------------------------------ */
@@ -1094,8 +1484,11 @@ export class CallManager {
 
             <div class="call-top">
                 <button type="button" class="call-top-btn" data-call-action="minimize" aria-label="Back to chat">${icon('minimize-2')}</button>
-                <span class="call-top-label" data-call-top-label></span>
-                <span class="call-top-spacer"></span>
+                <span class="call-top-center">
+                    <span class="call-top-label" data-call-top-label></span>
+                    <button type="button" class="call-quality" data-call-action="low-data" data-call-quality hidden></button>
+                </span>
+                <button type="button" class="call-top-btn" data-call-action="pip" aria-label="Picture in picture" title="Picture in picture">${icon('picture-in-picture-2')}</button>
             </div>
 
             <div class="call-identity">
@@ -1111,6 +1504,10 @@ export class CallManager {
             </div>
 
             <button type="button" class="call-tap-audio" data-call-action="play" hidden>${icon('volume-2')} Tap to hear the call</button>
+            <button type="button" class="call-share-banner" data-call-action="screen-stop" data-call-share-banner hidden>${icon('monitor-x')} You're sharing your screen · <strong>Stop</strong></button>
+            <button type="button" class="call-video-invite" data-call-action="camera-on" data-call-video-invite hidden>${icon('video')} <span data-call-video-invite-text></span></button>
+
+            <button type="button" class="call-add-person" data-call-action="add-person" hidden>${icon('user-plus')} Add person</button>
 
             <div class="call-controls" data-call-controls>
                 <button type="button" class="call-btn" data-call-action="speaker" aria-pressed="false">
@@ -1121,6 +1518,9 @@ export class CallManager {
                 </button>
                 <button type="button" class="call-btn" data-call-action="flip">
                     <span class="call-btn-icon">${icon('switch-camera')}</span><span class="call-btn-label">Flip</span>
+                </button>
+                <button type="button" class="call-btn" data-call-action="screen" aria-pressed="false">
+                    <span class="call-btn-icon" data-call-screen-icon>${icon('monitor-up')}</span><span class="call-btn-label" data-call-screen-label>Share</span>
                 </button>
                 <button type="button" class="call-btn" data-call-action="mute" aria-pressed="false">
                     <span class="call-btn-icon" data-call-mute-icon>${icon('mic')}</span><span class="call-btn-label">Mute</span>
@@ -1149,11 +1549,34 @@ export class CallManager {
         mini.innerHTML = `<span class="call-mini-dot"></span>${icon('phone')}<span data-call-mini-text></span>`;
         document.body.appendChild(mini);
 
+        // Floating video window while a video call is minimised (K3).
+        const pip = document.createElement('div');
+        pip.className = 'call-pip';
+        pip.hidden = true;
+        pip.setAttribute('role', 'region');
+        pip.setAttribute('aria-label', 'Video call');
+        pip.innerHTML = `
+            <video class="call-pip-video" data-call-pip-video autoplay playsinline muted></video>
+            <div class="call-pip-avatar" data-call-pip-avatar></div>
+            <span class="call-pip-time" data-call-pip-time></span>
+            <div class="call-pip-actions">
+                <button type="button" class="call-pip-btn" data-call-action="restore" aria-label="Open call" title="Open call">${icon('maximize-2')}</button>
+                <button type="button" class="call-pip-btn" data-call-action="mute" data-call-pip-mute aria-label="Mute" title="Mute">${icon('mic')}</button>
+                <button type="button" class="call-pip-btn is-end" data-call-action="end" aria-label="End call" title="End call">${icon('phone-off')}</button>
+            </div>
+        `;
+        document.body.appendChild(pip);
+
         const q = (selector) => root.querySelector(selector);
         this.el = {
             root,
             mini,
             miniText: mini.querySelector('[data-call-mini-text]'),
+            pip,
+            pipVideo: pip.querySelector('[data-call-pip-video]'),
+            pipAvatar: pip.querySelector('[data-call-pip-avatar]'),
+            pipTime: pip.querySelector('[data-call-pip-time]'),
+            pipMute: pip.querySelector('[data-call-pip-mute]'),
             backdrop: q('[data-call-backdrop]'),
             remoteVideo: q('[data-call-remote-video]'),
             remoteAudio: q('[data-call-remote-audio]'),
@@ -1167,6 +1590,10 @@ export class CallManager {
             controls: q('[data-call-controls]'),
             incomingActions: q('[data-call-incoming-actions]'),
             tapAudio: q('[data-call-action="play"]'),
+            videoInvite: q('[data-call-video-invite]'),
+            quality: q('[data-call-quality]'),
+            shareBanner: q('[data-call-share-banner]'),
+            videoInviteText: q('[data-call-video-invite-text]'),
         };
     }
 
@@ -1191,6 +1618,21 @@ export class CallManager {
                 case 'camera':
                     this.toggleCamera();
                     break;
+                case 'camera-on':
+                    this.turnOnCamera();
+                    break;
+                case 'screen':
+                    this.toggleScreenShare();
+                    break;
+                case 'screen-stop':
+                    this.stopScreenShare();
+                    break;
+                case 'add-person':
+                    if (this.session) this.group?.addToCall(this.session);
+                    break;
+                case 'low-data':
+                    this.toggleLowData();
+                    break;
                 case 'flip':
                     this.flipCamera();
                     break;
@@ -1203,6 +1645,9 @@ export class CallManager {
                 case 'restore':
                     this.showScreen();
                     break;
+                case 'pip':
+                    this.enterPictureInPicture();
+                    break;
                 case 'play':
                     if (this.session) this.session.needsTap = false;
                     this.attachRemote();
@@ -1214,6 +1659,13 @@ export class CallManager {
         };
         this.el.root.addEventListener('click', onAction);
         this.el.mini.addEventListener('click', onAction);
+        this.el.pip.addEventListener('click', (event) => {
+            if (this.pipDragged) return;
+            // Tapping the video (not a button) opens the call again.
+            if (!event.target.closest('[data-call-action]')) this.showScreen();
+            else onAction(event);
+        });
+        this.bindPipDrag();
 
         // Header buttons and "call again" on call history.
         document.addEventListener('chat:action', (event) => {
@@ -1259,6 +1711,116 @@ export class CallManager {
         });
     }
 
+    /** Drag the floating video window anywhere; it stays where it was left. */
+    bindPipDrag() {
+        const pip = this.el.pip;
+        let start = null;
+
+        pip.addEventListener('pointerdown', (event) => {
+            if (event.button !== 0 || event.target.closest('[data-call-action]')) return;
+            const rect = pip.getBoundingClientRect();
+            start = { x: event.clientX, y: event.clientY, left: rect.left, top: rect.top, width: rect.width, height: rect.height };
+            this.pipDragged = false;
+            pip.setPointerCapture?.(event.pointerId);
+        });
+
+        pip.addEventListener('pointermove', (event) => {
+            if (!start) return;
+            const dx = event.clientX - start.x;
+            const dy = event.clientY - start.y;
+            if (!this.pipDragged && Math.hypot(dx, dy) < 6) return;
+            this.pipDragged = true;
+            pip.classList.add('is-dragging');
+            this.placePip(start.left + dx, start.top + dy, start.width, start.height);
+        });
+
+        const stop = () => {
+            if (!start) return;
+            start = null;
+            pip.classList.remove('is-dragging');
+            // The click after a drag must not open the call.
+            setTimeout(() => (this.pipDragged = false), 0);
+        };
+        pip.addEventListener('pointerup', stop);
+        pip.addEventListener('pointercancel', stop);
+
+        window.addEventListener('resize', () => {
+            if (!this.pipPosition || pip.hidden) return;
+            const rect = pip.getBoundingClientRect();
+            this.placePip(this.pipPosition.x, this.pipPosition.y, rect.width, rect.height);
+        });
+    }
+
+    placePip(x, y, width, height) {
+        this.pipPosition = clampPipPosition(x, y, width, height, window.innerWidth, window.innerHeight);
+        Object.assign(this.el.pip.style, { left: `${this.pipPosition.x}px`, top: `${this.pipPosition.y}px`, right: 'auto', bottom: 'auto' });
+    }
+
+    /** Minimised: a floating video window for video calls, the small pill for voice calls. */
+    renderMinimized() {
+        const session = this.session;
+        const minimized = Boolean(session?.minimized);
+        const video = minimized && session.type === 'video';
+        if (minimized && session.status === 'ended') {
+            this.el.miniText.textContent = `${session.peer?.name ?? 'Call'} · ${session.statusText}`;
+            this.el.pipTime.textContent = session.statusText;
+        }
+
+        this.el.mini.hidden = !minimized || video;
+        this.el.pip.hidden = !video;
+        document.documentElement.classList.toggle('has-call-mini', minimized && !video);
+        document.documentElement.classList.toggle('has-call-pip', video);
+
+        const pipVideo = this.el.pipVideo;
+        if (!video) {
+            if (pipVideo.srcObject) pipVideo.srcObject = null;
+            return;
+        }
+
+        if (session.remoteStream && pipVideo.srcObject !== session.remoteStream) {
+            pipVideo.srcObject = session.remoteStream;
+            pipVideo.play?.().catch(() => {});
+        }
+        const live = session.remoteVideoLive && (!session.remoteCameraOff || session.remoteScreen);
+        this.el.pip.classList.toggle('is-screen', Boolean(session.remoteScreen));
+        this.el.pip.classList.toggle('has-video', live);
+        this.el.pipAvatar.innerHTML = live ? '' : T.avatar(session.peer ?? {}, 'lg');
+        this.el.pipMute.innerHTML = icon(session.muted ? 'mic-off' : 'mic');
+        this.el.pipMute.classList.toggle('is-on', Boolean(session.muted));
+        this.el.pipMute.setAttribute('aria-label', session.muted ? 'Unmute' : 'Mute');
+    }
+
+    get pipSupported() {
+        return Boolean(document.pictureInPictureEnabled && this.el?.remoteVideo?.requestPictureInPicture);
+    }
+
+    /**
+     * The browser's own picture-in-picture window: the other person's video floats over
+     * other tabs and apps (desktop Chrome, Edge, Safari).
+     */
+    async enterPictureInPicture() {
+        const session = this.session;
+        if (!session || session.type !== 'video' || !this.pipSupported) return;
+        try {
+            if (document.pictureInPictureElement) {
+                await document.exitPictureInPicture();
+                return;
+            }
+            await this.el.remoteVideo.requestPictureInPicture();
+        } catch {
+            toast.info("Picture in picture isn't available right now.");
+        }
+    }
+
+    /** Chrome can open picture-in-picture by itself when you switch tabs during a video call. */
+    setAutoPictureInPicture(on) {
+        try {
+            navigator.mediaSession?.setActionHandler?.('enterpictureinpicture', on ? () => this.enterPictureInPicture() : null);
+        } catch {
+            /* not supported by this browser */
+        }
+    }
+
     openScreen() {
         if (this.session) this.session.minimized = false;
         this.showScreen();
@@ -1266,17 +1828,23 @@ export class CallManager {
     }
 
     showScreen() {
+        if (this.group?.active && !this.session) {
+            this.group.show();
+            return;
+        }
         if (this.session) this.session.minimized = false;
         this.el.root.hidden = false;
-        this.el.mini.hidden = true;
         document.documentElement.classList.add('has-call-screen');
+        this.renderMinimized();
         this.render();
     }
 
     hideScreen() {
         this.el.root.hidden = true;
         this.el.mini.hidden = true;
-        document.documentElement.classList.remove('has-call-screen', 'has-call-mini');
+        this.el.pip.hidden = true;
+        this.el.pipVideo.srcObject = null;
+        document.documentElement.classList.remove('has-call-screen', 'has-call-mini', 'has-call-pip');
     }
 
     minimize() {
@@ -1284,9 +1852,8 @@ export class CallManager {
         if (!session || session.status === 'ended') return;
         session.minimized = true;
         this.el.root.hidden = true;
-        this.el.mini.hidden = false;
         document.documentElement.classList.remove('has-call-screen');
-        document.documentElement.classList.add('has-call-mini');
+        this.renderMinimized();
         this.renderDuration();
     }
 
@@ -1312,17 +1879,24 @@ export class CallManager {
         root.dataset.role = session?.role ?? 'callee';
         root.style.setProperty('--call-hue', String(peer.avatar_hue ?? 230));
 
-        const videoLive = Boolean(session && type === 'video' && session.remoteVideoLive && !session.remoteCameraOff && view !== 'ended');
+        const videoLive = Boolean(session && type === 'video' && session.remoteVideoLive && (!session.remoteCameraOff || session.remoteScreen) && view !== 'ended');
+        const sharing = Boolean(session?.screenSharing && view !== 'ended');
         root.classList.toggle('has-remote-video', videoLive);
-        root.classList.toggle('has-local-video', Boolean(session && type === 'video' && session.localStream?.getVideoTracks().length && view !== 'ended'));
-        root.classList.toggle('is-local-off', Boolean(session?.cameraOff));
-        root.classList.toggle('is-mirrored', session?.facing !== 'environment');
+        root.classList.toggle('has-local-video', Boolean(session && (sharing || (type === 'video' && session.localStream?.getVideoTracks().length)) && view !== 'ended'));
+        root.classList.toggle('is-local-off', Boolean(session?.cameraOff) && !sharing);
+        root.classList.toggle('is-mirrored', session?.facing !== 'environment' && !sharing);
+        root.classList.toggle('is-remote-screen', Boolean(videoLive && session.remoteScreen));
+        root.classList.toggle('is-sharing-screen', sharing);
 
         this.el.avatar.innerHTML = T.avatar(peer, 'xl');
         this.el.name.textContent = peer.name ?? 'Unknown';
         this.el.topLabel.textContent = type === 'video' ? 'Video call' : 'Voice call';
 
-        if (view === 'incoming') {
+        const room = incoming?.call.room;
+        if (view === 'incoming' && room) {
+            const others = (room.participants ?? []).filter((p) => Number(p.user_id) !== Number(incoming.call.caller_id)).map((p) => p.name).filter(Boolean);
+            this.el.status.textContent = `Group ${type === 'video' ? 'video' : 'voice'} call${others.length ? ` with ${others.join(', ')}` : ''}`;
+        } else if (view === 'incoming') {
             this.el.status.textContent = type === 'video' ? 'Incoming video call' : 'Incoming voice call';
         } else if (view === 'connected') {
             this.renderDuration();
@@ -1334,7 +1908,8 @@ export class CallManager {
         if (session?.noMicrophone && view !== 'ended') flags.push('No microphone on this device');
         if (session && view === 'connected') {
             if (session.remoteMuted) flags.push(`${peer.name ?? 'They'} muted their microphone`);
-            if (type === 'video' && session.remoteCameraOff) flags.push('Camera off');
+            if (session.remoteScreen) flags.push(`${peer.name ?? 'They'} is sharing their screen`);
+            else if (type === 'video' && session.remoteCameraOff) flags.push('Camera off');
         }
         this.el.flags.textContent = flags.join(' · ');
 
@@ -1347,16 +1922,35 @@ export class CallManager {
 
         button('speaker').hidden = !this.native?.setSpeaker;
         button('speaker').setAttribute('aria-pressed', String(Boolean(session?.speaker)));
-        button('camera').hidden = type !== 'video';
-        button('camera').setAttribute('aria-pressed', String(Boolean(session?.cameraOff)));
-        root.querySelector('[data-call-camera-icon]').innerHTML = icon(session?.cameraOff ? 'video-off' : 'video');
-        button('flip').hidden = type !== 'video' || !session?.canFlip || Boolean(session?.cameraOff);
+        // Voice calls get a "Video" button once connected (K2).
+        const hasCamera = this.hasLiveCamera(session);
+        const cameraOff = type === 'video' && (Boolean(session?.cameraOff) || !hasCamera);
+        button('camera').hidden = !session || (type !== 'video' && view !== 'connected');
+        button('camera').disabled = ended || Boolean(session?.switchingVideo);
+        button('camera').setAttribute('aria-pressed', String(cameraOff));
+        button('camera').querySelector('.call-btn-label').textContent = type === 'video' ? 'Camera' : 'Video';
+        root.querySelector('[data-call-camera-icon]').innerHTML = icon(cameraOff ? 'video-off' : 'video');
+        button('flip').hidden = type !== 'video' || !session?.canFlip || Boolean(session?.cameraOff) || !hasCamera || sharing;
+        // Screen sharing (K4): computers only.
+        button('screen').hidden = !session || view !== 'connected' || !this.screenShareSupported;
+        button('screen').disabled = ended || Boolean(session?.startingShare);
+        button('screen').setAttribute('aria-pressed', String(sharing));
+        root.querySelector('[data-call-screen-label]').textContent = sharing ? 'Stop' : 'Share';
+        root.querySelector('[data-call-screen-icon]').innerHTML = icon(sharing ? 'monitor-x' : 'monitor-up');
+        this.el.shareBanner.hidden = !sharing;
+        this.renderQuality(session, view);
+        root.querySelector('[data-call-action="add-person"]').hidden = !(this.group && session && view === 'connected');
+        this.el.videoInvite.hidden = !(session?.remoteTurnedOnVideo && !hasCamera && view === 'connected');
+        this.el.videoInviteText.textContent = `${peer.name ?? 'They'} turned on video · Turn on your camera`;
         button('mute').setAttribute('aria-pressed', String(Boolean(session?.muted)));
         button('mute').disabled = ended || Boolean(session?.noMicrophone);
         root.querySelector('[data-call-mute-icon]').innerHTML = icon(session?.muted ? 'mic-off' : 'mic');
         root.querySelector('[data-call-accept-icon]').innerHTML = icon(type === 'video' ? 'video' : 'phone');
         button('minimize').style.visibility = !session || ended ? 'hidden' : '';
+        button('pip').style.visibility = session && !ended && type === 'video' && this.pipSupported ? '' : 'hidden';
         this.el.tapAudio.hidden = !session?.needsTap || ended;
+        this.setAutoPictureInPicture(Boolean(session && view === 'connected' && type === 'video' && this.pipSupported));
+        if (session?.minimized) this.renderMinimized();
     }
 
     renderDuration() {
@@ -1367,8 +1961,10 @@ export class CallManager {
             const text = formatDuration(this.elapsedSeconds(session));
             this.el.status.textContent = text;
             this.el.miniText.textContent = `${session.peer?.name ?? 'Call'} · ${text}`;
+            this.el.pipTime.textContent = text;
         } else {
             this.el.miniText.textContent = `${session.peer?.name ?? 'Call'} · ${session.statusText || 'Calling…'}`;
+            this.el.pipTime.textContent = session.statusText || 'Calling…';
         }
     }
 

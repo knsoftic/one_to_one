@@ -249,6 +249,26 @@ class CallTest extends TestCase
         $this->actingAs($this->caller)->deleteJson("/messages/{$history->id}", ['scope' => 'me'])->assertOk();
     }
 
+    public function test_a_voice_call_in_progress_can_switch_to_video(): void
+    {
+        $call = $this->ringingCall();
+        $this->actingAs($this->callee)->postJson("/calls/{$call->id}/video")->assertConflict();
+
+        $this->actingAs($this->callee)->postJson("/calls/{$call->id}/accept", ['client_id' => self::CALLEE_CLIENT])->assertOk();
+        Event::fake([CallUpdated::class]);
+
+        $this->actingAs(User::factory()->create())->postJson("/calls/{$call->id}/video")->assertNotFound();
+        $this->actingAs($this->callee)->postJson("/calls/{$call->id}/video")
+            ->assertOk()
+            ->assertJsonPath('call.type', 'video');
+        // Asking again changes nothing.
+        $this->actingAs($this->caller)->postJson("/calls/{$call->id}/video")->assertOk();
+        Event::assertDispatchedTimes(CallUpdated::class, 1);
+
+        $this->actingAs($this->caller)->postJson("/calls/{$call->id}/end")->assertOk();
+        $this->assertSame('video', Message::sole()->attachment_meta['call_type']);
+    }
+
     /* ------------------------------------------------------------------ */
     /* Signaling */
     /* ------------------------------------------------------------------ */

@@ -25,6 +25,7 @@ class CallSignal extends Model
 
     protected $fillable = [
         'call_id',
+        'call_room_id',
         'sender_id',
         'recipient_id',
         'from_client',
@@ -46,6 +47,8 @@ class CallSignal extends Model
         return [
             'id' => $this->id,
             'call_id' => $this->call_id,
+            'call_room_id' => $this->call_room_id,
+            'sender_id' => $this->sender_id,
             'type' => $this->type,
             'from_client' => $this->from_client,
             'to_client' => $this->to_client,

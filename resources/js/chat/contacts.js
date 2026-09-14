@@ -166,6 +166,7 @@ export class ContactsPanel {
     }
 
     open() {
+        if (this.chat.callLog?.isOpen) this.chat.callLog.close({ silent: true });
         this.el.sidebar.dataset.mode = 'contacts';
         this.el.chatsView.hidden = true;
         this.el.view.hidden = false;

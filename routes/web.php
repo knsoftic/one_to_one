@@ -6,6 +6,9 @@ use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\BlockController;
 use App\Http\Controllers\CallController;
+use App\Http\Controllers\CallLinkController;
+use App\Http\Controllers\CallLogController;
+use App\Http\Controllers\CallRoomController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\ChatListController;
 use App\Http\Controllers\ChatLockController;
@@ -273,6 +276,29 @@ Route::middleware(['auth', 'active'])->group(function () {
         ->middleware('throttle:calls-start')
         ->name('calls.store');
     Route::get('/calls/active', [CallController::class, 'active'])->middleware('throttle:chat-actions')->name('calls.active');
+    // Call links (K7)
+    Route::get('/call/{token}', [CallLinkController::class, 'show'])->where('token', '[A-Za-z0-9]{16,40}')->name('call-links.show');
+    Route::get('/call-links', [CallLinkController::class, 'index'])->name('call-links.index');
+    Route::post('/call-links', [CallLinkController::class, 'store'])->middleware('throttle:chat-actions')->name('call-links.store');
+    Route::delete('/call-links/{callLink}', [CallLinkController::class, 'destroy'])->middleware('throttle:chat-actions')->name('call-links.destroy');
+    Route::post('/call-links/{token}/join', [CallLinkController::class, 'join'])->where('token', '[A-Za-z0-9]{16,40}')->middleware('throttle:calls-start')->name('call-links.join');
+
+    // Group calls (K6)
+    Route::post('/call-rooms', [CallRoomController::class, 'store'])->middleware('throttle:calls-start')->name('call-rooms.store');
+    Route::prefix('/call-rooms/{room}')->whereNumber('room')->group(function () {
+        Route::get('/', [CallRoomController::class, 'show'])->middleware('throttle:calls-signal')->name('call-rooms.show');
+        Route::post('/participants', [CallRoomController::class, 'invite'])->middleware('throttle:calls-start')->name('call-rooms.invite');
+        Route::post('/leave', [CallRoomController::class, 'leave'])->middleware('throttle:chat-actions')->name('call-rooms.leave');
+        Route::post('/heartbeat', [CallRoomController::class, 'heartbeat'])->middleware('throttle:chat-actions')->name('call-rooms.heartbeat');
+        Route::post('/signals', [CallRoomController::class, 'storeSignal'])->middleware('throttle:calls-signal')->name('call-rooms.signals.store');
+        Route::get('/signals', [CallRoomController::class, 'signals'])->middleware('throttle:calls-signal')->name('call-rooms.signals');
+    });
+
+    // Calls tab (K1)
+    Route::get('/calls', [CallLogController::class, 'index'])->name('calls.log');
+    Route::post('/calls/seen', [CallLogController::class, 'seen'])->middleware('throttle:chat-actions')->name('calls.log.seen');
+    Route::delete('/calls', [CallLogController::class, 'clear'])->middleware('throttle:chat-actions')->name('calls.log.clear');
+    Route::delete('/calls/{call}', [CallLogController::class, 'destroy'])->whereNumber('call')->middleware('throttle:chat-actions')->name('calls.log.destroy');
     Route::prefix('/calls/{call}')->whereNumber('call')->group(function () {
         Route::get('/', [CallController::class, 'show'])->middleware('throttle:calls-signal')->name('calls.show');
         Route::post('/ringing', [CallController::class, 'ringing'])->middleware('throttle:chat-actions')->name('calls.ringing');
@@ -280,6 +306,8 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('/decline', [CallController::class, 'decline'])->middleware('throttle:chat-actions')->name('calls.decline');
         Route::post('/end', [CallController::class, 'end'])->middleware('throttle:chat-actions')->name('calls.end');
         Route::post('/heartbeat', [CallController::class, 'heartbeat'])->middleware('throttle:chat-actions')->name('calls.heartbeat');
+        Route::post('/video', [CallController::class, 'video'])->middleware('throttle:chat-actions')->name('calls.video');
+        Route::post('/participants', [CallRoomController::class, 'addToCall'])->middleware('throttle:calls-start')->name('calls.participants.store');
         Route::post('/signals', [CallController::class, 'storeSignal'])->middleware('throttle:calls-signal')->name('calls.signals.store');
         Route::get('/signals', [CallController::class, 'signals'])->middleware('throttle:calls-signal')->name('calls.signals');
     });

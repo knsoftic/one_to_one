@@ -8,6 +8,7 @@ use App\Events\CallUpdated;
 use App\Events\MessageSent;
 use App\Jobs\SendCallPush;
 use App\Models\Call;
+use App\Models\CallRoomParticipant;
 use App\Models\CallSignal;
 use App\Models\Conversation;
 use App\Models\Message;
@@ -50,7 +51,7 @@ class CallService
             // Serialize call attempts involving either user (e.g. both calling each other at once).
             User::query()->whereKey([$caller->getKey(), $calleeId])->lockForUpdate()->get(['id']);
 
-            if (Call::query()->active()->involving($caller)->exists()) {
+            if (app(CallRoomService::class)->isBusy($caller)) {
                 throw new HttpException(409, 'You are already in a call.');
             }
 
@@ -65,7 +66,8 @@ class CallService
             ]);
         });
 
-        $calleeBusy = Call::query()->active()->involving($calleeId)->whereKeyNot($call->getKey())->exists();
+        $calleeBusy = Call::query()->active()->involving($calleeId)->whereKeyNot($call->getKey())->exists()
+            || CallRoomParticipant::query()->joined()->where('user_id', $calleeId)->whereHas('room', fn ($q) => $q->active())->exists();
 
         if ($calleeBusy) {
             return $this->finish($call, Call::REASON_BUSY, null);
@@ -141,6 +143,11 @@ class CallService
             SendCallPush::dispatchAfterResponse($call->getKey(), SendCallPush::KIND_STATE);
         }
 
+        // Answering an invite to a group call (K6) joins it.
+        if ($call->call_room_id) {
+            app(CallRoomService::class)->join($call->room, $callee, $clientId);
+        }
+
         return $call;
     }
 
@@ -166,6 +173,13 @@ class CallService
             return $call;
         }
 
+        // In a group call (K6) hanging up leaves it; the others stay connected.
+        if ($call->call_room_id && $call->room?->isActive() && $call->room->participantFor($user)?->isJoined()) {
+            app(CallRoomService::class)->leave($call->room, $user);
+
+            return $call->fresh();
+        }
+
         if ($call->isRinging()) {
             $endReason = match (true) {
                 ! $call->isCaller($user) => Call::REASON_DECLINED,
@@ -180,6 +194,29 @@ class CallService
         $endReason = $reason === 'failed' && ! $this->wasConnected($call) ? Call::REASON_FAILED : Call::REASON_COMPLETED;
 
         return $this->finish($call, $endReason, $user);
+    }
+
+    /**
+     * A camera was turned on during a voice call (K2): it becomes a video call
+     * (also in the call history).
+     *
+     * @throws HttpException 409 when the call is not in progress
+     */
+    public function switchToVideo(Call $call, User $user): Call
+    {
+        if (! $call->isOngoing()) {
+            throw new HttpException(409, 'The call is not in progress.');
+        }
+
+        if ($call->type !== Call::TYPE_VIDEO) {
+            $call->forceFill(['type' => Call::TYPE_VIDEO])->save();
+            $call->load(['caller', 'callee']);
+            broadcast(new CallUpdated($call));
+        }
+
+        $this->touch($call, $user);
+
+        return $call;
     }
 
     /**
@@ -320,6 +357,11 @@ class CallService
         $ended->load(['caller', 'callee']);
         broadcast(new CallUpdated($ended));
         broadcast(new MessageSent($message->load('replyTo')));
+
+        // Someone rung into a group call did not answer (K6).
+        if ($wasRinging && $ended->call_room_id) {
+            app(CallRoomService::class)->inviteEnded($ended);
+        }
 
         // Stop the ringing screen on the callee's phones.
         if ($wasRinging && $this->push->enabled()) {

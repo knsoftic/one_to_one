@@ -18,6 +18,10 @@
                 </a>
 
                 <div class="flex items-center">
+                    <button type="button" class="btn-icon header-calls" data-action="open-calls" aria-label="Calls" title="Calls">
+                        <x-icon name="phone" />
+                        <span class="badge badge-danger header-calls-badge" data-calls-badge hidden>0</span>
+                    </button>
                     <button type="button" class="btn-icon header-new-chat" data-action="new-chat" aria-label="New chat" title="New chat">
                         <x-icon name="message-square-plus" />
                     </button>
@@ -47,6 +51,7 @@
                         </button>
                         <div class="dropdown-menu" data-align="right" role="menu" hidden>
                             <button type="button" class="dropdown-item" data-action="new-chat" role="menuitem"><x-icon name="message-square-plus" /> New chat</button>
+                            <button type="button" class="dropdown-item" data-action="open-calls" role="menuitem"><x-icon name="phone" /> Calls</button>
                             <button type="button" class="dropdown-item" data-action="open-starred" role="menuitem"><x-icon name="star" /> Starred messages</button>
                             <a href="{{ route('profile.edit') }}" class="dropdown-item" role="menuitem"><x-icon name="settings" /> Settings</a>
                             <a href="{{ route('profile.edit', ['tab' => 'preferences']) }}" class="dropdown-item" role="menuitem"><x-icon name="bell" /> Notifications</a>
@@ -179,6 +184,32 @@
                 </div>
             </div>
 
+            {{-- ======================= Calls view (K1) ======================= --}}
+            <div class="sidebar-view calls-view" data-sidebar-view="calls" hidden>
+                <header class="contacts-header">
+                    <button type="button" class="btn-icon" data-action="close-calls" aria-label="Back to chats">
+                        <x-icon name="arrow-left" />
+                    </button>
+                    <div class="min-w-0 flex-1">
+                        <div class="contacts-title">Calls</div>
+                        <div class="contacts-subtitle">Tap a call to open the chat</div>
+                    </div>
+                    <button type="button" class="btn-icon" data-action="call-links" aria-label="Call links" title="Call links">
+                        <x-icon name="link-2" />
+                    </button>
+                    <button type="button" class="btn-icon" data-action="new-group-call" aria-label="New group call" title="New group call">
+                        <x-icon name="users" />
+                    </button>
+                    <button type="button" class="btn-icon" data-action="clear-calls" aria-label="Clear call log" title="Clear call log">
+                        <x-icon name="trash-2" />
+                    </button>
+                </header>
+                <div class="sidebar-scroll" data-calls-scroll>
+                    <div data-calls-list></div>
+                    <div class="flex justify-center py-3" data-calls-more hidden><span class="spinner"></span></div>
+                </div>
+            </div>
+
             {{-- ======================= Starred messages view ======================= --}}
             <div class="sidebar-view starred-view" data-sidebar-view="starred" hidden>
                 <header class="contacts-header">
@@ -202,6 +233,10 @@
             <button type="button" class="mobile-nav-item is-active" data-mobile-tab="chats" aria-current="page">
                 <span class="mobile-nav-icon"><x-icon name="message-circle" /><span class="badge badge-primary mobile-nav-badge" data-mobile-unread hidden>0</span></span>
                 <span>Chats</span>
+            </button>
+            <button type="button" class="mobile-nav-item" data-mobile-tab="calls">
+                <span class="mobile-nav-icon"><x-icon name="phone" /><span class="badge badge-danger mobile-nav-badge" data-calls-badge hidden>0</span></span>
+                <span>Calls</span>
             </button>
             <button type="button" class="mobile-nav-item" data-mobile-tab="contacts">
                 <span class="mobile-nav-icon"><x-icon name="users" /></span>

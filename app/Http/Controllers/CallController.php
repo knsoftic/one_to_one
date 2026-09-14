@@ -85,6 +85,14 @@ class CallController extends Controller
         return $this->callResponse($request, $this->calls->hangUp($call, $request->user(), $validated['reason'] ?? null));
     }
 
+    /** Voice call → video call (K2). */
+    public function video(Request $request, Call $call): JsonResponse
+    {
+        Gate::authorize('view', $call);
+
+        return $this->callResponse($request, $this->calls->switchToVideo($call, $request->user()));
+    }
+
     public function heartbeat(Request $request, Call $call): JsonResponse
     {
         Gate::authorize('view', $call);

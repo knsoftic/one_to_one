@@ -49,6 +49,7 @@ class Call extends Model
 
     protected $fillable = [
         'conversation_id',
+        'call_room_id',
         'caller_id',
         'callee_id',
         'type',
@@ -96,6 +97,12 @@ class Call extends Model
     public function message(): BelongsTo
     {
         return $this->belongsTo(Message::class);
+    }
+
+    /** The group call this call rang someone into (K6). */
+    public function room(): BelongsTo
+    {
+        return $this->belongsTo(CallRoom::class, 'call_room_id');
     }
 
     public function signals(): HasMany

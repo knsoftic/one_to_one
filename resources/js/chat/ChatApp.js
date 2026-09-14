@@ -20,6 +20,8 @@ import { albumLayout } from './album';
 import { LinkPreviewComposer } from './link-preview';
 import { ChatListActions, chatListOrder, hasUnread, lockedChats, unreadTotal } from './chat-list';
 import { ChatLock } from './chat-lock';
+import { CallLinks } from './call-links';
+import { CallLog } from './call-log';
 import { ChatLists, matchesFilter } from './chat-lists';
 import { InviteFriends } from './invite';
 import { LocationSharing } from './location';
@@ -164,6 +166,8 @@ export class ChatApp {
         this.reactions = new Reactions(this);
         this.chatSearch = new ChatSearch(this);
         this.starred = new StarredMessages(this);
+        this.callLog = new CallLog(this);
+        this.callLinks = new CallLinks(this);
         this.pins = new PinnedMessages(this);
         this.linkPreviews = new LinkPreviewComposer(this);
         this.chatLock = new ChatLock(this);
@@ -387,10 +391,14 @@ export class ChatApp {
             tab.addEventListener('click', () => {
                 if (tab.dataset.mobileTab === 'contacts') {
                     this.contactsPanel.open();
+                } else if (tab.dataset.mobileTab === 'calls') {
+                    this.callLog?.open();
                 } else if (this.contactsPanel.isOpen) {
                     this.contactsPanel.close();
                 } else if (this.starred?.isOpen) {
                     this.starred.close();
+                } else if (this.callLog?.isOpen) {
+                    this.callLog.close();
                 }
             }),
         );

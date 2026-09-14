@@ -777,7 +777,7 @@ a.message-file:hover { background: color-mix(in srgb, var(--c-text) 10%, transpa
     .chat-app textarea,
     .chat-app select { font-size: 16px; }
 
-    .header-new-chat, .header-theme-toggle { display: none; }
+    .header-new-chat, .header-theme-toggle, .header-calls { display: none; }
     .sidebar-header { padding: 0.7rem 0.5rem 0.6rem 0.85rem; }
     .sidebar-me-name { font-size: 1.05rem; }
 
@@ -798,7 +798,7 @@ a.message-file:hover { background: color-mix(in srgb, var(--c-text) 10%, transpa
         bottom: 0;
         z-index: 20;
         display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(4, minmax(0, 1fr));
         padding: 0.3rem 0.5rem calc(0.3rem + env(safe-area-inset-bottom));
         background: color-mix(in srgb, var(--c-surface) 94%, transparent);
         border-top: 1px solid var(--c-border);

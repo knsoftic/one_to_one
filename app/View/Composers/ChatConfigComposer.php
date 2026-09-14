@@ -3,6 +3,7 @@
 namespace App\View\Composers;
 
 use App\Http\Resources\UserResource;
+use App\Services\CallLogService;
 use App\Services\ChatLockService;
 use App\Services\GifService;
 use Illuminate\Support\Facades\Route;
@@ -80,12 +81,29 @@ class ChatConfigComposer
             'notificationsRead' => ['notifications.read', []],
             'callsStore' => ['calls.store', ['conversation' => $id]],
             'callsActive' => ['calls.active', []],
+            'callLog' => ['calls.log', []],
+            'callLogSeen' => ['calls.log.seen', []],
+            'callLogClear' => ['calls.log.clear', []],
+            'callLogDestroy' => ['calls.log.destroy', ['call' => $id]],
             'callShow' => ['calls.show', ['call' => $id]],
             'callRinging' => ['calls.ringing', ['call' => $id]],
             'callAccept' => ['calls.accept', ['call' => $id]],
             'callDecline' => ['calls.decline', ['call' => $id]],
             'callEnd' => ['calls.end', ['call' => $id]],
             'callHeartbeat' => ['calls.heartbeat', ['call' => $id]],
+            'callVideo' => ['calls.video', ['call' => $id]],
+            'callParticipantsStore' => ['calls.participants.store', ['call' => $id]],
+            'callRoomsStore' => ['call-rooms.store', []],
+            'callLinks' => ['call-links.index', []],
+            'callLinksStore' => ['call-links.store', []],
+            'callLinkDestroy' => ['call-links.destroy', ['callLink' => $id]],
+            'callLinkJoin' => ['call-links.join', ['token' => $id]],
+            'callRoomShow' => ['call-rooms.show', ['room' => $id]],
+            'callRoomInvite' => ['call-rooms.invite', ['room' => $id]],
+            'callRoomLeave' => ['call-rooms.leave', ['room' => $id]],
+            'callRoomHeartbeat' => ['call-rooms.heartbeat', ['room' => $id]],
+            'callRoomSignalsStore' => ['call-rooms.signals.store', ['room' => $id]],
+            'callRoomSignals' => ['call-rooms.signals', ['room' => $id]],
             'callSignalsStore' => ['calls.signals.store', ['call' => $id]],
             'callSignals' => ['calls.signals', ['call' => $id]],
         ];
@@ -112,6 +130,8 @@ class ChatConfigComposer
             ],
             'user' => (new UserResource($user))->resolve($request),
             'initialConversationId' => $view->getData()['initialConversationId'] ?? null,
+            // Opened from a call link (K7).
+            'callLink' => $view->getData()['callLink'] ?? null,
             'routes' => $routes,
             'limits' => [
                 'messageLength' => config('chat.max_message_length'),
@@ -145,6 +165,9 @@ class ChatConfigComposer
             'calls' => [
                 'enabled' => (bool) config('chat.calls.enabled', true) && Route::has('calls.store'),
                 'ringTimeoutSeconds' => (int) config('chat.calls.ring_timeout_seconds', 45),
+                'maxGroupParticipants' => (int) config('chat.calls.max_group_participants', 4),
+                // Badge on the Calls tab (K1).
+                'unseenMissed' => app(CallLogService::class)->unseenMissed($user),
                 'heartbeatSeconds' => (int) config('chat.calls.heartbeat_seconds', 20),
             ],
         ]);
