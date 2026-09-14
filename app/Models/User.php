@@ -100,6 +100,7 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'phone_verified_at' => 'datetime',
             'last_seen' => 'datetime',
             'is_online' => 'boolean',
             'notifications_enabled' => 'boolean',

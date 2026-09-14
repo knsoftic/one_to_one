@@ -100,6 +100,9 @@ class ChatConfigComposer
             'sessionsOthers' => ['sessions.others', []],
             'linkedLookup' => ['linked-devices.lookup', []],
             'linkedApprove' => ['linked-devices.approve', []],
+            'profileQr' => ['profile-qr.show', []],
+            'profileQrReset' => ['profile-qr.reset', []],
+            'profileQrLookup' => ['profile-qr.lookup', []],
             'statuses' => ['statuses.index', []],
             'statusesStore' => ['statuses.store', []],
             'statusDestroy' => ['statuses.destroy', ['status' => $id]],
@@ -191,6 +194,8 @@ class ChatConfigComposer
             'channelInvite' => $view->getData()['channelInvite'] ?? null,
             // Opened from a linked-device QR code (P10).
             'linkDevice' => $view->getData()['linkDevice'] ?? null,
+            // Opened from someone's profile QR code (A4).
+            'profileQr' => $view->getData()['profileQr'] ?? null,
             // Status (Phase 5).
             'statuses' => [
                 'maxVideoSeconds' => (int) config('chat.statuses.max_video_seconds', 60),

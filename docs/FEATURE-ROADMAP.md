@@ -121,15 +121,15 @@ light/dark theme · admin panel.
 | P10 | **Linked devices (QR login)** | Phone se QR scan karke web par login, WhatsApp Web ki tarah | 🟡 | [x] |
 | P11 | **End-to-end encryption** | Server par bhi messages na padhe ja sakein (bohat bari tabdeeli) | 🔴 | [ ] ⏸ baad mein |
 
-## Phase 7 — Account
+## Phase 7 — Account — ✅ mukammal
 
 | # | Feature | Kya milega | Mehnat | Status |
 |---|---------|-----------|--------|--------|
-| A1 | **Phone number + OTP login** | Password ke baghair SMS code se login (SMS ka kharcha) | 🟡 | [ ] |
-| A2 | **Change number** | Naya number, chats saath rahein | 🟡 | [ ] |
-| A3 | **Delete my account** | User khud account aur data hataye | 🟢 | [ ] |
-| A4 | **Profile QR code** | QR scan karke seedha chat shuru | 🟢 | [ ] |
-| A5 | **Mera data download** | Account ki report/export | 🟡 | [ ] |
+| A1 | **Phone number + OTP login** | Password ke baghair SMS code se login (SMS ka kharcha) | 🟡 | [x] |
+| A2 | **Change number** | Naya number, chats saath rahein | 🟡 | [x] |
+| A3 | **Delete my account** | User khud account aur data hataye | 🟢 | [x] |
+| A4 | **Profile QR code** | QR scan karke seedha chat shuru | 🟢 | [x] |
+| A5 | **Mera data download** | Account ki report/export | 🟡 | [x] |
 
 ## Phase 8 — Media, storage aur chat settings
 

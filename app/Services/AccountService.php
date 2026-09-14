@@ -47,7 +47,6 @@ class AccountService
             'name' => $data['name'],
             'username' => $data['username'],
             'email' => $data['email'],
-            'phone' => $data['phone'],
         ]);
 
         if (array_key_exists('about', $data)) {
@@ -67,6 +66,26 @@ class AccountService
         }
 
         $user->save();
+
+        return $user;
+    }
+
+    /** A4 — the secret in the profile QR code, made the first time it is needed. */
+    public function qrToken(User $user, bool $reset = false): string
+    {
+        if ($reset || ! $user->qr_token) {
+            $user->forceFill(['qr_token' => Str::random(32)])->save();
+        }
+
+        return (string) $user->qr_token;
+    }
+
+    /**
+     * A2 — a new mobile number for the same account (checked by the caller).
+     */
+    public function changePhone(User $user, string $phone, bool $verified): User
+    {
+        $user->forceFill(['phone' => $phone, 'phone_verified_at' => $verified ? now() : null])->save();
 
         return $user;
     }

@@ -35,7 +35,8 @@ class ProfileTest extends TestCase
         $this->assertSame('Updated Name', $user->name);
         $this->assertSame('updated.user', $user->username);
         $this->assertSame('updated@example.com', $user->email);
-        $this->assertSame('+15550109999', $user->phone);
+        // The number changes only with "Change number" (A2).
+        $this->assertNotSame('+15550109999', $user->phone);
     }
 
     public function test_profile_update_keeps_own_unique_values(): void
@@ -60,7 +61,7 @@ class ProfileTest extends TestCase
             'username' => $other->username,
             'email' => $other->email,
             'phone' => $other->phone,
-        ])->assertSessionHasErrorsIn('profile', ['username', 'email', 'phone']);
+        ])->assertSessionHasErrorsIn('profile', ['username', 'email']);
     }
 
     public function test_profile_picture_can_be_replaced_and_removed(): void

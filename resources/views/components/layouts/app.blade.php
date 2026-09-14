@@ -1,5 +1,5 @@
-@props(['title' => null, 'back' => null])
-<x-layouts.base :title="$title">
+@props(['title' => null, 'back' => null, 'scripts' => []])
+<x-layouts.base :title="$title" :scripts="$scripts">
     <div class="page-shell">
         <header class="topbar">
             <div class="flex items-center gap-2 min-w-0">

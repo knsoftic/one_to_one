@@ -45,6 +45,14 @@
         </button>
     </form>
 
+    {{-- Log in with the mobile number and an SMS code (A1) --}}
+    @if (Route::has('login.phone') && app(\App\Services\SmsService::class)->available())
+        <div class="auth-divider"><span>or</span></div>
+        <a href="{{ route('login.phone') }}" class="btn btn-secondary btn-lg btn-block" data-phone-login-link>
+            <x-icon name="smartphone" /> Log in with phone number
+        </a>
+    @endif
+
     <p class="auth-alt">
         Don't have an account?
         <a href="{{ route('register') }}" class="auth-link">Create one</a>

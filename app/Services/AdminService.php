@@ -9,7 +9,6 @@ use App\Models\User;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 /**
@@ -19,8 +18,8 @@ use Illuminate\Support\Str;
 class AdminService
 {
     public function __construct(
-        private readonly ImageService $images,
         private readonly PresenceService $presence,
+        private readonly AccountDeletionService $deletion,
     ) {}
 
     /**
@@ -111,50 +110,12 @@ class AdminService
     }
 
     /**
-     * Permanently delete a user, their conversations, messages and files.
+     * Permanently delete a user: they leave their groups and communities, and their
+     * chats, messages, channels and files are removed (A3).
      */
     public function deleteUser(User $user): void
     {
-        $conversationIds = $user->conversations()->pluck('id');
-
-        $files = Message::query()
-            ->whereIn('conversation_id', $conversationIds)
-            ->whereNotNull('attachment')
-            ->get(['attachment', 'attachment_meta'])
-            ->flatMap(fn (Message $m) => array_filter([$m->attachment, $m->attachment_meta['thumbnail'] ?? null]))
-            ->all();
-
-        $avatar = $user->profile_image;
-
-        DB::transaction(function () use ($user, $conversationIds) {
-            // Break self-references first so cascades never touch rows being deleted.
-            Conversation::query()->whereIn('id', $conversationIds)->update(['last_message_id' => null]);
-            Message::query()->whereIn('conversation_id', $conversationIds)->update(['reply_to_id' => null]);
-            Message::query()->whereIn('conversation_id', $conversationIds)->delete();
-            Conversation::query()->whereIn('id', $conversationIds)->delete();
-
-            BlockedUser::query()
-                ->where('user_id', $user->id)
-                ->orWhere('blocked_user_id', $user->id)
-                ->delete();
-
-            // Notifications received by the user and notifications about their messages.
-            DB::table('notifications')
-                ->where(fn ($q) => $q->where('notifiable_type', $user->getMorphClass())->where('notifiable_id', $user->id))
-                ->orWhere('data->sender->id', $user->id)
-                ->delete();
-
-            DB::table('sessions')->where('user_id', $user->id)->delete();
-            DB::table('password_reset_tokens')->where('email', $user->email)->delete();
-
-            $user->delete();
-        });
-
-        if ($files) {
-            Storage::disk(config('chat.uploads.disk'))->delete($files);
-        }
-
-        $this->images->deleteAvatar($avatar);
+        $this->deletion->delete($user);
     }
 
     private function signOutEverywhere(User $user): void

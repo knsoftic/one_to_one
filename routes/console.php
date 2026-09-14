@@ -5,6 +5,7 @@ use App\Models\LinkPreview;
 use App\Models\User;
 use App\Services\CallService;
 use App\Services\DisappearingMessageService;
+use App\Services\OtpService;
 use App\Services\PresenceService;
 use App\Services\StatusService;
 use App\Services\ViewOnceService;
@@ -73,5 +74,7 @@ Schedule::command('chat:expire-calls')->everyMinute()->withoutOverlapping();
 Schedule::command('chat:expire-messages')->everyMinute()->withoutOverlapping();
 Schedule::command('chat:purge-view-once')->everyMinute()->withoutOverlapping();
 Schedule::command('chat:expire-statuses')->everyFiveMinutes()->withoutOverlapping();
+// SMS codes that expired more than a day ago (Phase 7).
+Schedule::call(fn () => app(OtpService::class)->prune())->daily()->name('prune-otp-codes');
 // Link previews no message uses anymore (and their images).
 Schedule::command('model:prune', ['--model' => [LinkPreview::class]])->daily();

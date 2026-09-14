@@ -3,6 +3,7 @@
         'profile' => ['label' => 'Profile', 'icon' => 'user-round'],
         'privacy' => ['label' => 'Privacy', 'icon' => 'shield'],
         'security' => ['label' => 'Password & security', 'icon' => 'lock'],
+        'account' => ['label' => 'Account', 'icon' => 'user-cog'],
         'preferences' => ['label' => 'Appearance & alerts', 'icon' => 'palette'],
         'blocked' => ['label' => 'Blocked contacts', 'icon' => 'ban'],
     ];
@@ -12,12 +13,15 @@
         $errors->getBag('profile')->isNotEmpty() => 'profile',
         $errors->getBag('password')->isNotEmpty() => 'security',
         $errors->getBag('twoStep')->isNotEmpty() => 'security',
+        $errors->getBag('phone')->isNotEmpty() => 'account',
+        $errors->getBag('deleteAccount')->isNotEmpty() => 'account',
+        $phoneChange !== null && ! request()->has('tab') => 'account',
         $errors->getBag('preferences')->isNotEmpty() => 'preferences',
         default => array_key_exists(request('tab'), $tabs) ? request('tab') : 'profile',
     };
 @endphp
 
-<x-layouts.app title="Settings">
+<x-layouts.app title="Settings" :scripts="$phoneChange ? ['resources/js/auth/otp.js'] : []">
     <div class="page-container">
         <div class="page-header">
             <div>
@@ -99,7 +103,14 @@
                             <x-field name="about" label="About" icon="info" :value="$user->about" bag="profile" maxlength="139" placeholder="Busy, At work, Hey there!…" optional />
                             <div class="auth-grid auth-grid-2">
                                 <x-field name="email" type="email" label="Email" icon="mail" :value="$user->email" bag="profile" autocomplete="email" maxlength="191" required />
-                                <x-field name="phone" type="tel" label="Mobile number" icon="phone" :value="$user->phone" bag="profile" autocomplete="tel" maxlength="20" required />
+                                <div class="form-group">
+                                    <span class="form-label">Mobile number</span>
+                                    <div class="profile-phone">
+                                        <x-icon name="phone" />
+                                        <span class="truncate">{{ $user->phone }}</span>
+                                        <button type="button" class="btn btn-ghost btn-sm" data-tab="account">Change</button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -342,6 +353,145 @@
                                     <x-field name="current_password" id="two-step-enable-password" type="password" label="Current password" icon="lock" bag="twoStep" autocomplete="current-password" required />
                                     <p class="form-hint">If you forget the PIN, you can turn it off with a link sent to {{ $user->email }}.</p>
                                     <div><button type="submit" class="btn btn-primary"><x-icon name="shield-check" /> Turn on</button></div>
+                                </form>
+                            @endif
+                        </div>
+                    </div>
+                </section>
+
+                {{-- Account (Phase 7) --}}
+                <section id="section-account" role="tabpanel" data-tab-panel="account" @class(['settings-section', 'is-active' => $activeTab === 'account'])>
+                    {{-- Change number (A2) --}}
+                    <div class="card" id="change-number">
+                        <div class="card-header">
+                            <h2 class="card-title">Change number</h2>
+                            <p class="card-subtitle">Move your account to a new mobile number. Your chats, groups, contacts and settings stay the same.</p>
+                        </div>
+                        <div class="card-body flex flex-col gap-5">
+                            <div class="account-number">
+                                <span class="session-icon"><x-icon name="phone" /></span>
+                                <div class="min-w-0">
+                                    <div class="setting-title">{{ $user->phone }}</div>
+                                    <div class="setting-text">
+                                        @if ($user->phone_verified_at)
+                                            <span class="badge badge-success">Verified by SMS</span>
+                                        @else
+                                            Your current number
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+
+                            @if ($phoneChange)
+                                <form method="POST" action="{{ route('phone.change.verify') }}" class="flex flex-col gap-4" data-loading-form data-otp-form novalidate>
+                                    @csrf
+                                    <p class="text-sm">Enter the 6-digit code we sent to <strong class="otp-phone">{{ $phoneChange['phone'] }}</strong>. It expires in {{ \App\Services\OtpService::EXPIRES_MINUTES }} minutes.</p>
+                                    <div class="form-group phone-change-code">
+                                        <label for="phone-change-code" class="form-label">6-digit code</label>
+                                        <input id="phone-change-code" name="code" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code"
+                                               class="form-control two-step-pin @error('code', 'phone') is-invalid @enderror" placeholder="• • • • • •" required autofocus data-otp-input>
+                                        @error('code', 'phone')
+                                            <p class="form-error"><x-icon name="circle-alert" />{{ $message }}</p>
+                                        @enderror
+                                    </div>
+                                    <div><button type="submit" class="btn btn-primary"><x-icon name="check" /> Change number</button></div>
+                                </form>
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <form method="POST" action="{{ route('phone.change.resend') }}" data-otp-resend data-wait="{{ $phoneResendIn }}">
+                                        @csrf
+                                        <button type="submit" class="btn btn-ghost btn-sm" data-otp-resend-button @disabled($phoneResendIn > 0)>
+                                            <x-icon name="refresh-cw" /> <span data-otp-resend-label>{{ $phoneResendIn > 0 ? "Send again in {$phoneResendIn}s" : 'Send again' }}</span>
+                                        </button>
+                                    </form>
+                                    <form method="POST" action="{{ route('phone.change.cancel') }}">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="btn btn-ghost btn-sm">Use a different number</button>
+                                    </form>
+                                </div>
+                            @else
+                                <form method="POST" action="{{ route('phone.change') }}" class="flex flex-col gap-4" data-loading-form novalidate>
+                                    @csrf
+                                    <div class="auth-grid auth-grid-2">
+                                        <x-field name="phone" id="change-phone" type="tel" label="New mobile number" icon="phone" bag="phone" placeholder="+92 300 1234567" autocomplete="tel" inputmode="tel" maxlength="20" required />
+                                        <x-field name="current_password" id="change-phone-password" type="password" label="Current password" icon="lock" bag="phone" autocomplete="current-password" required />
+                                    </div>
+                                    <p class="form-hint">Include the country code, e.g. +92.{{ $smsAvailable ? " We'll text a 6-digit code to the new number to confirm it." : '' }}</p>
+                                    <div><button type="submit" class="btn btn-primary"><x-icon name="arrow-right-left" /> {{ $smsAvailable ? 'Send code' : 'Change number' }}</button></div>
+                                </form>
+                            @endif
+                        </div>
+                    </div>
+
+                    {{-- Profile QR code (A4) --}}
+                    <div class="card mt-5" id="qr-code">
+                        <div class="card-header">
+                            <h2 class="card-title">QR code</h2>
+                            <p class="card-subtitle">Anyone who scans your code with {{ config('app.name') }} can start a chat with you. Only share it with people you trust.</p>
+                        </div>
+                        <div class="card-body profile-qr">
+                            <div class="profile-qr-card">
+                                <x-avatar :user="$user" size="lg" />
+                                <div class="font-bold">{{ $user->name }}</div>
+                                <div class="profile-qr-box" data-profile-qr="{{ $qrUrl }}" role="img" aria-label="Your QR code"><span class="spinner"></span></div>
+                            </div>
+                            <div class="flex flex-col gap-3 min-w-0">
+                                <p class="text-sm text-muted">In the app, tap <strong>Menu ⋮</strong> → <strong>QR code</strong> → <strong>Scan code</strong> to open a chat from someone's code.</p>
+                                <div class="profile-qr-link">
+                                    <code data-profile-qr-link>{{ $qrUrl }}</code>
+                                    <button type="button" class="btn btn-secondary btn-sm" data-copy-text="{{ $qrUrl }}"><x-icon name="copy" /> Copy link</button>
+                                </div>
+                                <form method="POST" action="{{ route('profile-qr.reset') }}" data-confirm="Your current QR code and link will stop working. People who already chat with you aren't affected." data-confirm-title="Reset your QR code?" data-confirm-label="Reset">
+                                    @csrf
+                                    <button type="submit" class="btn btn-ghost btn-sm"><x-icon name="refresh-cw" /> Reset QR code</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Download my account data (A5) --}}
+                    <div class="card mt-5" id="account-data">
+                        <div class="card-header">
+                            <h2 class="card-title">Download my account data</h2>
+                            <p class="card-subtitle">A report of your account: profile, privacy settings, contacts, blocked people, groups, communities, channels and where you're signed in. Your messages and files aren't included.</p>
+                        </div>
+                        <div class="card-body flex flex-wrap gap-2">
+                            <a href="{{ route('account.export') }}" class="btn btn-primary" data-account-export><x-icon name="file-down" /> Download report</a>
+                            <a href="{{ route('account.export', ['format' => 'json']) }}" class="btn btn-secondary" data-account-export><x-icon name="file-json" /> Download as JSON</a>
+                        </div>
+                    </div>
+
+                    {{-- Delete my account (A3) --}}
+                    <div class="card mt-5 account-danger" id="delete-account">
+                        <div class="card-header">
+                            <h2 class="card-title text-danger">Delete my account</h2>
+                            <p class="card-subtitle">This can't be undone.</p>
+                        </div>
+                        <div class="card-body flex flex-col gap-4">
+                            <ul class="account-danger-list">
+                                <li><x-icon name="user-x" /> Your account, profile photo and settings are deleted</li>
+                                <li><x-icon name="message-square" /> Your chats, messages, status updates and files are removed</li>
+                                <li><x-icon name="users" /> You leave all your groups and communities (if you were the only admin, someone else becomes admin)</li>
+                                <li><x-icon name="megaphone" /> Your channels and broadcast lists are deleted</li>
+                            </ul>
+                            @if ($user->isAdmin())
+                                <p class="form-hint">Administrator accounts can't be deleted from settings.</p>
+                            @else
+                                <form method="POST" action="{{ route('account.destroy') }}" class="flex flex-col gap-4" data-loading-form novalidate
+                                      data-confirm="Your account and everything above will be deleted for good." data-confirm-title="Delete your account?" data-confirm-label="Delete my account" data-confirm-danger>
+                                    @csrf
+                                    @method('DELETE')
+                                    <x-field name="current_password" id="delete-account-password" type="password" label="Current password" icon="lock" bag="deleteAccount" autocomplete="current-password" required />
+                                    <div class="form-group">
+                                        <label class="checkbox">
+                                            <input type="checkbox" name="confirm" value="1">
+                                            I understand my account can't be recovered
+                                        </label>
+                                        @error('confirm', 'deleteAccount')
+                                            <p class="form-error"><x-icon name="circle-alert" />{{ $message }}</p>
+                                        @enderror
+                                    </div>
+                                    <div><button type="submit" class="btn btn-danger"><x-icon name="trash-2" /> Delete my account</button></div>
                                 </form>
                             @endif
                         </div>

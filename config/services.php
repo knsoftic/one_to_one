@@ -35,4 +35,43 @@ return [
         ],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | SMS (login codes and changing the number, Phase 7)
+    |--------------------------------------------------------------------------
+    |
+    | "log" writes each SMS to storage/logs (only for testing: in production
+    | phone login stays hidden until "twilio" or "http" is set up). "http"
+    | works with most SMS gateways that take the number and text in a web request.
+    |
+    */
+
+    'sms' => [
+        'driver' => env('SMS_DRIVER', 'log'),
+
+        'twilio' => [
+            'sid' => env('TWILIO_ACCOUNT_SID'),
+            'token' => env('TWILIO_AUTH_TOKEN'),
+            // A sender number (+1…) or a Messaging Service SID (MG…).
+            'from' => env('TWILIO_FROM'),
+        ],
+
+        'http' => [
+            'url' => env('SMS_HTTP_URL'),
+            'method' => env('SMS_HTTP_METHOD', 'post'),
+            // form, json or query
+            'format' => env('SMS_HTTP_FORMAT', 'form'),
+            'to_field' => env('SMS_HTTP_TO_FIELD', 'to'),
+            'message_field' => env('SMS_HTTP_MESSAGE_FIELD', 'message'),
+            // plus = +923001234567, digits = 923001234567
+            'phone_format' => env('SMS_HTTP_PHONE_FORMAT', 'plus'),
+            // Extra fields and headers written like a query string: "api_key=abc&sender=MyApp"
+            'params' => env('SMS_HTTP_PARAMS'),
+            'headers' => env('SMS_HTTP_HEADERS'),
+            'bearer' => env('SMS_HTTP_BEARER'),
+            // Optional text the gateway's reply must contain to count as sent.
+            'success_text' => env('SMS_HTTP_SUCCESS_TEXT'),
+        ],
+    ],
+
 ];

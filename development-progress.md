@@ -867,3 +867,45 @@ Rendered pages: Settings → Privacy (with the app lock row) and Password & secu
 
 ### Verification (Phase 6 complete)
 PHPUnit **382 passed**, Vitest **159 passed**, Pint ✅, build ✅, debug APK ✅. Deploy: `php artisan migrate` and `npm run build` (deploy script does both); install the new APK for app lock (everything else works with the old APK). Also Laravel's mailer must be set up on the server for "Forgot PIN?" emails.
+
+## Roadmap Phase 7 — Account ✅
+Decision: SMS works with **any provider**: `SMS_DRIVER=log` (texts go to the log, for testing), `twilio`, or `http` for any SMS gateway with a web API (its URL, field names, extra fields / headers and a success text are set in `.env`). In production the log driver counts as "no SMS", so phone login stays hidden until a real gateway is set up.
+
+### Storage (Phase 7)
+- Migration `2026_09_23_000001_create_account_features` (rollback checked): `users.phone_verified_at`, `users.qr_token` (unique), table `otp_codes` (number, purpose login / change_number, user, keyed hash of the code, tries, expiry, used time). Codes that expired more than a day ago are removed daily (`prune-otp-codes` in the scheduler).
+- `config/services.php` → `sms`; `.env.example` has an SMS section.
+
+### A1 — Log in with phone number + SMS code ✅
+- Login page: **or → Log in with phone number** (shown only when SMS is available). Enter the number (any format, e.g. `0092 300 1234567`) → **Enter the code** page → the right 6-digit code signs in without a password ("Remember me" works). Accounts with two-step verification are still asked for the PIN on a new browser. The first SMS login marks the number verified.
+- Safety: codes last 5 minutes, work once, 5 wrong tries per code; **Send again** after 60 seconds (countdown on the page), 5 codes per number per hour, 20 per network address per hour, plus a route limit. Only an HMAC of the code is stored. A number without an account (or a suspended one) gets no SMS but sees exactly the same pages and errors, so nobody can check which numbers have accounts. A failed SMS shows "We couldn't send the SMS right now" and can be retried straight away. The SMS ends with the `@host #code` line so phones can fill the code in (WebOTP, `autocomplete="one-time-code"`).
+- Server: `SmsService` (log / Twilio / generic HTTP), `OtpService`, `OtpCode`, `Auth\\PhoneLoginController`; `GET/POST /login/phone`, `GET/POST /login/phone/code`, `POST /login/phone/resend`; limiter `otp`. Frontend: `resources/js/auth/otp.js` (countdown + WebOTP).
+- Tests: `PhoneLoginTest` (6: SMS login with a differently written number, code used once, remember me; no account / suspended looks the same with no SMS; wrong codes limited and codes expire; send again waits a minute, replaces the code, 5 per hour; two-step PIN still asked; failed SMS and no gateway = no phone login), `SmsServiceTest` (5: which gateways are ready incl. production + log; log; Twilio with Messaging Service; HTTP gateway with its own field names, extra fields, headers, bearer token, digits-only numbers, JSON and GET; refused texts). Frontend `otp.test.js` (4).
+
+### A2 — Change number ✅
+- Settings → **Account → Change number**: current number (with "Verified by SMS"), new number + current password → **Send code** → enter the code sent to the **new** number → the number changes. Chats, groups, contacts and settings stay (same account). **Send again** (60 s countdown) and **Use a different number**. Without an SMS gateway the number changes right away after the password (not marked verified).
+- The number can't be your current one or belong to another account in any format (`0092 333…` = `+92333…`); checked again when the code is entered. The Profile tab now shows the number read-only with **Change** (the profile form no longer changes it).
+- Server: `PhoneChangeController`, `AccountService::changePhone`; `POST /settings/phone`, `POST /settings/phone/code`, `POST /settings/phone/resend`, `DELETE /settings/phone`.
+- Tests: `ChangeNumberTest` (5: confirmed by SMS and chats stay, code used once; password / own number / taken in another format / invalid; send again, cancel, taken meanwhile; without SMS; profile form ignores the number). `ProfileTest` updated for the read-only number.
+
+### A3 — Delete my account ✅
+- Settings → **Account → Delete my account**: what will happen, current password, "I understand my account can't be recovered", a final confirm → signed out with "Your account has been deleted." Administrator accounts can't be deleted from settings.
+- New `AccountDeletionService` (also used by the admin panel's delete): leaves every group (the longest member becomes admin if you were the last admin; an empty group ends), hands a community's admin role on before leaving (a community only you are in is deleted), deletes channels you are the only admin of (followed channels stay) and your broadcast lists, then removes one-to-one chats, all your messages (replies to them lose the quote, groups point at their newest remaining message), status updates, stickers, files and profile photo, blocks, notifications, sessions, reset tokens and SMS codes.
+- Fixed on the way: the old admin delete removed **every conversation the user was in, including other people's whole groups and channels**. It now uses the same service, so groups of other people stay.
+- Tests: `DeleteAccountTest` (2: password + tick needed, admins can't; full deletion with a photo chat, her group with a reply, someone else's group, own and followed channels, a shared and a solo community, broadcast list, status and sticker files, blocks — other people's data untouched). `AdminTest` still passes.
+
+### A4 — Profile QR code ✅
+- Chat ⋮ → **QR code**: your photo, name and QR code, **Scan code**, **Share link** (share sheet or copy) and **Reset QR code** (old code and link stop working). Also in Settings → Account → QR code with **Copy link** and **Reset**.
+- **Scan code** uses the camera (same scanner as Linked devices, now shared in `lib/qr-scanner.js`); devices that can't scan paste the link. Scanning, or opening `/u/{token}` with the phone camera, shows "Chat with Bilal Cousin? @bilal · About" → **Message** opens the chat. Your own code says so. A code of someone who blocked you or is suspended looks like an old code. Guests sign in first and come back.
+- Server: `ProfileQrController`, `AccountService::qrToken`; `GET /settings/qr`, `POST /settings/qr/reset`, `GET /u/{token}`, `POST /qr/lookup`. Frontend: `resources/js/chat/profile-qr.js`, `lib/qr-scanner.js`, settings QR drawn by `ui/settings.js` (QR library loaded only there).
+- Tests: `ProfileQrAndExportTest` (QR made once, page and lookup without private details, own code, guests, reset, blocked / suspended owner, reset from settings). Frontend `account.test.js` (7: token from codes and links; my code, copy, reset; scan / paste → chat; opened from the camera, own and old codes; no routes = no menu item; shared camera scanning; settings QR).
+
+### A5 — Download my account data ✅
+- Settings → **Account → Download my account data**: **Download report** (a readable HTML page) or **Download as JSON**. Contains account details, settings and privacy choices, two-step status, saved contacts, blocked people, groups (role, members, community), communities, channels (owner / follower), broadcast lists, chat lists, activity counts (chats, messages sent / received, starred, calls, status updates, stickers, reports) and where you're signed in. **No messages or files**. Works in the Android app through its download manager. Limited to 10 per hour.
+- Server: `AccountExportService`, `AccountController::export`, view `account/report.blade.php`; `GET /settings/export[?format=json]`; limiter `account-export`.
+- Tests: in `ProfileQrAndExportTest` (JSON and HTML downloads with file names, right contents, no message text or password hash, limit).
+
+### Checked in the browser (Phase 7)
+Rendered pages: login with **Log in with phone number**, phone number page, code page (countdown running), Settings → Profile (read-only number, **Change** opens Account), Settings → Account (change number form, code step, errors, QR code drawn, downloads, delete) in light, dark and phone width, the account report; in the chat: the QR code panel, Scan code (paste mode) → "Chat with …?" → chat opened. No horizontal scrolling.
+
+### Verification (Phase 7 complete)
+PHPUnit **402 passed**, Vitest **170 passed**, Pint ✅, build ✅, migration rollback ✅. Deploy: `php artisan migrate` and `npm run build` (deploy script does both). For SMS login / verified number changes set `SMS_DRIVER` and the gateway keys in the server's `.env`, then `php artisan config:cache`. No new APK needed.

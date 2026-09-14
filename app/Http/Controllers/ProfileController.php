@@ -10,6 +10,7 @@ use App\Models\Conversation;
 use App\Models\User;
 use App\Services\AccountService;
 use App\Services\ContactService;
+use App\Services\OtpService;
 use App\Services\SessionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -20,7 +21,7 @@ class ProfileController extends Controller
 {
     public function __construct(private readonly AccountService $accounts) {}
 
-    public function edit(Request $request): View
+    public function edit(Request $request, OtpService $otp): View
     {
         $user = $request->user();
         $blocked = $user->blockedUsers()->orderBy('name')->get();
@@ -43,6 +44,11 @@ class ProfileController extends Controller
             'blockCandidates' => User::query()->whereKey($partnerIds)->active()->orderBy('name')->get(),
             'savedNames' => app(ContactService::class)->savedNames($user, $blocked->pluck('id')->merge($partnerIds)->all()),
             'sessions' => app(SessionService::class)->list($user, $request),
+            // Phase 7: change number (A2).
+            'smsAvailable' => $otp->available(),
+            'qrUrl' => route('profile-qr.page', $this->accounts->qrToken($user)),
+            'phoneChange' => $phoneChange = $otp->pending($request, PhoneChangeController::SESSION_KEY),
+            'phoneResendIn' => $phoneChange ? $otp->resendIn($phoneChange['phone'], OtpService::CHANGE_NUMBER) : 0,
         ]);
     }
 
@@ -50,7 +56,7 @@ class ProfileController extends Controller
     {
         $this->accounts->updateProfile(
             $request->user(),
-            $request->safe()->only(['name', 'username', 'email', 'phone', 'about']),
+            $request->safe()->only(['name', 'username', 'email', 'about']),
             $request->file('profile_image'),
             $request->boolean('remove_profile_image'),
         );

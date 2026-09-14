@@ -89,10 +89,41 @@ function initBlockPicker() {
     });
 }
 
+/** Account → QR code (A4): the QR library loads only when the code is on the page. */
+export function initProfileQr(box = $('[data-profile-qr]')) {
+    if (!box) return Promise.resolve(false);
+    return import('../lib/qr')
+        .then(({ qrSvg }) => {
+            box.innerHTML = qrSvg(box.dataset.profileQr);
+            return true;
+        })
+        .catch(() => {
+            box.textContent = "Couldn't show the QR code.";
+            return false;
+        });
+}
+
+/** Buttons that copy a text, such as the QR code link. */
+function initCopyButtons(container) {
+    container.addEventListener('click', async (event) => {
+        const button = event.target.closest('[data-copy-text]');
+        if (!button) return;
+        try {
+            await navigator.clipboard.writeText(button.dataset.copyText);
+            toast.success('Link copied.', { timeout: 2000 });
+        } catch {
+            toast.error("Couldn't copy the link. Select it and copy it yourself.");
+        }
+    });
+}
+
 export function initSettings(config) {
-    if (!$('[data-settings-tabs]')) return;
+    const container = $('[data-settings-tabs]');
+    if (!container) return;
     initTabs();
     initBlockPicker();
     initPreferenceSwitches(config);
     initBrowserNotificationButton();
+    initCopyButtons(container);
+    initProfileQr();
 }

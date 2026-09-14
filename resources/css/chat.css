@@ -1397,6 +1397,11 @@ span.status-quote-thumb.is-icon { color: var(--c-muted); background: rgb(0 0 0 /
 .report-form { gap: 0.6rem; }
 .report-reasons { display: flex; flex-direction: column; }
 
+/* A4 — profile QR code */
+.profile-qr-hero { gap: 0.35rem; }
+.profile-qr-hero .group-invite-qr { display: grid; place-items: center; min-height: 10rem; margin: 0.9rem 0 0.5rem; }
+.profile-qr-input { text-transform: none !important; letter-spacing: normal !important; }
+
 /* P9/P10 — linked devices */
 .linked-hero { gap: 0.75rem; }
 .linked-hero-icon { display: grid; place-items: center; width: 4.5rem; height: 4.5rem; border-radius: 999px; color: var(--c-primary); background: var(--c-primary-soft); }

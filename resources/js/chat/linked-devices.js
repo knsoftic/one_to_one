@@ -1,6 +1,7 @@
 import { errorMessage, html, raw } from '../lib/dom';
 import { icon } from '../lib/icons';
 import { confirmDialog } from '../lib/modal';
+import { canScanQr, startQrCamera } from '../lib/qr-scanner';
 import { toast } from '../lib/toast';
 import { statusTime } from './status';
 
@@ -191,13 +192,10 @@ export class LinkedDevices {
         `;
         document.body.appendChild(overlay);
 
-        let stream = null;
-        let frame = null;
+        let stopCamera = null;
         let busy = false;
         const close = () => {
-            cancelAnimationFrame(frame);
-            clearTimeout(frame);
-            stream?.getTracks().forEach((track) => track.stop());
+            stopCamera?.();
             overlay.remove();
         };
         const found = async (target) => {
@@ -221,7 +219,7 @@ export class LinkedDevices {
         });
 
         const hint = overlay.querySelector('[data-scan-hint]');
-        if (!('BarcodeDetector' in window) || !navigator.mediaDevices?.getUserMedia) {
+        if (!canScanQr()) {
             hint.textContent = "This device can't scan QR codes here. Type the code shown on the computer instead.";
             overlay.classList.add('is-code-only');
             overlay.querySelector('#link-code').focus();
@@ -229,31 +227,17 @@ export class LinkedDevices {
         }
 
         try {
-            stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
-            if (!overlay.isConnected) {
-                stream.getTracks().forEach((track) => track.stop());
-                return;
-            }
-            const video = overlay.querySelector('[data-scan-video]');
-            video.srcObject = stream;
-            await video.play();
-            const detector = new window.BarcodeDetector({ formats: ['qr_code'] });
-            const tick = async () => {
-                if (!overlay.isConnected) return;
-                try {
-                    const codes = await detector.detect(video);
-                    const token = codes.map((c) => tokenFromQr(c.rawValue)).find(Boolean);
-                    if (token) {
-                        found({ token });
-                        return;
-                    }
-                    if (codes.length) hint.textContent = "That QR code isn't a login code. Scan the one on the login page.";
-                } catch {
-                    /* keep scanning */
+            const stop = await startQrCamera(overlay.querySelector('[data-scan-video]'), (values) => {
+                const token = values.map(tokenFromQr).find(Boolean);
+                if (token) {
+                    found({ token });
+                    return true;
                 }
-                frame = setTimeout(tick, 250);
-            };
-            tick();
+                hint.textContent = "That QR code isn't a login code. Scan the one on the login page.";
+                return false;
+            });
+            if (overlay.isConnected) stopCamera = stop;
+            else stop();
         } catch {
             hint.textContent = 'Allow the camera to scan, or type the code shown on the computer.';
             overlay.classList.add('is-code-only');

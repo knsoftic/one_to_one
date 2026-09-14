@@ -31,6 +31,7 @@ import { Statuses } from './status';
 import { ContactInfo } from './contact-info';
 import { ReportUser } from './report';
 import { LinkedDevices } from './linked-devices';
+import { ProfileQr } from './profile-qr';
 import { Groups, groupSummary } from './groups';
 import { InviteFriends } from './invite';
 import { LocationSharing } from './location';
@@ -188,6 +189,7 @@ export class ChatApp {
         this.contactInfo = new ContactInfo(this);
         this.reports = new ReportUser(this);
         this.linkedDevices = new LinkedDevices(this);
+        this.profileQr = new ProfileQr(this);
         this.groupInvites = new GroupInvites(this);
         this.mentions = new Mentions(this);
         this.pins = new PinnedMessages(this);

@@ -1,9 +1,11 @@
 <?php
 
+use App\Http\Controllers\AccountController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AttachmentController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Auth\PasswordResetController;
+use App\Http\Controllers\Auth\PhoneLoginController;
 use App\Http\Controllers\Auth\TwoStepController;
 use App\Http\Controllers\BlockController;
 use App\Http\Controllers\BroadcastController;
@@ -33,9 +35,11 @@ use App\Http\Controllers\MessageReactionController;
 use App\Http\Controllers\MessageStatusController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OnboardingController;
+use App\Http\Controllers\PhoneChangeController;
 use App\Http\Controllers\PollVoteController;
 use App\Http\Controllers\PresenceController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ProfileQrController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SessionController;
 use App\Http\Controllers\StarredMessageController;
@@ -65,6 +69,13 @@ Route::middleware('guest')->group(function () {
     Route::post('/forgot-password', [PasswordResetController::class, 'sendResetLink'])
         ->middleware('throttle:password-reset')
         ->name('password.email');
+
+    // Log in with the mobile number and an SMS code (A1)
+    Route::get('/login/phone', [PhoneLoginController::class, 'show'])->name('login.phone');
+    Route::post('/login/phone', [PhoneLoginController::class, 'send'])->middleware('throttle:otp')->name('login.phone.send');
+    Route::get('/login/phone/code', [PhoneLoginController::class, 'code'])->name('login.phone.code');
+    Route::post('/login/phone/code', [PhoneLoginController::class, 'verify'])->middleware('throttle:chat-lock')->name('login.phone.verify');
+    Route::post('/login/phone/resend', [PhoneLoginController::class, 'resend'])->middleware('throttle:otp')->name('login.phone.resend');
 
     // Log in by scanning a QR code with a signed-in phone (P10)
     Route::post('/login/qr', [LinkedDeviceController::class, 'create'])->middleware('throttle:chat-actions')->name('login.qr');
@@ -444,6 +455,18 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::put('/settings/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::put('/settings/password', [ProfileController::class, 'updatePassword'])->name('profile.password');
     Route::match(['put', 'patch'], '/settings/preferences', [ProfileController::class, 'updatePreferences'])->name('profile.preferences');
+    // Account (Phase 7): change number, profile QR code, download my data, delete my account
+    Route::post('/settings/phone', [PhoneChangeController::class, 'start'])->middleware('throttle:otp')->name('phone.change');
+    Route::post('/settings/phone/code', [PhoneChangeController::class, 'verify'])->middleware('throttle:chat-lock')->name('phone.change.verify');
+    Route::post('/settings/phone/resend', [PhoneChangeController::class, 'resend'])->middleware('throttle:otp')->name('phone.change.resend');
+    Route::delete('/settings/phone', [PhoneChangeController::class, 'cancel'])->name('phone.change.cancel');
+    Route::get('/settings/qr', [ProfileQrController::class, 'show'])->name('profile-qr.show');
+    Route::post('/settings/qr/reset', [ProfileQrController::class, 'reset'])->middleware('throttle:chat-actions')->name('profile-qr.reset');
+    Route::get('/u/{token}', [ProfileQrController::class, 'page'])->where('token', '[A-Za-z0-9]{32}')->name('profile-qr.page');
+    Route::post('/qr/lookup', [ProfileQrController::class, 'lookup'])->middleware('throttle:chat-actions')->name('profile-qr.lookup');
+    Route::get('/settings/export', [AccountController::class, 'export'])->middleware('throttle:account-export')->name('account.export');
+    Route::delete('/settings/account', [AccountController::class, 'destroy'])->middleware('throttle:chat-lock')->name('account.destroy');
+
     // Linked devices: approve a computer's QR code / code from this phone (P10)
     Route::get('/link-device/{token}', [LinkedDeviceController::class, 'page'])->where('token', '[A-Za-z0-9]{40}')->name('devices.link');
     Route::post('/linked-devices/lookup', [LinkedDeviceController::class, 'lookup'])->middleware('throttle:chat-lock')->name('linked-devices.lookup');

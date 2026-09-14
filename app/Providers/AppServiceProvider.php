@@ -83,6 +83,12 @@ class AppServiceProvider extends ServiceProvider
             Limit::perHour(10)->by('reset-email:'.mb_strtolower((string) $request->input('email'))),
         ]);
 
+        // SMS codes cost money: a few requests a minute per network address (Phase 7).
+        RateLimiter::for('otp', fn (Request $request) => Limit::perMinute(6)->by('otp:'.($request->user()?->id ?? $request->ip())));
+
+        // Building the account report reads a lot: a few per hour (A5).
+        RateLimiter::for('account-export', fn (Request $request) => Limit::perHour(10)->by('export:'.($request->user()?->id ?? $request->ip())));
+
         RateLimiter::for('chat-send', fn (Request $request) => Limit::perMinute(60)->by('send:'.($request->user()?->id ?? $request->ip())));
 
         // Secret code attempts for locked chats (C9).
