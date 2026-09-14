@@ -18,6 +18,7 @@ use App\Support\Phone;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Throwable;
 
 class MessageService
@@ -101,6 +102,25 @@ class MessageService
         }
 
         return $message;
+    }
+
+    /**
+     * A reply or reaction to someone's status update (S4), quoting the update.
+     *
+     * @param  array<string, mixed>  $quote
+     */
+    public function sendStatusReply(User $sender, Conversation $conversation, string $text, array $quote): Message
+    {
+        $text = $this->cleanText($text);
+        if (trim($text) === '') {
+            throw new HttpException(422, 'Type a reply.');
+        }
+
+        return $this->create($sender, $conversation, [
+            'message' => $text,
+            'message_type' => Message::TYPE_TEXT,
+            'attachment_meta' => ['status' => $quote],
+        ]);
     }
 
     /**

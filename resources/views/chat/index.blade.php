@@ -18,6 +18,10 @@
                 </a>
 
                 <div class="flex items-center">
+                    <button type="button" class="btn-icon header-status" data-action="open-status" aria-label="Status" title="Status">
+                        <x-icon name="circle-dashed" />
+                        <span class="status-dot" data-status-dot hidden></span>
+                    </button>
                     <button type="button" class="btn-icon header-calls" data-action="open-calls" aria-label="Calls" title="Calls">
                         <x-icon name="phone" />
                         <span class="badge badge-danger header-calls-badge" data-calls-badge hidden>0</span>
@@ -188,6 +192,23 @@
                 </div>
             </div>
 
+            {{-- ======================= Status view (Phase 5) ======================= --}}
+            <div class="sidebar-view status-view" data-sidebar-view="status" hidden>
+                <header class="contacts-header">
+                    <button type="button" class="btn-icon" data-action="close-status" aria-label="Back to chats">
+                        <x-icon name="arrow-left" />
+                    </button>
+                    <div class="min-w-0 flex-1">
+                        <div class="contacts-title">Status</div>
+                        <div class="contacts-subtitle">Updates disappear after 24 hours</div>
+                    </div>
+                    <button type="button" class="btn-icon" data-action="status-privacy" aria-label="Status privacy" title="Status privacy">
+                        <x-icon name="lock" />
+                    </button>
+                </header>
+                <div class="sidebar-scroll" data-status-body></div>
+            </div>
+
             {{-- ======================= Channels view (G11) ======================= --}}
             <div class="sidebar-view channels-view" data-sidebar-view="channels" hidden>
                 <header class="contacts-header">
@@ -277,6 +298,10 @@
             <button type="button" class="mobile-nav-item is-active" data-mobile-tab="chats" aria-current="page">
                 <span class="mobile-nav-icon"><x-icon name="message-circle" /><span class="badge badge-primary mobile-nav-badge" data-mobile-unread hidden>0</span></span>
                 <span>Chats</span>
+            </button>
+            <button type="button" class="mobile-nav-item" data-mobile-tab="status">
+                <span class="mobile-nav-icon"><x-icon name="circle-dashed" /><span class="status-dot" data-status-dot hidden></span></span>
+                <span>Updates</span>
             </button>
             <button type="button" class="mobile-nav-item" data-mobile-tab="calls">
                 <span class="mobile-nav-icon"><x-icon name="phone" /><span class="badge badge-danger mobile-nav-badge" data-calls-badge hidden>0</span></span>

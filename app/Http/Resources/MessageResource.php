@@ -6,6 +6,7 @@ use App\Models\Message;
 use App\Services\ConversationTypes;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Carbon;
 
 /**
  * @mixin Message
@@ -61,6 +62,8 @@ class MessageResource extends JsonResource
             'album_id' => $deleted ? null : ($this->attachment_meta['album'] ?? null),
             // @mentions (G4): [{id, name}] with the name as written in the text.
             'mentions' => $this->when(! $deleted && ! empty($this->attachment_meta['mentions']), fn () => array_values($this->attachment_meta['mentions'])),
+            // A reply or reaction to a status update (S4): what the update was, and its picture while it lasts.
+            'status_quote' => $this->when(! $deleted && ! empty($this->attachment_meta['status']), fn () => $this->statusQuote()),
             'view_once' => $this->when(! $deleted && ($this->attachment_meta['view_once'] ?? false), fn () => [
                 'opened_at' => $this->attachment_meta['opened_at'] ?? null,
                 'available' => $this->attachment !== null && empty($this->attachment_meta['opened_at']),
@@ -170,6 +173,29 @@ class MessageResource extends JsonResource
                 return ['id' => (int) $option['id'], 'text' => (string) $option['text'], 'count' => $voters->count(), 'voter_ids' => $this->visibleUserIds($voters)];
             })->values()->all(),
             'total_voters' => $votes->pluck('user_id')->unique()->count(),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function statusQuote(): array
+    {
+        $quote = $this->attachment_meta['status'];
+        $available = isset($quote['expires_at']) && Carbon::parse($quote['expires_at'])->isFuture();
+
+        return [
+            'id' => (int) ($quote['id'] ?? 0),
+            'owner_id' => (int) ($quote['owner_id'] ?? 0),
+            'type' => (string) ($quote['type'] ?? 'text'),
+            'text' => $quote['text'] ?? null,
+            'background' => $quote['background'] ?? null,
+            'font' => $quote['font'] ?? null,
+            'reaction' => (bool) ($quote['reaction'] ?? false),
+            'available' => $available,
+            'thumbnail_url' => $available && ! empty($quote['has_thumbnail'])
+                ? route('statuses.media', ['status' => (int) $quote['id'], 'variant' => 'thumbnail'], false)
+                : null,
         ];
     }
 

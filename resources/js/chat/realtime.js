@@ -95,6 +95,8 @@ export class Realtime {
                     this.chat.groups?.onUpdated(id);
                 }
             })
+            .listen('.status.updated', (e) => this.chat.statuses?.onRemoteUpdate(e))
+            .listen('.status.viewed', (e) => this.chat.statuses?.onViewed(e))
             .listen('.call.incoming', (e) => this.chat.calls?.onIncoming(e.call))
             .listen('.call.updated', (e) => this.chat.calls?.onCallUpdated(e.call))
             .listen('.call.signal', (e) => this.chat.calls?.onSignal(e.signal))

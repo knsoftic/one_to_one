@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Services\CallService;
 use App\Services\DisappearingMessageService;
 use App\Services\PresenceService;
+use App\Services\StatusService;
 use App\Services\ViewOnceService;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
@@ -42,6 +43,11 @@ Artisan::command('chat:expire-messages', function (DisappearingMessageService $d
     $this->info("Removed {$count} disappearing message(s).");
 })->purpose('Remove disappearing messages whose time is up');
 
+Artisan::command('chat:expire-statuses', function (StatusService $statuses) {
+    $count = $statuses->expire();
+    $this->info("Removed {$count} status update(s) older than a day.");
+})->purpose('Remove status updates whose 24 hours are over');
+
 Artisan::command('chat:purge-view-once', function (ViewOnceService $viewOnce) {
     $count = $viewOnce->purge();
     $this->info("Removed the files of {$count} opened view once message(s).");
@@ -66,5 +72,6 @@ Schedule::command('chat:sweep-presence')->everyMinute()->withoutOverlapping();
 Schedule::command('chat:expire-calls')->everyMinute()->withoutOverlapping();
 Schedule::command('chat:expire-messages')->everyMinute()->withoutOverlapping();
 Schedule::command('chat:purge-view-once')->everyMinute()->withoutOverlapping();
+Schedule::command('chat:expire-statuses')->everyFiveMinutes()->withoutOverlapping();
 // Link previews no message uses anymore (and their images).
 Schedule::command('model:prune', ['--model' => [LinkPreview::class]])->daily();

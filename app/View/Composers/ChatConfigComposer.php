@@ -94,6 +94,17 @@ class ChatConfigComposer
             'communityInvite' => ['communities.invite', ['community' => $id]],
             'communityInviteReset' => ['communities.invite.reset', ['community' => $id]],
             'communityJoin' => ['communities.join', ['token' => $id]],
+            'statuses' => ['statuses.index', []],
+            'statusesStore' => ['statuses.store', []],
+            'statusDestroy' => ['statuses.destroy', ['status' => $id]],
+            'statusView' => ['statuses.view', ['status' => $id]],
+            'statusViewers' => ['statuses.viewers', ['status' => $id]],
+            'statusReply' => ['statuses.reply', ['status' => $id]],
+            'statusReact' => ['statuses.react', ['status' => $id]],
+            'statusPrivacy' => ['statuses.privacy', []],
+            'statusPrivacyUpdate' => ['statuses.privacy.update', []],
+            'statusMute' => ['statuses.mute', ['user' => $id]],
+            'statusUnmute' => ['statuses.unmute', ['user' => $id]],
             'channels' => ['channels.index', []],
             'channelsStore' => ['channels.store', []],
             'channelShow' => ['channels.show', ['conversation' => $id]],
@@ -172,6 +183,11 @@ class ChatConfigComposer
             'communityInvite' => $view->getData()['communityInvite'] ?? null,
             // Opened from a channel link (G11).
             'channelInvite' => $view->getData()['channelInvite'] ?? null,
+            // Status (Phase 5).
+            'statuses' => [
+                'maxVideoSeconds' => (int) config('chat.statuses.max_video_seconds', 60),
+                'lifetimeHours' => (int) config('chat.statuses.lifetime_hours', 24),
+            ],
             'groups' => [
                 'maxMembers' => (int) config('chat.groups.max_members', 256),
                 'maxBroadcastRecipients' => (int) config('chat.groups.max_broadcast_recipients', 256),

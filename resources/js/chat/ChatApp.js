@@ -27,6 +27,7 @@ import { GroupInvites } from './group-invite';
 import { Broadcasts, broadcastName } from './broadcasts';
 import { Communities } from './communities';
 import { Channels, channelAvatar, followersLabel, keepMyChoices } from './channels';
+import { Statuses } from './status';
 import { Groups, groupSummary } from './groups';
 import { InviteFriends } from './invite';
 import { LocationSharing } from './location';
@@ -180,6 +181,7 @@ export class ChatApp {
         this.broadcasts = new Broadcasts(this);
         this.communities = new Communities(this);
         this.channels = new Channels(this);
+        this.statuses = new Statuses(this);
         this.groupInvites = new GroupInvites(this);
         this.mentions = new Mentions(this);
         this.pins = new PinnedMessages(this);
@@ -412,6 +414,8 @@ export class ChatApp {
                     this.contactsPanel.open();
                 } else if (tab.dataset.mobileTab === 'calls') {
                     this.callLog?.open();
+                } else if (tab.dataset.mobileTab === 'status') {
+                    this.statuses?.open();
                 } else if (this.contactsPanel.isOpen) {
                     this.contactsPanel.close();
                 } else if (this.starred?.isOpen) {
@@ -422,6 +426,8 @@ export class ChatApp {
                     this.communities.close();
                 } else if (this.channels?.isOpen) {
                     this.channels.close();
+                } else if (this.statuses?.isOpen) {
+                    this.statuses.close();
                 }
             }),
         );

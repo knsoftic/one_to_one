@@ -204,6 +204,13 @@ return [
     |
     */
 
+    'statuses' => [
+        // How long a status update stays (Phase 5).
+        'lifetime_hours' => (int) env('CHAT_STATUS_LIFETIME_HOURS', 24),
+        // Longest status video, in seconds.
+        'max_video_seconds' => (int) env('CHAT_STATUS_MAX_VIDEO_SECONDS', 60),
+    ],
+
     'groups' => [
         // Most people in one group chat (Phase 4).
         'max_members' => (int) env('CHAT_GROUP_MAX_MEMBERS', 256),

@@ -35,6 +35,7 @@ use App\Http\Controllers\PollVoteController;
 use App\Http\Controllers\PresenceController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\StarredMessageController;
+use App\Http\Controllers\StatusController;
 use App\Http\Controllers\StickerController;
 use App\Http\Controllers\SyncController;
 use App\Http\Controllers\UserController;
@@ -298,6 +299,22 @@ Route::middleware(['auth', 'active'])->group(function () {
     });
     Route::get('/community/{token}', [CommunityController::class, 'joinPage'])->where('token', '[A-Za-z0-9]{16,40}')->name('communities.join.show');
     Route::post('/community/{token}', [CommunityController::class, 'join'])->where('token', '[A-Za-z0-9]{16,40}')->middleware('throttle:chat-actions')->name('communities.join');
+
+    // Status (Phase 5)
+    Route::get('/statuses', [StatusController::class, 'index'])->name('statuses.index');
+    Route::post('/statuses', [StatusController::class, 'store'])->middleware('throttle:chat-send')->name('statuses.store');
+    Route::get('/status/privacy', [StatusController::class, 'privacy'])->name('statuses.privacy');
+    Route::put('/status/privacy', [StatusController::class, 'updatePrivacy'])->middleware('throttle:chat-actions')->name('statuses.privacy.update');
+    Route::post('/statuses/mutes/{user}', [StatusController::class, 'mute'])->whereNumber('user')->middleware('throttle:chat-actions')->name('statuses.mute');
+    Route::delete('/statuses/mutes/{user}', [StatusController::class, 'mute'])->whereNumber('user')->middleware('throttle:chat-actions')->name('statuses.unmute');
+    Route::prefix('/statuses/{status}')->whereNumber('status')->group(function () {
+        Route::delete('/', [StatusController::class, 'destroy'])->middleware('throttle:chat-actions')->name('statuses.destroy');
+        Route::get('/media', [StatusController::class, 'media'])->name('statuses.media');
+        Route::post('/view', [StatusController::class, 'view'])->middleware('throttle:chat-actions')->name('statuses.view');
+        Route::get('/viewers', [StatusController::class, 'viewers'])->name('statuses.viewers');
+        Route::post('/reply', [StatusController::class, 'reply'])->middleware('throttle:chat-send')->name('statuses.reply');
+        Route::post('/react', [StatusController::class, 'react'])->middleware('throttle:chat-send')->name('statuses.react');
+    });
 
     // Channels (G11)
     Route::get('/channels', [ChannelController::class, 'index'])->middleware('throttle:chat-search')->name('channels.index');

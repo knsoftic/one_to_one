@@ -95,15 +95,15 @@ light/dark theme · admin panel.
 | G10 | **Communities** | Kai groups ek chhat ke neeche, announcement group | 🟠 | [x] |
 | G11 | **Channels** | Ek-taraf updates, followers, reactions | 🟠 | [x] |
 
-## Phase 5 — Status (Stories)
+## Phase 5 — Status (Stories) — ✅ mukammal
 
 | # | Feature | Kya milega | Mehnat | Status |
 |---|---------|-----------|--------|--------|
-| S1 | **Text / photo / video status** | 24 ghante ke liye, rang aur font wala text status | 🟠 | [ ] |
-| S2 | **Kisne dekha** | Viewers ki list aur waqt | 🟢 | [ ] |
-| S3 | **Status privacy** | Sab contacts / chune hue / in ke siwa | 🟡 | [ ] |
-| S4 | **Status ka jawab aur reaction** | Status par reply chat mein pahunche | 🟢 | [ ] |
-| S5 | **Mute status** | Kisi ka status neeche chhupana | 🟢 | [ ] |
+| S1 | **Text / photo / video status** | 24 ghante ke liye, rang aur font wala text status | 🟠 | [x] |
+| S2 | **Kisne dekha** | Viewers ki list aur waqt | 🟢 | [x] |
+| S3 | **Status privacy** | Sab contacts / chune hue / in ke siwa | 🟡 | [x] |
+| S4 | **Status ka jawab aur reaction** | Status par reply chat mein pahunche | 🟢 | [x] |
+| S5 | **Mute status** | Kisi ka status neeche chhupana | 🟢 | [x] |
 
 ## Phase 6 — Privacy aur security
 

@@ -751,3 +751,41 @@ Built from [`docs/FEATURE-ROADMAP.md`](docs/FEATURE-ROADMAP.md), each feature wi
 - Tests: `ChannelTest` (3: create, search, preview for strangers, follow sees history without unread, only admins post, no sender name/notifications, seen clears unread, no calls/receipts, link page; reactions and votes show counts with only your own id, admins-only pin; edit/delete permissions, delete chat needs unfollow, admins can't unfollow, unfollow removes it, delete for everyone), `channels.test.js` (6: short counts, keep my reaction/votes on nameless updates, counts from totals, sidebar lists + follow, preview + follow, info for followers/admins + share link without reset). Checked in the browser harness: channels sidebar, preview dialog, channel info, channel link dialog.
 - Verification (Phase 4 complete): PHPUnit **354 passed**, Vitest **136 passed**, Pint ✅, build ✅.
 - Deploy notes: run `php artisan migrate` (groups, broadcast lists, communities tables) and `npm ci && npm run build` (new `qrcode-generator` package). No new APK needed.
+
+## Roadmap Phase 5 — Status ✅
+Status updates live 24 hours. **"My contacts"** means the people you saved in your phone book **and** the people you have a one-to-one chat with (web users often have no phone-book contacts). People who block each other never see each other's updates.
+
+### Storage (Phase 5)
+- `statuses` (type text/image/video, body, background, font, attachment + meta on the private `chat` disk, `privacy` + `privacy_user_ids` copied from the owner's setting when posted, `expires_at`), `status_views` (viewed_at, reaction), `status_privacy_users` (except / only lists), `status_mutes`, `users.status_privacy`. Migration `2026_09_21_000001_create_statuses` (rollback checked).
+- `php artisan chat:expire-statuses` (scheduled every 5 minutes) removes updates older than a day and their files. `CHAT_STATUS_LIFETIME_HOURS` (24), `CHAT_STATUS_MAX_VIDEO_SECONDS` (60).
+- Live updates: `status.updated` (to everyone who may see a new/deleted update, so their list refreshes and the Status dot lights up) and `status.viewed` (to the owner, view count).
+
+### S1 — Text / photo / video status ✅
+- New **Status** button in the sidebar header (and an **Updates** tab on phones) with a dot when there are new updates. The Status view shows **My status** (ring with one segment per update, "2 updates · 10 minutes ago"), **Recent updates**, **Viewed updates** and **Muted updates**.
+- **Text status**: full-screen editor, tap the palette to change the background (8 colours) and **T** to change the font (5 styles); the text shrinks as it gets longer. **Photo / video**: pick a JPG/PNG or a video (up to 60 s, checked in the browser and on the server), preview it, add a caption, post. Videos send a poster frame.
+- **Viewer**: progress bars, tap right/left (or arrow keys) for next/previous, press and hold or the pause button to pause, videos play for their length with a sound toggle; it starts at the first update you haven't seen and carries on with the next person in the same list. Delete your own update from the viewer.
+- Server: `GET /statuses` (my updates + updates grouped by person, not seen first), `POST /statuses` (text, background, font / attachment, caption, thumbnail, duration), `DELETE /statuses/{id}`, `GET /statuses/{id}/media` (only for people who may see it).
+- Tests: `StatusTest` (2: text/photo/video posted and validated, contacts and chat partners see them, strangers and blocked people don't, media protected, gone after 24 h and files removed by the command; only the owner deletes).
+
+### S2 — Kisne dekha ✅
+- Opening someone's update marks it seen (once). On your own update the viewer shows **👁 N views**; tap it for **Viewed by** with names, time and their reaction. The count updates live.
+- Server: `POST /statuses/{id}/view`, `GET /statuses/{id}/viewers` (owner only).
+- Tests: `StatusViewersTest` (2: one view per person, owner's own views and strangers don't count, live event, viewers newest first, only the owner sees them; people not seen yet come first).
+
+### S3 — Status privacy ✅
+- **Status privacy** (lock button or the link at the bottom of the Status view): **My contacts**, **My contacts except…** or **Only share with…**, choosing people from contacts and chats. The choice applies to updates posted from then on, like WhatsApp; "Only share with" needs at least one person.
+- Server: `GET/PUT /status/privacy`.
+- Tests: `StatusPrivacyTest` (except hides new updates but not earlier ones, only-share reaches exactly the chosen people, validation).
+
+### S4 — Status ka jawab aur reaction ✅
+- In the viewer: quick reactions (😍 😂 😮 😢 👏 🔥) and a **Reply** box. Both arrive in the one-to-one chat with the owner, with a quote of the update ("Ayesha · Status", its text or a small picture while it lasts, "Status reaction" for reactions). The reaction is also shown in the owner's viewers list; the same emoji is sent only once.
+- Server: `POST /statuses/{id}/reply`, `POST /statuses/{id}/react`; messages keep a snapshot in `attachment_meta.status` and the API returns `status_quote` (`available`, `thumbnail_url` only while the update lasts). Chat list preview: "Reacted ❤️ to a status".
+- Tests: `StatusReplyTest` (2: reply quote with picture, chat and unread, not to your own or others' private updates, quote stays after expiry without picture; reactions once per emoji, preview text, reaction in viewers, blocked people can't react).
+
+### S5 — Mute status ✅
+- The bell button in the viewer mutes/unmutes a person: their updates move to the collapsible **Muted updates** part and don't light up the Status dot. They are never told.
+- Server: `POST/DELETE /statuses/mutes/{user}`.
+- Tests: `StatusMuteTest` (muted flag, unmute, can't mute yourself). Frontend: `status.test.js` (10: time labels, ring segments, sections, chat bubble quote, Status view + dot, viewer from first unseen → next person → sections update, reply/react/mute, viewers list + live count + delete, text composer colour/font, privacy save). Checked in the browser harness: Status view, photo and text viewer, viewers sheet, text composer, privacy dialog, status quotes in bubbles (fixed the quote's contrast in my own bubbles and centred the composer text).
+- Verification (Phase 5 complete): PHPUnit **362 passed**, Vitest **146 passed**, Pint ✅, build ✅.
+- Deploy notes: `php artisan migrate` (statuses tables) and `npm run build`; the scheduler (cron) must run for expired updates to be cleaned up. No new APK needed.
+

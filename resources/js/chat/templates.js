@@ -430,6 +430,30 @@ const EXTENSION_LABELS = {
     zip: 'ZIP', rar: 'RAR', '7z': '7Z', mp3: 'MP3 audio', m4a: 'M4A audio',
 };
 
+/** S4: the status update a reply or reaction answers. */
+function statusQuote(message) {
+    const quote = message.status_quote;
+    if (!quote || message.is_deleted) return '';
+
+    const owner = Number(quote.owner_id) === Number(context.meId) ? 'You' : context.nameOf(quote.owner_id) || 'Status';
+    const text = quote.text || (quote.type === 'video' ? 'Video' : quote.type === 'image' ? 'Photo' : '');
+    const picture = quote.thumbnail_url
+        ? html`<img class="status-quote-thumb" src="${quote.thumbnail_url}" alt="" loading="lazy">`
+        : quote.type === 'text'
+          ? html`<span class="status-quote-thumb status-text is-bg-${quote.background || 'teal'}">Aa</span>`
+          : `<span class="status-quote-thumb is-icon">${icon(quote.type === 'video' ? 'film' : 'image')}</span>`;
+
+    return html`
+        <div class="status-quote${quote.available ? '' : ' is-expired'}">
+            <span class="status-quote-body">
+                <span class="status-quote-author">${raw(icon('circle-dashed', 'icon-xs'))} ${owner} · ${quote.reaction ? 'Status reaction' : 'Status'}</span>
+                <span class="status-quote-text">${text}</span>
+            </span>
+            ${raw(picture)}
+        </div>
+    `;
+}
+
 function replyQuote(message) {
     const reply = message.reply_to;
     if (!reply || message.is_deleted) return '';
@@ -695,7 +719,7 @@ function messageContent(message) {
         ? `<span class="message-forwarded">${icon('forward')}${message.forwarded_many ? 'Forwarded many times' : 'Forwarded'}</span>`
         : '';
 
-    return forwarded + replyQuote(message) + attachment + card + text;
+    return forwarded + statusQuote(message) + replyQuote(message) + attachment + card + text;
 }
 
 const escapeText = (value) => String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');

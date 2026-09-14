@@ -33,6 +33,8 @@ const ICONS = [
     // Phase 4 — groups, broadcast lists, communities and channels
     'badge-check', 'bell-ring', 'globe', 'megaphone', 'qr-code', 'reply', 'rss', 'shield-off', 'user-minus', 'users-round',
     'gauge', 'link-2', 'maximize-2', 'monitor-up', 'monitor-x', 'picture-in-picture-2', 'signal', 'signal-high', 'signal-medium',
+    // Phase 5 — status
+    'circle-dashed', 'volume-x',
 ];
 
 const pascal = (name) => name.replace(/(^|-)([a-z0-9])/g, (_, __, c) => c.toUpperCase());

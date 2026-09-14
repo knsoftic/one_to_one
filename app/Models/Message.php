@@ -338,6 +338,11 @@ class Message extends Model
             return 'This message was deleted';
         }
 
+        // A reaction to a status update (S4).
+        if ($this->attachment_meta['status']['reaction'] ?? false) {
+            return 'Reacted '.$this->message.' to a status';
+        }
+
         // View once media never shows a caption or details in previews (M22).
         if ($this->attachment_meta['view_once'] ?? false) {
             return match ($this->message_type) {
