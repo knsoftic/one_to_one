@@ -24,7 +24,7 @@ class MessageUpdated implements ShouldBroadcastNow
         // One channel when both are the same person ("Message yourself").
         return array_map(
             fn ($id) => new PrivateChannel('App.Models.User.'.$id),
-            array_values(array_unique([(int) $this->message->sender_id, (int) $this->message->receiver_id])),
+            $this->message->audienceIds(),
         );
     }
 

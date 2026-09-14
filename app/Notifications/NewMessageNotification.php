@@ -22,7 +22,7 @@ class NewMessageNotification extends Notification
     /**
      * @param  bool  $private  the chat is locked (C9): no sender, no text
      */
-    public function __construct(public Message $message, public bool $private = false) {}
+    public function __construct(public Message $message, public bool $private = false, public bool $mentioned = false) {}
 
     /**
      * @return list<string>
@@ -48,13 +48,20 @@ class NewMessageNotification extends Notification
         }
 
         $sender = $this->message->sender;
+        $group = $this->message->isGroupMessage() ? $this->message->conversation : null;
 
         return [
             'type' => 'new_message',
-            'title' => $this->message->message_type === Message::TYPE_CALL
-                ? ltrim(mb_substr($this->message->callPreview(), 2)).' from '.$sender->name
-                : "{$sender->name} sent you a message",
+            'title' => match (true) {
+                $group && $this->message->message_type === Message::TYPE_SYSTEM => $group->name,
+                $group && $this->mentioned => "{$this->displayNameFor($notifiable)} mentioned you in {$group->name}",
+                $group !== null => "{$this->displayNameFor($notifiable)} in {$group->name}",
+                $this->message->message_type === Message::TYPE_CALL => ltrim(mb_substr($this->message->callPreview(), 2)).' from '.$sender->name,
+                default => "{$sender->name} sent you a message",
+            },
             'body' => $this->message->preview(100),
+            // Group chats (Phase 4).
+            'group' => $group ? ['id' => $group->id, 'name' => $group->name, 'avatar_url' => $group->groupAvatarUrl()] : null,
             'conversation_id' => $this->message->conversation_id,
             'message_id' => $this->message->id,
             'message_type' => $this->message->message_type,

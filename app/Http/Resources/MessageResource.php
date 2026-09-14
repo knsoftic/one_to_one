@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Models\Message;
+use App\Services\ConversationTypes;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -11,6 +12,10 @@ use Illuminate\Http\Resources\Json\JsonResource;
  */
 class MessageResource extends JsonResource
 {
+    private bool $channel = false;
+
+    private ?int $viewerId = null;
+
     /**
      * Viewer-neutral payload for broadcasts (clients derive "is_mine" themselves).
      */
@@ -25,12 +30,17 @@ class MessageResource extends JsonResource
     {
         $viewerId = $request->user()?->getKey();
         $deleted = (bool) $this->deleted_for_everyone;
+        // Channel updates (G11) come from the channel, and followers never see each other.
+        $this->channel = $this->receiver_id === null && app(ConversationTypes::class)->isChannel((int) $this->conversation_id);
+        $this->viewerId = $viewerId !== null ? (int) $viewerId : null;
 
         return [
             'id' => $this->id,
             'conversation_id' => $this->conversation_id,
             'sender_id' => $this->sender_id,
             'receiver_id' => $this->receiver_id,
+            // Group chats (Phase 4): who wrote it, for people not in the reader's contacts.
+            'sender_name' => $this->when($this->receiver_id === null && ! $this->channel && $this->relationLoaded('sender'), fn () => $this->sender?->name),
             'is_mine' => (int) $this->sender_id === (int) $viewerId,
             'type' => $deleted ? Message::TYPE_TEXT : $this->message_type,
             'body' => $deleted ? null : $this->message,
@@ -42,13 +52,15 @@ class MessageResource extends JsonResource
                 ->map(fn ($group, $emoji) => [
                     'emoji' => (string) $emoji,
                     'count' => $group->count(),
-                    'user_ids' => $group->pluck('user_id')->map(fn ($id) => (int) $id)->values()->all(),
+                    'user_ids' => $this->visibleUserIds($group->pluck('user_id')),
                 ])
                 ->values()
                 ->all()),
             // Per viewer: only present when the query added it (never in broadcasts).
             'is_starred' => $this->when(array_key_exists('is_starred', $this->resource->getAttributes()), fn () => ! $deleted && (bool) $this->is_starred),
             'album_id' => $deleted ? null : ($this->attachment_meta['album'] ?? null),
+            // @mentions (G4): [{id, name}] with the name as written in the text.
+            'mentions' => $this->when(! $deleted && ! empty($this->attachment_meta['mentions']), fn () => array_values($this->attachment_meta['mentions'])),
             'view_once' => $this->when(! $deleted && ($this->attachment_meta['view_once'] ?? false), fn () => [
                 'opened_at' => $this->attachment_meta['opened_at'] ?? null,
                 'available' => $this->attachment !== null && empty($this->attachment_meta['opened_at']),
@@ -57,11 +69,17 @@ class MessageResource extends JsonResource
             'forwarded_many' => ! $deleted && $this->forward_count >= 5,
             'edited_at' => $this->edited_at?->toIso8601String(),
             'expires_at' => $this->expires_at?->toIso8601String(),
-            'system' => $this->when($this->message_type === Message::TYPE_SYSTEM, fn () => [
+            'system' => $this->when($this->message_type === Message::TYPE_SYSTEM, fn () => array_filter([
                 'event' => $this->attachment_meta['event'] ?? null,
                 'seconds' => $this->attachment_meta['seconds'] ?? null,
                 'text' => $this->resource->systemText(),
-            ]),
+                // Group notices: who did it and to whom (names are shown as saved by the reader).
+                'actor' => $this->attachment_meta['actor'] ?? null,
+                'users' => $this->attachment_meta['users'] ?? null,
+                'name' => $this->attachment_meta['name'] ?? null,
+                'only_admins_send' => $this->attachment_meta['only_admins_send'] ?? null,
+                'only_admins_edit' => $this->attachment_meta['only_admins_edit'] ?? null,
+            ], fn ($value) => $value !== null)),
             'attachment' => $this->when(! $deleted && $this->attachment !== null, fn () => $this->attachmentPayload()),
             // Card for the first link (null = none); only when loaded.
             'link_preview' => $this->when($this->relationLoaded('linkPreview'), fn () => ! $deleted && $this->linkPreview?->isUsable()
@@ -149,10 +167,22 @@ class MessageResource extends JsonResource
             'options' => collect($this->attachment_meta['options'] ?? [])->map(function ($option) use ($votes) {
                 $voters = $votes->where('option', (int) $option['id'])->pluck('user_id')->map(fn ($id) => (int) $id)->values();
 
-                return ['id' => (int) $option['id'], 'text' => (string) $option['text'], 'count' => $voters->count(), 'voter_ids' => $voters->all()];
+                return ['id' => (int) $option['id'], 'text' => (string) $option['text'], 'count' => $voters->count(), 'voter_ids' => $this->visibleUserIds($voters)];
             })->values()->all(),
             'total_voters' => $votes->pluck('user_id')->unique()->count(),
         ];
+    }
+
+    /**
+     * Who reacted / voted; in channels only the viewer themselves.
+     *
+     * @return list<int>
+     */
+    private function visibleUserIds($ids): array
+    {
+        $ids = collect($ids)->map(fn ($id) => (int) $id)->values();
+
+        return ($this->channel ? $ids->filter(fn (int $id) => $id === $this->viewerId)->values() : $ids)->all();
     }
 
     private function replyPayload(?int $viewerId): ?array
@@ -162,11 +192,16 @@ class MessageResource extends JsonResource
         }
 
         $reply = $this->replyTo;
-        $hiddenForViewer = $viewerId !== null && $reply->involves($viewerId) && $reply->isDeletedFor($viewerId);
+        $hiddenForViewer = $viewerId !== null && ! $reply->isGroupMessage() && $reply->involves($viewerId) && $reply->isDeletedFor($viewerId);
 
         return [
             'id' => $reply->id,
             'sender_id' => $reply->sender_id,
+            'conversation_id' => $reply->conversation_id,
+            // A private reply to a group message (G7) says which group it came from.
+            'group_name' => (int) $reply->conversation_id !== (int) $this->conversation_id && $reply->isGroupMessage()
+                ? $reply->conversation?->name
+                : null,
             'type' => $reply->message_type,
             'preview' => ($reply->deleted_for_everyone || $hiddenForViewer) ? 'This message was deleted' : $reply->preview(120),
             'is_deleted' => $reply->deleted_for_everyone || $hiddenForViewer,

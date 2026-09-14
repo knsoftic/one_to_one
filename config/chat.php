@@ -204,6 +204,13 @@ return [
     |
     */
 
+    'groups' => [
+        // Most people in one group chat (Phase 4).
+        'max_members' => (int) env('CHAT_GROUP_MAX_MEMBERS', 256),
+        // Most people in one broadcast list (G9).
+        'max_broadcast_recipients' => (int) env('CHAT_BROADCAST_MAX_RECIPIENTS', 256),
+    ],
+
     'calls' => [
         'enabled' => (bool) env('CHAT_CALLS_ENABLED', true),
         // Group calls (K6): everyone connects to everyone, so keep it small.

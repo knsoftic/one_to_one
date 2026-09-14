@@ -46,7 +46,15 @@ class MessagePolicy
             return Response::deny('This message can no longer be edited.');
         }
 
-        if ($user->hasBlockWith($message->receiver_id)) {
+        if ($denied = $this->groupDenial($user, $message)) {
+            return $denied;
+        }
+
+        if ($message->conversation?->isBroadcast()) {
+            return Response::deny('Messages sent to a broadcast list cannot be edited.');
+        }
+
+        if (! $message->isGroupMessage() && $user->hasBlockWith($message->receiver_id)) {
             return Response::deny('You can no longer edit messages in this conversation.');
         }
 
@@ -70,7 +78,11 @@ class MessagePolicy
             return Response::deny('This message is not a poll.');
         }
 
-        if ($user->hasBlockWith($message->isSentBy($user) ? $message->receiver_id : $message->sender_id)) {
+        if ($denied = $this->groupDenial($user, $message)) {
+            return $denied;
+        }
+
+        if (! $message->isGroupMessage() && $user->hasBlockWith($message->isSentBy($user) ? $message->receiver_id : $message->sender_id)) {
             return Response::deny('You can no longer vote in this conversation.');
         }
 
@@ -128,7 +140,15 @@ class MessagePolicy
             return Response::deny('You cannot react to this message.');
         }
 
-        if ($user->hasBlockWith($message->isSentBy($user) ? $message->receiver_id : $message->sender_id)) {
+        if ($denied = $this->groupDenial($user, $message)) {
+            return $denied;
+        }
+
+        if ($message->conversation?->isBroadcast()) {
+            return Response::deny('Nobody else is in a broadcast list to see reactions.');
+        }
+
+        if (! $message->isGroupMessage() && $user->hasBlockWith($message->isSentBy($user) ? $message->receiver_id : $message->sender_id)) {
             return Response::deny('You can no longer react in this conversation.');
         }
 
@@ -149,7 +169,16 @@ class MessagePolicy
             return Response::deny($message->message_type === Message::TYPE_CALL ? 'Call history cannot be pinned.' : 'Chat notices cannot be pinned.');
         }
 
-        if ($user->hasBlockWith($message->isSentBy($user) ? $message->receiver_id : $message->sender_id)) {
+        if ($denied = $this->groupDenial($user, $message)) {
+            return $denied;
+        }
+
+        // Pinning changes the group for everyone: admins only when info is admins-only (G5).
+        if ($message->isGroupMessage() && $message->conversation->only_admins_edit && ! $message->conversation->isAdmin($user)) {
+            return Response::deny($message->conversation->isChannel() ? 'Only channel admins can pin updates.' : 'Only admins can pin messages in this group.');
+        }
+
+        if (! $message->isGroupMessage() && $user->hasBlockWith($message->isSentBy($user) ? $message->receiver_id : $message->sender_id)) {
             return Response::deny('You can no longer pin messages in this conversation.');
         }
 
@@ -181,11 +210,42 @@ class MessagePolicy
             return Response::deny('Call history can only be deleted for you.');
         }
 
+        if ($message->message_type === Message::TYPE_SYSTEM) {
+            return Response::deny('Chat notices can only be deleted for you.');
+        }
+
+        if ($denied = $this->groupDenial($user, $message)) {
+            return $denied;
+        }
+
         if ($this->windowPassed($message, (int) config('chat.delete_for_everyone_window_minutes'))) {
             return Response::deny('This message is too old to be deleted for everyone.');
         }
 
         return Response::allow();
+    }
+
+    /**
+     * Former members read a group's past messages but cannot change them.
+     */
+    private function groupDenial(User $user, Message $message): ?Response
+    {
+        if (! $message->isGroupMessage()) {
+            return null;
+        }
+
+        $group = $message->conversation;
+        if ($group?->isBroadcast()) {
+            return $group->isActiveMember($user) ? null : Response::denyAsNotFound();
+        }
+
+        if ($group?->isChannel()) {
+            return $group->isActiveMember($user) ? null : Response::deny('Follow the channel first.');
+        }
+
+        return $group && ($group->ended_at !== null || ! $group->isActiveMember($user))
+            ? Response::deny("You're no longer a member of this group.")
+            : null;
     }
 
     private function windowPassed(Message $message, int $minutes): bool

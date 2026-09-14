@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\DB;
 
 class Message extends Model
 {
@@ -61,6 +62,7 @@ class Message extends Model
         'attachment_size',
         'attachment_meta',
         'reply_to_id',
+        'broadcast_message_id',
         'forward_count',
         'link_preview_id',
         'sent_at',
@@ -165,26 +167,54 @@ class Message extends Model
     {
         $id = $user instanceof User ? $user->getKey() : $user;
 
-        return $query->where(function (Builder $q) use ($id) {
+        return $query->where(function (Builder $q) use ($id, $query) {
             $q->where(fn (Builder $s) => $s->where('sender_id', $id)->where('deleted_for_sender', false))
-                ->orWhere(fn (Builder $r) => $r->where('receiver_id', $id)->where('deleted_for_receiver', false));
+                ->orWhere(fn (Builder $r) => $r->where('receiver_id', $id)->where('deleted_for_receiver', false))
+                // Group messages (no receiver): sent while the user was in the group, not deleted for them.
+                ->orWhere(fn (Builder $g) => $g->whereNull($query->qualifyColumn('receiver_id'))
+                    ->where($query->qualifyColumn('sender_id'), '!=', $id)
+                    ->whereExists(fn ($sub) => $this->memberWindow($sub, $query, $id))
+                    ->whereNotExists(fn ($sub) => $sub->selectRaw('1')->from('message_hides')
+                        ->whereColumn('message_hides.message_id', $query->qualifyColumn('id'))
+                        ->where('message_hides.user_id', $id)));
         })->notClearedFor($id);
     }
 
     /**
      * Messages received by the user that they have not seen yet.
-     * Notes to self never count as unread.
+     * Notes to self never count as unread; in groups, neither do app notices.
      */
     public function scopeUnreadFor(Builder $query, User|int $user): Builder
     {
         $id = $user instanceof User ? $user->getKey() : $user;
 
-        return $query->where('receiver_id', $id)
-            ->where('sender_id', '!=', $id)
-            ->whereNull('seen_at')
-            ->where('deleted_for_receiver', false)
-            ->where('deleted_for_everyone', false)
+        return $query
+            ->where($query->qualifyColumn('sender_id'), '!=', $id)
+            ->where($query->qualifyColumn('deleted_for_everyone'), false)
+            ->where(fn (Builder $q) => $q
+                ->where(fn (Builder $d) => $d->where('receiver_id', $id)->whereNull('seen_at')->where('deleted_for_receiver', false))
+                ->orWhere(fn (Builder $g) => $g->whereNull($query->qualifyColumn('receiver_id'))
+                    ->where($query->qualifyColumn('message_type'), '!=', self::TYPE_SYSTEM)
+                    ->whereExists(fn ($sub) => $this->memberWindow($sub, $query, $id)
+                        ->whereColumn('conversation_members.last_read_message_id', '<', $query->qualifyColumn('id')))
+                    ->whereNotExists(fn ($sub) => $sub->selectRaw('1')->from('message_hides')
+                        ->whereColumn('message_hides.message_id', $query->qualifyColumn('id'))
+                        ->where('message_hides.user_id', $id))))
             ->notClearedFor($id);
+    }
+
+    /**
+     * Subquery: the user's group membership covers the message.
+     */
+    private function memberWindow($sub, Builder $query, int $userId)
+    {
+        return $sub->selectRaw('1')
+            ->from('conversation_members')
+            ->whereColumn('conversation_members.conversation_id', $query->qualifyColumn('conversation_id'))
+            ->where('conversation_members.user_id', $userId)
+            ->whereColumn('conversation_members.visible_from_message_id', '<=', $query->qualifyColumn('id'))
+            ->where(fn ($w) => $w->whereNull('conversation_members.visible_until_message_id')
+                ->orWhereColumn('conversation_members.visible_until_message_id', '>=', $query->qualifyColumn('id')));
     }
 
     /**
@@ -211,16 +241,63 @@ class Message extends Model
         return (int) $this->sender_id === (int) ($user instanceof User ? $user->getKey() : $user);
     }
 
+    /**
+     * Who hears about this message: both people, or everyone in the group.
+     *
+     * @return list<int>
+     */
+    public function audienceIds(): array
+    {
+        if ($this->isGroupMessage()) {
+            return array_values(array_unique([
+                ...ConversationMember::query()->where('conversation_id', $this->conversation_id)->whereNull('left_at')->pluck('user_id')->map(fn ($id) => (int) $id)->all(),
+                (int) $this->sender_id,
+            ]));
+        }
+
+        return array_values(array_unique([(int) $this->receiver_id, (int) $this->sender_id]));
+    }
+
+    /** A message of a group chat (it has no single receiver). */
+    public function isGroupMessage(): bool
+    {
+        return $this->receiver_id === null;
+    }
+
+    /**
+     * Sent or received by the user; for group messages, sent while they were in the group.
+     */
     public function involves(User|int $user): bool
     {
         $id = (int) ($user instanceof User ? $user->getKey() : $user);
 
-        return (int) $this->sender_id === $id || (int) $this->receiver_id === $id;
+        if ((int) $this->sender_id === $id) {
+            return true;
+        }
+
+        if ($this->isGroupMessage()) {
+            return (bool) ConversationMember::query()
+                ->where('conversation_id', $this->conversation_id)
+                ->where('user_id', $id)
+                ->first()?->couldSee((int) $this->getKey());
+        }
+
+        return (int) $this->receiver_id === $id;
     }
 
     public function isDeletedFor(User|int $user): bool
     {
-        return $this->isSentBy($user) ? $this->deleted_for_sender : $this->deleted_for_receiver;
+        if ($this->isSentBy($user)) {
+            return $this->deleted_for_sender;
+        }
+
+        if ($this->isGroupMessage()) {
+            $id = $user instanceof User ? $user->getKey() : $user;
+
+            return DB::table('message_hides')->where('message_id', $this->getKey())->where('user_id', $id)->exists();
+        }
+
+        return $this->deleted_for_receiver;
     }
 
     public function hasAttachment(): bool
@@ -303,6 +380,36 @@ class Message extends Model
     public function systemText(): string
     {
         $meta = $this->attachment_meta ?? [];
+        $actor = (string) ($meta['actor']['name'] ?? 'Someone');
+        $users = collect($meta['users'] ?? [])->pluck('name')->filter()->implode(', ');
+
+        // Group notices (Phase 4).
+        $group = match ($meta['event'] ?? null) {
+            'group_created' => "{$actor} created group \"".($meta['name'] ?? '').'"',
+            'members_added' => "{$actor} added {$users}",
+            'member_removed' => "{$actor} removed {$users}",
+            'member_left' => "{$actor} left",
+            'member_joined_link' => "{$actor} joined using this group's invite link",
+            'name_changed' => "{$actor} changed the group name to \"".($meta['name'] ?? '').'"',
+            'description_changed' => "{$actor} changed the group description",
+            'avatar_changed' => "{$actor} changed this group's icon",
+            'avatar_removed' => "{$actor} deleted this group's icon",
+            'settings_changed' => match (true) {
+                array_key_exists('only_admins_send', $meta) => "{$actor} changed this group's settings to allow ".($meta['only_admins_send'] ? 'only admins' : 'all members').' to send messages',
+                default => "{$actor} changed this group's settings to allow ".(($meta['only_admins_edit'] ?? false) ? 'only admins' : 'all members')." to edit this group's info",
+            },
+            'group_ended' => "{$actor} deleted this group",
+            'community_created' => "{$actor} created the community \"".($meta['name'] ?? '').'"',
+            'community_linked' => "{$actor} added this group to the community \"".($meta['name'] ?? '').'"',
+            'community_unlinked' => "{$actor} removed this group from the community \"".($meta['name'] ?? '').'"',
+            'member_joined_community' => "{$actor} joined from the community",
+            'channel_created' => 'Channel created',
+            default => null,
+        };
+
+        if ($group !== null) {
+            return $group;
+        }
 
         if (($meta['event'] ?? null) === 'disappearing') {
             $seconds = (int) ($meta['seconds'] ?? 0);

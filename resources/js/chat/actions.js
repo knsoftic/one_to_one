@@ -38,7 +38,12 @@ export class MessageActions {
             }
 
             const jump = event.target.closest('[data-jump-to]');
-            if (jump) this.chat.jumpToMessage(Number(jump.dataset.jumpTo));
+            if (jump) {
+                const conversationId = Number(jump.dataset.jumpConversation || 0);
+                // A private reply quotes a message in the group (G7): open the group there.
+                if (conversationId && conversationId !== this.chat.active?.id) this.openElsewhere(conversationId, Number(jump.dataset.jumpTo));
+                else this.chat.jumpToMessage(Number(jump.dataset.jumpTo));
+            }
         });
 
         list.addEventListener('contextmenu', (event) => {
@@ -170,12 +175,19 @@ export class MessageActions {
         const items = [];
         // View once media cannot be forwarded, starred, pinned or downloaded (M22).
         const isCall = message.type === 'call' || Boolean(message.attachment?.view_once);
-        if (!message.is_deleted && !isCall && !this.conversationBlocked()) items.push({ action: 'reply', icon: 'corner-up-left', label: 'Reply' });
+        const conversation = this.chat.activeConversation();
+        // Followers of a channel (G11) and members of an admins-only group can't write here.
+        const canWrite = (conversation?.channel?.can_send ?? true) && (conversation?.group?.can_send ?? true);
+        if (!message.is_deleted && !isCall && !this.conversationBlocked() && canWrite) items.push({ action: 'reply', icon: 'corner-up-left', label: 'Reply' });
+        // G7: reply to someone's group message in your own chat with them.
+        if (conversation?.type === 'group' && !message.is_mine && !message.is_deleted && !isCall && typeof message.id === 'number') {
+            items.push({ action: 'reply-private', icon: 'reply', label: 'Reply privately' });
+        }
         if (!message.is_deleted && !isCall && this.chat.api.has('messageForward')) items.push({ action: 'forward', icon: 'forward', label: 'Forward' });
         if (!message.is_deleted && !isCall && this.chat.api.has('messageStar')) {
             items.push(message.is_starred ? { action: 'unstar', icon: 'star-off', label: 'Unstar' } : { action: 'star', icon: 'star', label: 'Star' });
         }
-        if (!message.is_deleted && !isCall && !this.conversationBlocked() && this.chat.api.has('messagePin')) {
+        if (!message.is_deleted && !isCall && !this.conversationBlocked() && this.chat.api.has('messagePin') && (conversation?.channel?.is_admin ?? true)) {
             items.push(this.chat.pins.isPinned(message) ? { action: 'unpin', icon: 'pin-off', label: 'Unpin' } : { action: 'pin', icon: 'pin', label: 'Pin' });
         }
         if (!message.is_deleted && message.body) items.push({ action: 'copy', icon: 'copy', label: 'Copy text' });
@@ -184,7 +196,7 @@ export class MessageActions {
         }
         if (message.attachment?.download_url && !message.is_deleted && message.type !== 'sticker') items.push({ action: 'download', icon: 'download', label: 'Download' });
         if (this.canEdit(message)) items.push({ action: 'edit', icon: 'pencil', label: 'Edit' });
-        if (message.is_mine && !message.is_deleted && !isCall) items.push({ action: 'info', icon: 'info', label: 'Info' });
+        if (message.is_mine && !message.is_deleted && !isCall && conversation?.type !== 'channel') items.push({ action: 'info', icon: 'info', label: 'Info' });
         if (items.length) items.push('-');
         items.push({ action: 'delete', icon: 'trash-2', label: 'Delete', danger: true });
 
@@ -253,6 +265,8 @@ export class MessageActions {
         switch (action) {
             case 'reply':
                 return this.setMode('reply', message);
+            case 'reply-private':
+                return this.replyPrivately(message);
             case 'edit':
                 return this.setMode('edit', message);
             case 'forward':
@@ -270,7 +284,7 @@ export class MessageActions {
             case 'unstar':
                 return this.chat.starred.toggle(message);
             case 'info':
-                return openMessageInfo(message);
+                return openMessageInfo(message, this.chat);
             case 'pin':
                 return this.chat.pins.pin(message);
             case 'unpin':
@@ -282,6 +296,29 @@ export class MessageActions {
             case 'delete':
                 return this.confirmDelete(message);
         }
+    }
+
+    /** G7: open the chat with the writer of a group message, replying to it. */
+    replyPrivately(message) {
+        const group = this.chat.activeConversation()?.group;
+        const target = { ...message, group_name: group?.name ?? null };
+        const senderId = Number(message.sender_id);
+
+        const onOpened = (event) => {
+            if (Number(event.detail.conversation?.participant?.id) !== senderId || event.detail.conversation?.type === 'group') return;
+            document.removeEventListener('chat:opened', onOpened);
+            setTimeout(() => this.setMode('reply', target), 0);
+        };
+        document.addEventListener('chat:opened', onOpened);
+        setTimeout(() => document.removeEventListener('chat:opened', onOpened), 15_000);
+        this.chat.startConversationWith(senderId);
+    }
+
+    /** Open another chat and jump to a message in it. */
+    async openElsewhere(conversationId, messageId) {
+        await this.chat.openConversation(conversationId);
+        for (let i = 0; i < 50 && !this.chat.active?.loaded; i++) await new Promise((resolve) => setTimeout(resolve, 100));
+        if (this.chat.active?.id === conversationId) this.chat.jumpToMessage(messageId, { deep: true });
     }
 
     async copy(text) {
@@ -385,6 +422,8 @@ export class MessageActions {
             event.detail.payload.reply_preview = {
                 id: message.id,
                 sender_id: message.sender_id,
+                conversation_id: message.conversation_id,
+                group_name: message.group_name ?? null,
                 type: message.type,
                 preview: previewOf(message),
                 is_deleted: false,
@@ -402,10 +441,16 @@ export class MessageActions {
 
         this.mode = { type, message, draft };
 
-        const author = message.is_mine ? 'yourself' : this.chat.participantOf(this.chat.activeConversation())?.name ?? 'message';
+        const conversation = this.chat.activeConversation();
+        const author = message.is_mine
+            ? 'yourself'
+            : conversation?.type === 'group'
+              ? this.chat.displayName(message.sender_id, this.chat.users.get(Number(message.sender_id))?.name ?? message.sender_name ?? 'message')
+              : this.chat.participantOf(conversation)?.name ?? 'message';
+        const privateReply = type === 'reply' && message.group_name ? ` · ${message.group_name}` : '';
         this.chat.el.composerExtras.querySelector('[data-composer-context]').innerHTML = T.composerContext({
             mode: type,
-            title: type === 'edit' ? 'Edit message' : `Replying to ${author}`,
+            title: type === 'edit' ? 'Edit message' : `Replying to ${author}${privateReply}`,
             preview: previewOf(message),
         });
 

@@ -4,7 +4,10 @@ namespace App\Http\Resources;
 
 use App\Models\Conversation;
 use App\Models\Message;
+use App\Services\BroadcastService;
+use App\Services\ChannelService;
 use App\Services\ChatLockService;
+use App\Services\GroupService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -23,6 +26,7 @@ class ConversationResource extends JsonResource
         if (($this->my_settings['locked'] ?? false) && ! app(ChatLockService::class)->isUnlocked()) {
             return [
                 'id' => $this->id,
+                'type' => $this->type ?? Conversation::TYPE_DIRECT,
                 'is_self' => false,
                 'participant' => null,
                 'last_message' => null,
@@ -32,7 +36,8 @@ class ConversationResource extends JsonResource
             ];
         }
 
-        $other = $this->resource->otherParticipant($viewer);
+        $isGroup = $this->resource->isGroup();
+        $other = $this->resource->hasMembers() ? null : $this->resource->otherParticipant($viewer);
         $latest = $this->relationLoaded('latestMessage') ? $this->getRelation('latestMessage') : null;
 
         $participant = $other ? (new UserResource($other))->resolve($request) : null;
@@ -50,21 +55,45 @@ class ConversationResource extends JsonResource
 
         return [
             'id' => $this->id,
+            'type' => $this->resource->type ?: Conversation::TYPE_DIRECT,
+            // Channels (G11): name, icon, followers, my role.
+            'channel' => $this->when($this->resource->isChannel(), fn () => app(ChannelService::class)->payload($this->resource, $viewer)),
+            // Broadcast lists (G9): name and recipients.
+            'broadcast' => $this->when($this->resource->isBroadcast(), fn () => app(BroadcastService::class)->payload(
+                $this->resource, $viewer, (bool) ($this->with_group_members ?? false), $request,
+            )),
             'participant' => $participant,
             'is_self' => $this->resource->isSelf(),
+            // Group chats (Phase 4): name, icon, my role, settings; members when a single chat is loaded.
+            'group' => $this->when($isGroup, fn () => app(GroupService::class)->payload(
+                $this->resource, $viewer, (bool) ($this->with_group_members ?? false), $request,
+            )),
             'last_message' => $latest ? [
                 'id' => $latest->id,
                 'sender_id' => $latest->sender_id,
+                'sender_name' => $isGroup && $latest->relationLoaded('sender') ? $latest->sender?->name : null,
                 'is_mine' => (int) $latest->sender_id === (int) $viewer->getKey(),
                 'type' => $latest->message_type,
                 'preview' => $latest->message_type === Message::TYPE_CALL
                     ? $latest->callPreview(outgoing: (int) $latest->sender_id === (int) $viewer->getKey())
                     : $latest->preview(80),
                 'is_deleted' => (bool) $latest->deleted_for_everyone,
+                // App notices are worded for the reader ("You added Sara").
+                'system' => $latest->message_type === Message::TYPE_SYSTEM ? array_filter([
+                    'event' => $latest->attachment_meta['event'] ?? null,
+                    'actor' => $latest->attachment_meta['actor'] ?? null,
+                    'users' => $latest->attachment_meta['users'] ?? null,
+                    'name' => $latest->attachment_meta['name'] ?? null,
+                    'seconds' => $latest->attachment_meta['seconds'] ?? null,
+                    'only_admins_send' => $latest->attachment_meta['only_admins_send'] ?? null,
+                    'only_admins_edit' => $latest->attachment_meta['only_admins_edit'] ?? null,
+                    'text' => $latest->systemText(),
+                ], fn ($value) => $value !== null) : null,
                 'status' => $latest->status(),
                 'created_at' => $latest->created_at?->toIso8601String(),
             ] : null,
             'unread_count' => (int) ($this->unread_count ?? 0),
+            'unread_mentions' => (int) ($this->unread_mentions ?? 0),
             'disappearing_seconds' => $this->disappearing_seconds,
             // The viewer's own settings for this chat (Phase 2).
             'settings' => $this->when(isset($this->my_settings), fn () => $this->my_settings),

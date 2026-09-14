@@ -51,6 +51,10 @@
                         </button>
                         <div class="dropdown-menu" data-align="right" role="menu" hidden>
                             <button type="button" class="dropdown-item" data-action="new-chat" role="menuitem"><x-icon name="message-square-plus" /> New chat</button>
+                            <button type="button" class="dropdown-item" data-action="new-group" role="menuitem"><x-icon name="users" /> New group</button>
+                            <button type="button" class="dropdown-item" data-action="new-broadcast" role="menuitem"><x-icon name="megaphone" /> New broadcast</button>
+                            <button type="button" class="dropdown-item" data-action="open-communities" role="menuitem"><x-icon name="users-round" /> Communities</button>
+                            <button type="button" class="dropdown-item" data-action="open-channels" role="menuitem"><x-icon name="rss" /> Channels</button>
                             <button type="button" class="dropdown-item" data-action="open-calls" role="menuitem"><x-icon name="phone" /> Calls</button>
                             <button type="button" class="dropdown-item" data-action="open-starred" role="menuitem"><x-icon name="star" /> Starred messages</button>
                             <a href="{{ route('profile.edit') }}" class="dropdown-item" role="menuitem"><x-icon name="settings" /> Settings</a>
@@ -182,6 +186,46 @@
                         @endfor
                     </div>
                 </div>
+            </div>
+
+            {{-- ======================= Channels view (G11) ======================= --}}
+            <div class="sidebar-view channels-view" data-sidebar-view="channels" hidden>
+                <header class="contacts-header">
+                    <button type="button" class="btn-icon" data-action="close-channels" aria-label="Back to chats">
+                        <x-icon name="arrow-left" />
+                    </button>
+                    <div class="min-w-0 flex-1">
+                        <div class="contacts-title">Channels</div>
+                        <div class="contacts-subtitle">Updates from people and places you follow</div>
+                    </div>
+                    <button type="button" class="btn-icon" data-action="new-channel" aria-label="New channel" title="New channel">
+                        <x-icon name="plus" />
+                    </button>
+                </header>
+                <div class="sidebar-search">
+                    <div class="input-wrap">
+                        <x-icon name="search" />
+                        <input type="search" class="form-control search-input" placeholder="Search channels" autocomplete="off" spellcheck="false" maxlength="100" aria-label="Search channels" data-channels-search>
+                    </div>
+                </div>
+                <div class="sidebar-scroll" data-channels-body></div>
+            </div>
+
+            {{-- ======================= Communities view (G10) ======================= --}}
+            <div class="sidebar-view communities-view" data-sidebar-view="communities" hidden>
+                <header class="contacts-header">
+                    <button type="button" class="btn-icon" data-action="close-communities" aria-label="Back">
+                        <x-icon name="arrow-left" />
+                    </button>
+                    <div class="min-w-0 flex-1">
+                        <div class="contacts-title" data-communities-title>Communities</div>
+                        <div class="contacts-subtitle">Groups under one roof</div>
+                    </div>
+                    <button type="button" class="btn-icon" data-action="new-community" aria-label="New community" title="New community">
+                        <x-icon name="plus" />
+                    </button>
+                </header>
+                <div class="sidebar-scroll" data-communities-body></div>
             </div>
 
             {{-- ======================= Calls view (K1) ======================= --}}

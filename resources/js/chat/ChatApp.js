@@ -23,8 +23,14 @@ import { ChatLock } from './chat-lock';
 import { CallLinks } from './call-links';
 import { CallLog } from './call-log';
 import { ChatLists, matchesFilter } from './chat-lists';
+import { GroupInvites } from './group-invite';
+import { Broadcasts, broadcastName } from './broadcasts';
+import { Communities } from './communities';
+import { Channels, channelAvatar, followersLabel, keepMyChoices } from './channels';
+import { Groups, groupSummary } from './groups';
 import { InviteFriends } from './invite';
 import { LocationSharing } from './location';
+import { Mentions } from './mentions';
 import { ContactSharing } from './contact-share';
 import { Polls } from './poll';
 import { DisappearingMessages } from './disappearing';
@@ -72,6 +78,8 @@ export class ChatApp {
         this.typingConversations = new Set();
         /** @type {Map<number, 'typing'|'recording'>} what the other person is doing */
         this.typingActions = new Map();
+        /** @type {Map<number, number>} who is typing in a group */
+        this.typingUsers = new Map();
         /** @type {Map<number, string>} names saved in the user's phone book */
         this.savedNames = new Map();
         this.typingTimers = new Map();
@@ -168,6 +176,12 @@ export class ChatApp {
         this.starred = new StarredMessages(this);
         this.callLog = new CallLog(this);
         this.callLinks = new CallLinks(this);
+        this.groups = new Groups(this);
+        this.broadcasts = new Broadcasts(this);
+        this.communities = new Communities(this);
+        this.channels = new Channels(this);
+        this.groupInvites = new GroupInvites(this);
+        this.mentions = new Mentions(this);
         this.pins = new PinnedMessages(this);
         this.linkPreviews = new LinkPreviewComposer(this);
         this.chatLock = new ChatLock(this);
@@ -339,6 +353,11 @@ export class ChatApp {
         const existing = this.conversations.get(conversation.id);
         const merged = existing ? { ...existing, ...conversation } : { ...conversation };
 
+        // Groups (Phase 4): remember the names of the people in them.
+        for (const member of merged.group?.members ?? []) {
+            if (member.user) this.rememberUser(member.user);
+        }
+
         if (merged.participant) {
             // Masked presence (blocked_me) must not overwrite live presence data.
             const { is_online: isOnline, last_seen: lastSeen, ...profile } = merged.participant;
@@ -360,7 +379,7 @@ export class ChatApp {
     /** Participant of a conversation, merged with the latest presence data. */
     /** Name to show for a user: as saved in the phone book, otherwise their profile name. */
     displayName(userId, fallback = '') {
-        return this.savedNames.get(Number(userId)) ?? fallback;
+        return this.savedNames.get(Number(userId)) ?? this.users.get(Number(userId))?.saved_name ?? fallback;
     }
 
     /** Copy of a user object using the phone-book name when one is saved. */
@@ -399,6 +418,10 @@ export class ChatApp {
                     this.starred.close();
                 } else if (this.callLog?.isOpen) {
                     this.callLog.close();
+                } else if (this.communities?.isOpen) {
+                    this.communities.close();
+                } else if (this.channels?.isOpen) {
+                    this.channels.close();
                 }
             }),
         );
@@ -414,6 +437,28 @@ export class ChatApp {
     }
 
     participantOf(conversation) {
+        // A broadcast list (G9): its name and a megaphone.
+        if (conversation?.type === 'broadcast' && !conversation.is_locked_out) {
+            return { id: `broadcast-${conversation.id}`, name: broadcastName(conversation.broadcast), avatar_icon: 'megaphone', is_group: true, is_online: false, last_seen: null };
+        }
+        // A channel (G11): its name and icon.
+        if (conversation?.type === 'channel' && !conversation.is_locked_out) {
+            return channelAvatar(conversation.id, conversation.channel);
+        }
+        // A group (Phase 4) is shown with its own name and icon.
+        if (conversation?.type === 'group' && !conversation.is_locked_out) {
+            const group = conversation.group ?? {};
+            return {
+                id: `group-${conversation.id}`,
+                name: group.name ?? 'Group',
+                avatar_url: group.avatar_url ?? null,
+                initials: group.initials ?? '#',
+                avatar_hue: group.avatar_hue ?? 0,
+                is_group: true,
+                is_online: false,
+                last_seen: null,
+            };
+        }
         const participant = conversation?.participant;
         if (!participant) return null;
         // "Message yourself" (C7): your own name, no presence.
@@ -516,7 +561,7 @@ export class ChatApp {
                         { ...conversation, participant: this.participantOf(conversation) },
                         {
                             active: conversation.id === this.active?.id,
-                            typing: this.typingConversations.has(conversation.id) ? this.typingActions.get(conversation.id) ?? 'typing' : false,
+                            typing: this.typingLabel(conversation),
                             draft: conversation.id === this.active?.id ? '' : this.drafts.get(conversation.id),
                         },
                     ),
@@ -525,6 +570,15 @@ export class ChatApp {
         }
 
         this.updateUnreadTotals();
+    }
+
+    /** "typing" / "recording", or in a group who is doing it. */
+    typingLabel(conversation) {
+        if (!this.typingConversations.has(conversation.id)) return false;
+        const action = this.typingActions.get(conversation.id) ?? 'typing';
+        if (conversation.type !== 'group') return action;
+        const userId = this.typingUsers.get(conversation.id);
+        return { action, name: userId ? this.displayName(userId, this.users.get(userId)?.name ?? '') : '' };
     }
 
     updateUnreadTotals() {
@@ -579,7 +633,7 @@ export class ChatApp {
 
         const needle = term.toLowerCase().replace(/^@/, '');
         const localMatches = this.sortedConversations().filter((c) => {
-            const p = c.participant ?? {};
+            const p = this.participantOf(c) ?? {};
             return `${p.name ?? ''} ${p.username ?? ''}`.toLowerCase().includes(needle);
         });
 
@@ -780,6 +834,36 @@ export class ChatApp {
         const typing = this.typingConversations.has(conversation.id);
         const hidePresence = conversation.blocked_by_me || conversation.blocked_me;
 
+        // Broadcast lists: who gets the messages.
+        if (conversation.type === 'broadcast') {
+            status.classList.remove('is-typing', 'is-online');
+            const names = (conversation.broadcast?.recipients ?? []).map((user) => this.displayName(user.id, user.saved_name || user.name));
+            status.textContent = names.length ? names.join(', ') : broadcastName(conversation.broadcast);
+            this.el.headerUser.classList.add('is-clickable');
+            return;
+        }
+
+        // Channels: how many follow it.
+        if (conversation.type === 'channel') {
+            status.classList.remove('is-typing', 'is-online');
+            status.textContent = `Channel · ${followersLabel(conversation.channel?.followers_count ?? 0)}`;
+            this.el.headerUser.classList.add('is-clickable');
+            return;
+        }
+
+        // Groups: who is typing, otherwise who is in the group.
+        if (conversation.type === 'group') {
+            status.classList.toggle('is-typing', typing);
+            status.classList.remove('is-online');
+            const label = this.typingLabel(conversation);
+            status.textContent = typing && label?.name
+                ? `${label.name} is ${label.action === 'recording' ? 'recording audio' : 'typing'}…`
+                : groupSummary(conversation.group, this.me.id, (id, name) => this.displayName(id, name));
+            this.el.headerUser.classList.add('is-clickable');
+            return;
+        }
+        this.el.headerUser.classList.remove('is-clickable');
+
         status.classList.toggle('is-typing', typing);
         status.classList.toggle('is-online', !typing && !hidePresence && Boolean(user?.is_online));
         avatarEl?.classList.toggle('is-online', !hidePresence && Boolean(user?.is_online));
@@ -799,7 +883,17 @@ export class ChatApp {
 
     updateComposerState(conversation) {
         const { composer, composerNotice } = this.el;
-        const notice = conversation?.blocked_by_me
+        const group = conversation?.type === 'group' ? conversation.group : null;
+        const channel = conversation?.type === 'channel' ? conversation.channel : null;
+        const notice = channel
+            ? (channel.can_send ? null : { text: 'Only channel admins can post updates. React to show what you think.', action: null })
+            : group && !group.is_member
+            ? { text: group.ended ? 'This group was deleted. Nobody can send messages to it any more.' : "You can't send messages to this group because you're no longer a member.", action: null }
+            : group && !group.can_send
+              ? { text: 'Only admins can send messages to this group.', action: null }
+              : group
+                ? null
+                : conversation?.blocked_by_me
             ? { text: 'You blocked this user. Unblock to send messages.', action: 'unblock' }
             : conversation?.blocked_me
               ? { text: "You can't send messages to this user.", action: null }
@@ -984,13 +1078,14 @@ export class ChatApp {
         active.byId.clear();
 
         if (!messages.length) {
-            const user = this.participantOf(this.activeConversation());
-            this.el.messageList.innerHTML = T.historyStart() + (user ? T.conversationIntro(user) : '');
+            const conversation = this.activeConversation();
+            const user = this.participantOf(conversation);
+            this.el.messageList.innerHTML = T.historyStart(conversation?.type) + (user && !['group', 'broadcast', 'channel'].includes(conversation?.type) ? T.conversationIntro(user) : '');
             this.el.olderSentinel.hidden = true;
             return;
         }
 
-        const parts = active.hasMore ? [] : [T.historyStart()];
+        const parts = active.hasMore ? [] : [T.historyStart(this.activeConversation()?.type)];
         let previous = null;
 
         for (const message of messages) {
@@ -1010,6 +1105,16 @@ export class ChatApp {
 
     /** Hook point so later phases can decorate bubbles (reply, attachments, actions). */
     renderBubble(message) {
+        // Group chats show who wrote each message (hidden on follow-up bubbles by CSS).
+        const conversation = this.conversations.get(Number(message.conversation_id));
+        if (conversation?.type === 'group' && !message.is_mine && !['system', 'call'].includes(message.type)) {
+            const user = this.users.get(Number(message.sender_id)) ?? {};
+            return T.messageBubble({
+                ...message,
+                sender_label: this.displayName(message.sender_id, user.name ?? message.sender_name ?? 'Someone'),
+                sender_hue: user.avatar_hue ?? (Number(message.sender_id) * 47) % 360,
+            });
+        }
         return T.messageBubble(message);
     }
 
@@ -1045,7 +1150,7 @@ export class ChatApp {
         const fresh = messages.filter((m) => !active.byId.has(String(m.id)));
         const firstExisting = active.messages[0];
 
-        const parts = hasMore ? [] : [T.historyStart()];
+        const parts = hasMore ? [] : [T.historyStart(this.activeConversation()?.type)];
         let previous = null;
         for (const message of fresh) {
             if (!previous || dayKey(previous.created_at) !== dayKey(message.created_at)) {
@@ -1387,6 +1492,7 @@ export class ChatApp {
             is_edited: false,
             reply_to: existing?.temp?.reply_to ?? payload.reply_preview ?? null,
             link_preview: existing?.temp?.link_preview ?? payload.link_preview_data ?? null,
+            mentions: payload.mentions ?? existing?.temp?.mentions,
             status: 'pending',
             created_at: existing?.temp?.created_at ?? new Date().toISOString(),
         };
@@ -1520,6 +1626,10 @@ export class ChatApp {
         form.append(type === 'voice' ? 'voice' : 'attachment', file, fileName);
         if (payload.message) form.append('message', payload.message);
         if (payload.reply_to_id) form.append('reply_to_id', payload.reply_to_id);
+        (payload.mentions ?? []).forEach((mention, index) => {
+            form.append(`mentions[${index}][id]`, String(mention.id));
+            form.append(`mentions[${index}][name]`, mention.name);
+        });
         if (duration !== null) form.append('duration', String(Math.round(duration * 10) / 10));
         if (thumbnail) form.append('thumbnail', thumbnail, 'poster.jpg');
         if (albumId) form.append('album_id', albumId);
@@ -1598,6 +1708,8 @@ export class ChatApp {
             conversation.last_message = {
                 id: message.id,
                 sender_id: message.sender_id,
+                sender_name: message.sender_name ?? null,
+                system: message.system ?? null,
                 is_mine: message.sender_id === this.me.id,
                 type: message.type,
                 preview: previewOf(message),
@@ -1607,7 +1719,12 @@ export class ChatApp {
             };
         }
 
-        if (incrementUnread) conversation.unread_count = (conversation.unread_count || 0) + 1;
+        if (incrementUnread) {
+            conversation.unread_count = (conversation.unread_count || 0) + 1;
+            if ((message.mentions ?? []).some((mention) => Number(mention.id) === Number(this.me.id))) {
+                conversation.unread_mentions = (conversation.unread_mentions || 0) + 1;
+            }
+        }
 
         this.renderConversations();
         if (isNewest) this.bumpConversation(conversation.id);
@@ -1618,6 +1735,14 @@ export class ChatApp {
     /* ================================================================== */
 
     normalizeMessage(message) {
+        // Group messages carry the writer's name for people not yet known here.
+        if (message.sender_name && !this.users.get(Number(message.sender_id))?.name) {
+            this.rememberUser({ id: Number(message.sender_id), name: message.sender_name });
+        }
+        // Channels (G11) don't say who reacted or voted: keep my own choice.
+        if (this.conversations.get(Number(message.conversation_id))?.type === 'channel') {
+            message = keepMyChoices(message, this.active?.byId.get(String(message.id)), this.me.id);
+        }
         return { ...message, is_mine: Number(message.sender_id) === Number(this.me.id) };
     }
 
@@ -1750,6 +1875,7 @@ export class ChatApp {
 
         if (conversation) {
             conversation.unread_count = 0;
+            conversation.unread_mentions = 0;
             this.renderConversations();
         }
 
@@ -1763,11 +1889,12 @@ export class ChatApp {
 
     /* ---------- Typing ---------- */
 
-    onTyping({ conversation_id: conversationId, typing, action }) {
-        this.setTyping(Number(conversationId), Boolean(typing), action);
+    onTyping({ conversation_id: conversationId, typing, action, user_id: userId }) {
+        this.setTyping(Number(conversationId), Boolean(typing), action, userId);
     }
 
-    setTyping(conversationId, typing, action = 'typing') {
+    setTyping(conversationId, typing, action = 'typing', userId = null) {
+        if (typing && userId) this.typingUsers.set(conversationId, Number(userId));
         clearTimeout(this.typingTimers.get(conversationId));
         const wasTyping = this.typingConversations.has(conversationId);
         const previousAction = this.typingActions.get(conversationId);
@@ -1929,7 +2056,7 @@ export class ChatApp {
             }
         }
 
-        if (data.typing) this.setTyping(Number(data.typing.conversation_id), Boolean(data.typing.typing), data.typing.action);
+        if (data.typing) this.setTyping(Number(data.typing.conversation_id), Boolean(data.typing.typing), data.typing.action, data.typing.user_id);
         if (Array.isArray(data.calls)) this.calls?.syncCalls(data.calls);
         if (presenceChanged) this.refreshPresenceViews();
         if (unknownConversation || data.truncated) this.loadConversations();

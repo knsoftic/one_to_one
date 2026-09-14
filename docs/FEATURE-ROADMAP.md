@@ -79,21 +79,21 @@ light/dark theme · admin panel.
 | K6 | **Group calls** | 3–8 log audio/video (media server chahiye) | 🔴 | [x] |
 | K7 | **Call links** | Link bhej kar call mein bulana | 🟡 | [x] |
 
-## Phase 4 — Groups
+## Phase 4 — Groups — ✅ mukammal
 
 | # | Feature | Kya milega | Mehnat | Status |
 |---|---------|-----------|--------|--------|
-| G1 | **Group banana** | Naam, photo, description, members add | 🟠 | [ ] |
-| G2 | **Group admins** | Admin banana/hatana, members nikalna | 🟡 | [ ] |
-| G3 | **Invite link / QR** | Link se group join, link reset | 🟡 | [ ] |
-| G4 | **@mentions** | Member ko tag karna, alag notification | 🟡 | [ ] |
-| G5 | **Group settings** | Sirf admin message bhejein, group info kaun badle | 🟢 | [ ] |
-| G6 | **Read by / Delivered to** | Group message kis kis ne padha | 🟡 | [ ] |
-| G7 | **Reply privately** | Group message ka jawab akele mein | 🟢 | [ ] |
-| G8 | **Leave / delete group** | Group chhodna, admin ka group khatam karna | 🟢 | [ ] |
-| G9 | **Broadcast list** | Ek message kai logon ko alag alag (unhe pata na chale) | 🟡 | [ ] |
-| G10 | **Communities** | Kai groups ek chhat ke neeche, announcement group | 🟠 | [ ] |
-| G11 | **Channels** | Ek-taraf updates, followers, reactions | 🟠 | [ ] |
+| G1 | **Group banana** | Naam, photo, description, members add | 🟠 | [x] |
+| G2 | **Group admins** | Admin banana/hatana, members nikalna | 🟡 | [x] |
+| G3 | **Invite link / QR** | Link se group join, link reset | 🟡 | [x] |
+| G4 | **@mentions** | Member ko tag karna, alag notification | 🟡 | [x] |
+| G5 | **Group settings** | Sirf admin message bhejein, group info kaun badle | 🟢 | [x] |
+| G6 | **Read by / Delivered to** | Group message kis kis ne padha | 🟡 | [x] |
+| G7 | **Reply privately** | Group message ka jawab akele mein | 🟢 | [x] |
+| G8 | **Leave / delete group** | Group chhodna, admin ka group khatam karna | 🟢 | [x] |
+| G9 | **Broadcast list** | Ek message kai logon ko alag alag (unhe pata na chale) | 🟡 | [x] |
+| G10 | **Communities** | Kai groups ek chhat ke neeche, announcement group | 🟠 | [x] |
+| G11 | **Channels** | Ek-taraf updates, followers, reactions | 🟠 | [x] |
 
 ## Phase 5 — Status (Stories)
 

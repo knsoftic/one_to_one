@@ -135,9 +135,12 @@ export class StarredMessages {
 
         const meId = Number(this.chat.me.id);
         this.el.list.innerHTML = this.items
-            .map(({ message, peer }) => {
+            .map(({ message, peer, group }) => {
                 const person = this.chat.decorate({ ...peer, name: peer.saved_name || peer.name });
-                const from = Number(message.sender_id) === meId ? `You ▸ ${person.name}` : `${person.name} ▸ You`;
+                // Group messages (Phase 4): "Sara ▸ Family" / "You ▸ Family".
+                const from = group
+                    ? `${Number(message.sender_id) === meId ? 'You' : person.name} ▸ ${group.name}`
+                    : Number(message.sender_id) === meId ? `You ▸ ${person.name}` : `${person.name} ▸ You`;
                 const normalized = this.chat.normalizeMessage(message);
 
                 return html`

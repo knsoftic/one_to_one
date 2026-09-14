@@ -30,6 +30,8 @@ const ICONS = [
     'user-check', 'user-cog', 'user-plus', 'user-round', 'user-round-plus', 'user-x', 'users', 'video', 'video-off',
     'volume-1', 'volume-2', 'vote', 'wifi', 'wifi-off', 'x', 'zoom-in',
     // Phase 3 — calls
+    // Phase 4 — groups, broadcast lists, communities and channels
+    'badge-check', 'bell-ring', 'globe', 'megaphone', 'qr-code', 'reply', 'rss', 'shield-off', 'user-minus', 'users-round',
     'gauge', 'link-2', 'maximize-2', 'monitor-up', 'monitor-x', 'picture-in-picture-2', 'signal', 'signal-high', 'signal-medium',
 ];
 

@@ -6,6 +6,7 @@ use App\Http\Resources\CallResource;
 use App\Http\Resources\MessageResource;
 use App\Models\Call;
 use App\Models\Conversation;
+use App\Models\ConversationMember;
 use App\Models\Message;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -65,8 +66,22 @@ class SyncService
             ->limit(self::MESSAGE_LIMIT)
             ->get();
 
+        // Group messages of every group the user is or was in (only what they may see).
+        $groupIds = ConversationMember::query()->where('user_id', $user->getKey())->pluck('conversation_id');
+        $group = $groupIds->isEmpty() ? collect() : Message::query()
+            ->whereIn('conversation_id', $groupIds)
+            ->whereNull('receiver_id')
+            ->where('updated_at', '>=', $since)
+            ->visibleTo($user)
+            ->with([...Message::DISPLAY_RELATIONS, 'sender:id,name'])
+            ->withViewerState($user)
+            ->orderBy('updated_at')
+            ->limit(self::MESSAGE_LIMIT)
+            ->get();
+
         return $query('sender_id')
             ->concat($query('receiver_id'))
+            ->concat($group)
             ->unique('id')
             ->sortBy('id')
             ->take(self::MESSAGE_LIMIT);
@@ -83,13 +98,13 @@ class SyncService
 
         $conversation = Conversation::query()->forUser($user)->find($conversationId);
 
-        $activity = $conversation ? $this->typing->otherActivity($conversation, $user) : null;
+        $typer = $conversation ? $this->typing->activeTyper($conversation, $user) : null;
 
         return $conversation ? [
             'conversation_id' => $conversation->id,
-            'user_id' => $conversation->otherParticipantId($user),
-            'typing' => $activity !== null,
-            'action' => $activity ?? TypingService::ACTION_TYPING,
+            'user_id' => $typer['user_id'] ?? $conversation->otherParticipantId($user),
+            'typing' => $typer !== null,
+            'action' => $typer['action'] ?? TypingService::ACTION_TYPING,
         ] : null;
     }
 
@@ -102,7 +117,8 @@ class SyncService
             ->forUser($user)
             ->latest('updated_at')
             ->limit(200)
-            ->get(['user_one_id', 'user_two_id'])
+            ->where('type', Conversation::TYPE_DIRECT)
+            ->get(['type', 'user_one_id', 'user_two_id'])
             ->map(fn (Conversation $c) => $c->otherParticipantId($user))
             ->unique();
 

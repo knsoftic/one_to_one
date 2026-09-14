@@ -22,10 +22,10 @@ class MessageSent implements ShouldBroadcastNow
 
     public function broadcastOn(): array
     {
-        // One channel when both are the same person ("Message yourself").
+        // One channel when both are the same person ("Message yourself"); everyone in a group.
         return array_map(
             fn ($id) => new PrivateChannel('App.Models.User.'.$id),
-            array_values(array_unique([(int) $this->message->receiver_id, (int) $this->message->sender_id])),
+            $this->message->audienceIds(),
         );
     }
 

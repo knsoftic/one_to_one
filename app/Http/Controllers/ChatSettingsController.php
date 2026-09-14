@@ -75,7 +75,11 @@ class ChatSettingsController extends Controller
     {
         Gate::authorize('view', $conversation);
 
-        $this->settings->delete($request->user(), $conversation);
+        try {
+            $this->settings->delete($request->user(), $conversation);
+        } catch (RuntimeException $e) {
+            abort(422, $e->getMessage());
+        }
 
         return response()->json(['id' => $conversation->id, 'deleted' => true]);
     }

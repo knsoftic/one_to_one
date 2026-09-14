@@ -51,7 +51,7 @@ class MessageController extends Controller
     public function store(SendMessageRequest $request, Conversation $conversation): JsonResponse
     {
         $type = $request->attachmentType();
-        $data = $request->safe()->only(['message', 'reply_to_id', 'duration', 'link_preview', 'album_id', 'quality', 'view_once']);
+        $data = $request->safe()->only(['message', 'reply_to_id', 'duration', 'link_preview', 'album_id', 'quality', 'view_once', 'mentions']);
 
         try {
             $message = match (true) {

@@ -32,9 +32,9 @@ export function callablePeople(chat, excludeIds = []) {
  * @param {{title: string, max: number, excludeIds?: number[], submitLabel?: string, chooseType?: boolean}} options
  * @returns {Promise<{ids: number[], type: 'audio'|'video'}|null>}
  */
-export function pickPeople(chat, { title, max, excludeIds = [], submitLabel = 'Add', chooseType = false }) {
+export function pickPeople(chat, { title, max, excludeIds = [], submitLabel = 'Add', chooseType = false, people: given = null, selected = [] }) {
     return new Promise((resolve) => {
-        const people = callablePeople(chat, excludeIds);
+        const people = given ?? callablePeople(chat, excludeIds);
         const previouslyFocused = document.activeElement;
         const overlay = document.createElement('div');
         overlay.className = 'modal people-picker';
@@ -54,7 +54,7 @@ export function pickPeople(chat, { title, max, excludeIds = [], submitLabel = 'A
                 <div class="people-picker-list">
                     ${raw(people.map((person) => html`
                         <label class="people-picker-row" data-name="${person.name.toLowerCase()}">
-                            <input type="checkbox" value="${person.id}">
+                            <input type="checkbox" value="${person.id}" ${raw(selected.map(Number).includes(Number(person.id)) ? 'checked' : '')}>
                             ${raw(T.avatar(person.user, 'sm'))}
                             <span>${person.name}</span>
                         </label>`).join('') || html`<p class="sticker-empty">Nobody to add yet. Start a chat first.</p>`)}

@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Broadcasting\ResilientBroadcastManager;
 use App\Services\ChatLockService;
+use App\Services\ConversationTypes;
 use App\Services\PushService;
 use App\View\Composers\AppConfigComposer;
 use App\View\Composers\ChatConfigComposer;
@@ -32,6 +33,9 @@ class AppServiceProvider extends ServiceProvider
 
         // Remembers lock checks for one request (C9).
         $this->app->scoped(ChatLockService::class);
+
+        // Remembers which conversations are channels for one request (G11).
+        $this->app->scoped(ConversationTypes::class);
     }
 
     /**

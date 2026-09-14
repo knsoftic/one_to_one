@@ -43,6 +43,18 @@ class CallService
             throw new HttpException(422, 'You cannot call yourself.');
         }
 
+        if ($conversation->isGroup()) {
+            throw new HttpException(422, 'Start a group call from the group instead.');
+        }
+
+        if ($conversation->isBroadcast()) {
+            throw new HttpException(422, 'A broadcast list cannot be called.');
+        }
+
+        if ($conversation->isChannel()) {
+            throw new HttpException(422, 'A channel cannot be called.');
+        }
+
         $this->expireStale();
 
         $calleeId = $conversation->otherParticipantId($caller);

@@ -57,12 +57,15 @@ export class Notifier {
             if (message.type === 'call' && message.seen_at) return;
 
             const sender = this.chat.users.get(Number(message.sender_id)) ?? {};
+            const name = this.chat.displayName(message.sender_id, sender.name ?? message.sender_name ?? 'Someone');
+            const group = conversation?.type === 'group' ? conversation.group : null;
+            if (group && message.type === 'system') return;
             this.present({
                 messageId: message.id,
                 conversationId: Number(message.conversation_id),
-                title: `${this.chat.displayName(message.sender_id, sender.name ?? 'Someone')} sent you a message`,
-                body: T.previewOf(message),
-                sender,
+                title: group ? group.name : `${name} sent you a message`,
+                body: group ? `${name}: ${T.previewOf(message)}` : T.previewOf(message),
+                sender: group ? this.chat.participantOf(conversation) : sender,
             });
 
             if (this.chat.realtime?.polling) this.refreshCount();

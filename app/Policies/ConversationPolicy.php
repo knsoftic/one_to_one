@@ -44,6 +44,29 @@ class ConversationPolicy
             return Response::denyAsNotFound();
         }
 
+        // A broadcast list (G9): only its owner writes to it.
+        if ($conversation->isBroadcast()) {
+            return $conversation->isActiveMember($user) ? Response::allow() : Response::denyAsNotFound();
+        }
+
+        // Channels (G11): only admins post updates.
+        if ($conversation->isChannel()) {
+            return $conversation->ended_at === null && $conversation->isAdmin($user)
+                ? Response::allow()
+                : Response::deny('Only channel admins can post updates.');
+        }
+
+        // Groups (Phase 4): people in the group; only admins when the group allows only admins (G5).
+        if ($conversation->isGroup()) {
+            if ($conversation->ended_at !== null || ! $conversation->isActiveMember($user)) {
+                return Response::deny("You can't send messages to this group because you're no longer a member.");
+            }
+
+            return $conversation->only_admins_send && ! $conversation->isAdmin($user)
+                ? Response::deny('Only admins can send messages to this group.')
+                : Response::allow();
+        }
+
         $otherId = $conversation->otherParticipantId($user);
 
         if ($user->hasBlocked($otherId)) {

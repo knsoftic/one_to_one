@@ -21,8 +21,8 @@ class TypingService
 
     public function set(Conversation $conversation, User $user, bool $active, string $action = self::ACTION_TYPING): void
     {
-        // Nobody to tell in "Message yourself".
-        if ($conversation->isSelf()) {
+        // Nobody to tell in "Message yourself", a broadcast list or a channel (G11).
+        if ($conversation->isSelf() || $conversation->isBroadcast() || $conversation->isChannel()) {
             return;
         }
 
@@ -34,10 +34,18 @@ class TypingService
             Cache::forget($key);
         }
 
+        $recipients = $conversation->isGroup()
+            ? array_values(array_diff($conversation->activeMemberIds(), [(int) $user->getKey()]))
+            : $conversation->otherParticipantId($user);
+
+        if ($recipients === []) {
+            return;
+        }
+
         broadcast(new UserTyping(
             $conversation->getKey(),
             $user->getKey(),
-            $conversation->otherParticipantId($user),
+            $recipients,
             $active,
             $action,
         ))->toOthers();
@@ -56,7 +64,32 @@ class TypingService
      */
     public function otherActivity(Conversation $conversation, User $viewer): ?string
     {
-        $value = Cache::get($this->key($conversation->getKey(), $conversation->otherParticipantId($viewer)));
+        return $this->activeTyper($conversation, $viewer)['action'] ?? null;
+    }
+
+    /**
+     * Someone other than $viewer typing or recording: ['user_id' => …, 'action' => …] or null.
+     *
+     * @return array{user_id: int, action: string}|null
+     */
+    public function activeTyper(Conversation $conversation, User $viewer): ?array
+    {
+        $others = $conversation->isGroup()
+            ? array_values(array_diff($conversation->activeMemberIds(), [(int) $viewer->getKey()]))
+            : [$conversation->otherParticipantId($viewer)];
+
+        foreach ($others as $userId) {
+            if ($action = $this->activityOf($conversation->getKey(), $userId)) {
+                return ['user_id' => $userId, 'action' => $action];
+            }
+        }
+
+        return null;
+    }
+
+    private function activityOf(int $conversationId, int $userId): ?string
+    {
+        $value = Cache::get($this->key($conversationId, $userId));
 
         return match (true) {
             $value === null || $value === false => null,

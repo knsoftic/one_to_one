@@ -17,7 +17,10 @@ import { speedLabel, voiceSpeed } from './voice';
 export function avatar(user, size = 'md', { status = false } = {}) {
     if (!user) return '';
     const online = status && user.is_online;
-    const inner = user.avatar_url
+    // Broadcast lists (G9) and similar show an icon instead of letters.
+    const inner = user.avatar_icon
+        ? `<span class="avatar-fallback is-accent">${icon(user.avatar_icon)}</span>`
+        : user.avatar_url
         ? html`<img class="avatar-img" src="${user.avatar_url}" alt="" loading="lazy" decoding="async">`
         : html`<span class="avatar-fallback" style="--hue: ${Number(user.avatar_hue) || 0}">${user.initials || '?'}</span>`;
 
@@ -54,19 +57,28 @@ export function conversationItem(conversation, { active = false, typing = false,
     const user = conversation.participant ?? {};
     const last = conversation.last_message;
     const unread = conversation.unread_count || 0;
+    const isGroup = conversation.type === 'group';
 
     let preview = '';
     if (typing) {
-        preview = html`<span class="conversation-preview-text is-typing">${typing === 'recording' ? 'recording audio…' : 'typing…'}</span>`;
+        // Groups say who: "Sara is typing…".
+        const action = typeof typing === 'object' ? typing.action : typing;
+        const verb = action === 'recording' ? 'recording audio…' : 'typing…';
+        const text = typeof typing === 'object' && typing.name ? `${typing.name} is ${verb}` : verb;
+        preview = html`<span class="conversation-preview-text is-typing">${text}</span>`;
     } else if (draft && draft.trim()) {
         preview = html`<span class="conversation-preview-text"><span class="conversation-draft">Draft:</span> ${stripFormatting(draft).replace(/\s+/g, ' ').trim()}</span>`;
     } else if (last) {
         const plainMine = last.is_mine && !last.is_deleted && last.type !== 'call' && last.type !== 'system';
         const ticks = plainMine ? statusTicks(last.status) : '';
-        const prefix = plainMine ? 'You: ' : '';
+        let prefix = plainMine ? 'You: ' : '';
+        if (isGroup && !last.is_mine && last.type !== 'system' && last.type !== 'call') {
+            prefix = `${context.nameOf(last.sender_id) || last.sender_name || 'Someone'}: `;
+        }
+        const text = last.type === 'system' && last.system ? systemNoticeText(last.system, last.sender_id) : last.preview;
         preview =
             raw(ticks).value +
-            html`<span class="conversation-preview-text${last.is_deleted ? ' is-deleted' : ''}">${prefix}${last.preview}</span>`;
+            html`<span class="conversation-preview-text${last.is_deleted ? ' is-deleted' : ''}">${prefix}${text}</span>`;
     }
 
     // My own settings for this chat (Phase 2).
@@ -82,7 +94,7 @@ export function conversationItem(conversation, { active = false, typing = false,
     return html`
         <div class="conversation-entry">
             <button type="button" class="${classes}" data-conversation-id="${conversation.id}" aria-current="${active ? 'true' : 'false'}">
-                ${raw(avatar(user, 'md', { status: true }))}
+                ${raw(avatar(user, 'md', { status: !isGroup && !user.is_group }))}
                 <span class="conversation-body">
                     <span class="conversation-row">
                         <span class="conversation-name">${user.name ?? 'Unknown user'}</span>
@@ -94,6 +106,7 @@ export function conversationItem(conversation, { active = false, typing = false,
                             ${raw(conversation.blocked_by_me ? `<span class="badge badge-danger" title="Blocked">${icon('ban', 'icon-xs')}</span>` : '')}
                             ${raw(muted ? `<span class="conversation-flag" title="Muted">${icon('bell-off')}</span>` : '')}
                             ${raw(settings.pinned ? `<span class="conversation-flag" title="Pinned">${icon('pin')}</span>` : '')}
+                            ${raw(conversation.unread_mentions > 0 ? `<span class="badge badge-primary badge-mention" title="You were mentioned">@</span>` : '')}
                             ${raw(unreadBadge)}
                         </span>
                     </span>
@@ -166,6 +179,19 @@ export function searchResultItem(user) {
     `;
 }
 
+/** "New group" at the top of the contacts panel (G1). */
+export function newGroupItem() {
+    return html`
+        <button type="button" class="conversation-item contact-item new-group-item" data-action="new-group">
+            <span class="avatar avatar-md"><span class="avatar-fallback is-accent">${raw(icon('users'))}</span></span>
+            <span class="conversation-body">
+                <span class="conversation-name">New group</span>
+                <span class="search-result-meta">Chat with several people at once</span>
+            </span>
+        </button>
+    `;
+}
+
 /** "Message yourself" at the top of the contacts panel (C7). */
 export function messageYourselfItem(user) {
     return html`
@@ -227,7 +253,7 @@ export function emptyState({ iconName, title, text }) {
 
 export function chatHeaderUser(user) {
     return html`
-        ${raw(avatar(user, 'md', { status: true }))}
+        ${raw(avatar(user, 'md', { status: !user.is_group }))}
         <div class="chat-header-info">
             <div class="chat-header-name">${user.name}</div>
             <div class="chat-header-status" data-chat-status></div>
@@ -315,6 +341,45 @@ function callHistory(message) {
 /**
  * Client-side preview text for the recent chats list (mirrors Message::preview()).
  */
+/**
+ * Text of an app notice, with "You" and names as saved by the reader (group notices, Phase 4).
+ */
+export function systemNoticeText(system, actorId = null) {
+    if (!system) return '';
+    const me = Number(context.meId);
+    const actor = system.actor ?? (actorId ? { id: actorId } : null);
+    const who = (person, capital = true) => {
+        if (!person) return capital ? 'Someone' : 'someone';
+        if (Number(person.id) === me) return capital ? 'You' : 'you';
+        return context.nameOf(person.id) || person.name || (capital ? 'Someone' : 'someone');
+    };
+    const a = who(actor);
+    const users = (system.users ?? []).map((u) => who(u, false)).join(', ');
+    const allow = (onlyAdmins) => (onlyAdmins ? 'only admins' : 'all members');
+
+    switch (system.event) {
+        case 'group_created': return `${a} created group "${system.name ?? ''}"`;
+        case 'members_added': return `${a} added ${users}`;
+        case 'member_removed': return `${a} removed ${users}`;
+        case 'member_left': return `${a} left`;
+        case 'member_joined_link': return `${a} joined using this group's invite link`;
+        case 'name_changed': return `${a} changed the group name to "${system.name ?? ''}"`;
+        case 'description_changed': return `${a} changed the group description`;
+        case 'avatar_changed': return `${a} changed this group's icon`;
+        case 'avatar_removed': return `${a} deleted this group's icon`;
+        case 'settings_changed':
+            return 'only_admins_send' in system
+                ? `${a} changed this group's settings to allow ${allow(system.only_admins_send)} to send messages`
+                : `${a} changed this group's settings to allow ${allow(system.only_admins_edit)} to edit this group's info`;
+        case 'group_ended': return `${a} deleted this group`;
+        case 'community_created': return `${a} created the community "${system.name ?? ''}"`;
+        case 'community_linked': return `${a} added this group to the community "${system.name ?? ''}"`;
+        case 'community_unlinked': return `${a} removed this group from the community "${system.name ?? ''}"`;
+        case 'member_joined_community': return `${a} joined from the community`;
+        default: return system.text ?? '';
+    }
+}
+
 export function previewOf(message) {
     if (message.is_deleted) return 'This message was deleted';
     if (message.view_once || message.attachment?.view_once) {
@@ -332,7 +397,7 @@ export function previewOf(message) {
         case 'poll':
             return `📊 Poll: ${message.poll?.question ?? ''}`;
         case 'system':
-            return message.system?.text ?? '';
+            return systemNoticeText(message.system, message.sender_id);
         case 'video':
             return `🎥 ${message.body || 'Video'}`;
         case 'document':
@@ -370,10 +435,12 @@ function replyQuote(message) {
     if (!reply || message.is_deleted) return '';
 
     const author = Number(reply.sender_id) === Number(context.meId) ? 'You' : context.nameOf(reply.sender_id) || 'Them';
+    // A private reply to a group message (G7): "Sara · Family".
+    const elsewhere = reply.conversation_id && Number(reply.conversation_id) !== Number(message.conversation_id);
 
     return html`
-        <button type="button" class="reply-quote${reply.is_deleted ? ' is-deleted' : ''}" data-jump-to="${reply.id}">
-            <span class="reply-quote-author">${author}</span>
+        <button type="button" class="reply-quote${reply.is_deleted ? ' is-deleted' : ''}" data-jump-to="${reply.id}" data-jump-conversation="${elsewhere ? reply.conversation_id : ''}">
+            <span class="reply-quote-author">${author}${reply.group_name ? ` · ${reply.group_name}` : ''}</span>
             <span class="reply-quote-text">${reply.preview}</span>
         </button>
     `;
@@ -621,7 +688,7 @@ function messageContent(message) {
     }
 
     const body = message.body ?? '';
-    const text = body ? `<div class="message-text${!attachment && isJumboEmoji(body) ? ' is-jumbo' : ''}">${formatMessageText(body)}</div>` : '';
+    const text = body ? `<div class="message-text${!attachment && isJumboEmoji(body) ? ' is-jumbo' : ''}">${highlightMentions(formatMessageText(body), message.mentions)}</div>` : '';
     const card = message.type === 'text' || !message.type ? linkPreviewCard(message.link_preview) : '';
 
     const forwarded = message.forwarded
@@ -629,6 +696,25 @@ function messageContent(message) {
         : '';
 
     return forwarded + replyQuote(message) + attachment + card + text;
+}
+
+const escapeText = (value) => String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+
+/**
+ * @mentions (G4): wrap each "@Name" of a mentioned person, outside HTML tags only.
+ */
+export function highlightMentions(formatted, mentions) {
+    if (!Array.isArray(mentions) || !mentions.length) return formatted;
+    let result = formatted;
+    for (const mention of [...mentions].sort((a, b) => String(b.name).length - String(a.name).length)) {
+        const needle = `@${escapeText(mention.name)}`;
+        const mine = Number(mention.id) === Number(context.meId);
+        const parts = result.split(/(<[^>]*>)/);
+        result = parts
+            .map((part) => (part.startsWith('<') ? part : part.split(needle).join(`<span class="mention${mine ? ' is-me' : ''}" data-mention-user="${Number(mention.id)}">${needle}</span>`)))
+            .join('');
+    }
+    return result;
 }
 
 /**
@@ -682,7 +768,7 @@ export function messageBubble(message) {
     // Notices written by the app (M21) are shown centred, without a bubble.
     if (message.type === 'system') {
         return html`<div class="message is-system" data-message-id="${message.id}" data-sender-id="${message.sender_id}">
-            <span class="system-notice">${message.system?.text || ''}</span>
+            <span class="system-notice">${systemNoticeText(message.system, message.sender_id)}</span>
         </div>`;
     }
 
@@ -721,6 +807,7 @@ export function messageBubble(message) {
         <div class="${classes}${pill ? ' has-reactions' : ''}" data-message-id="${message.id}" data-sender-id="${message.sender_id}">
             <div class="message-bubble">
                 ${raw(menu)}
+                ${raw(message.sender_label ? html`<span class="message-sender" style="--sender-hue: ${Number(message.sender_hue) || 0}">${message.sender_label}</span>` : '')}
                 ${raw(messageContent(message))}
                 ${raw(messageMeta(message))}
                 ${raw(retry)}
@@ -877,8 +964,15 @@ export function conversationIntro(user) {
     `;
 }
 
-export function historyStart() {
-    return `<div class="history-start" data-history-start>${icon('lock', 'icon-xs')} Messages are private between you and this person.</div>`;
+export function historyStart(type = 'direct') {
+    const text = {
+        group: 'Messages are private to the people in this group.',
+        broadcast: 'Messages sent here reach each person in their own chat with you.',
+        channel: "Updates from this channel. Followers can react, but can't reply or see each other.",
+        true: 'Messages are private to the people in this group.',
+    }[String(type)] ?? 'Messages are private between you and this person.';
+    const symbol = { broadcast: 'megaphone', channel: 'rss' }[String(type)] ?? 'lock';
+    return `<div class="history-start" data-history-start>${icon(symbol, 'icon-xs')} ${text}</div>`;
 }
 
 export function messageSkeletons() {

@@ -123,7 +123,14 @@ export class ChatListActions {
                     ? [html`<button type="button" class="dropdown-item" data-action="chat-list:${locked ? 'unlock' : 'lock'}" role="menuitem">${raw(icon(locked ? 'lock-open' : 'lock'))} ${locked ? 'Unlock chat' : 'Lock chat'}</button>`]
                     : []),
                 html`<button type="button" class="dropdown-item" data-action="chat-list:clear" role="menuitem">${raw(icon('eraser'))} Clear chat</button>`,
-                html`<button type="button" class="dropdown-item is-danger" data-action="chat-list:delete" role="menuitem">${raw(icon('trash-2'))} Delete chat</button>`,
+                // A group you are in is left first (G8); a channel is unfollowed or deleted (G11).
+                conversation.type === 'channel' && conversation.channel?.is_following
+                    ? (conversation.channel.is_admin
+                        ? html`<button type="button" class="dropdown-item is-danger" data-action="channel:delete" role="menuitem">${raw(icon('trash-2'))} Delete channel</button>`
+                        : html`<button type="button" class="dropdown-item is-danger" data-action="channel:unfollow" role="menuitem">${raw(icon('user-minus'))} Unfollow channel</button>`)
+                    : conversation.type === 'group' && conversation.group?.is_member
+                    ? html`<button type="button" class="dropdown-item is-danger" data-action="group:exit" role="menuitem">${raw(icon('log-out'))} Exit group</button>`
+                    : html`<button type="button" class="dropdown-item is-danger" data-action="chat-list:delete" role="menuitem">${raw(icon('trash-2'))} Delete chat</button>`,
             );
         });
         document.addEventListener('chat:action', (event) => {
@@ -155,7 +162,13 @@ export class ChatListActions {
             ...(this.chat.chatLists ? [{ action: 'lists', icon: 'list-plus', label: 'Add to list' }] : []),
             '-',
             { action: 'clear', icon: 'eraser', label: 'Clear chat' },
-            { action: 'delete', icon: 'trash-2', label: 'Delete chat', danger: true },
+            conversation.type === 'channel' && conversation.channel?.is_following
+                ? (conversation.channel.is_admin
+                    ? { action: 'delete-channel', icon: 'trash-2', label: 'Delete channel', danger: true }
+                    : { action: 'unfollow', icon: 'user-minus', label: 'Unfollow channel', danger: true })
+                : conversation.type === 'group' && conversation.group?.is_member
+                ? { action: 'exit', icon: 'log-out', label: 'Exit group', danger: true }
+                : { action: 'delete', icon: 'trash-2', label: 'Delete chat', danger: true },
         ];
     }
 
@@ -230,6 +243,9 @@ export class ChatListActions {
             case 'mute': return this.mute(conversation);
             case 'clear': return this.clear(conversation);
             case 'delete': return this.remove(conversation);
+            case 'exit': return this.chat.groups?.leave(conversation);
+            case 'unfollow': return this.chat.channels?.unfollow(conversation);
+            case 'delete-channel': return this.chat.channels?.remove(conversation);
             default: return null;
         }
     }
@@ -300,6 +316,8 @@ export class ChatListActions {
     }
 
     async remove(conversation) {
+        // A broadcast list is deleted as a list (G9).
+        if (conversation.type === 'broadcast') return this.chat.broadcasts?.remove(conversation);
         const name = this.chat.participantOf(conversation)?.name ?? 'this person';
         const choice = await confirmDialog({
             title: `Delete chat with ${name}?`,

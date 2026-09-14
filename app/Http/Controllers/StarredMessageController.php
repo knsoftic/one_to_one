@@ -32,7 +32,7 @@ class StarredMessageController extends Controller
             ->whereHas('message', fn ($q) => $q->visibleTo($user)->where('deleted_for_everyone', false)
                 // Starred messages of locked chats (C9) stay hidden until the code is entered.
                 ->whereNotIn('conversation_id', app(ChatLockService::class)->hiddenIds($user)))
-            ->with(['message' => fn ($q) => $q->with([...Message::DISPLAY_RELATIONS, 'sender', 'receiver'])->withViewerState($user)])
+            ->with(['message' => fn ($q) => $q->with([...Message::DISPLAY_RELATIONS, 'sender', 'receiver', 'conversation'])->withViewerState($user)])
             ->orderByDesc('id')
             ->limit(self::PER_PAGE + 1)
             ->get();
@@ -40,13 +40,14 @@ class StarredMessageController extends Controller
         $hasMore = $stars->count() > self::PER_PAGE;
         $stars = $stars->take(self::PER_PAGE);
 
-        $peerIds = $stars->map(fn (StarredMessage $star) => $star->message->isSentBy($user) ? $star->message->receiver_id : $star->message->sender_id);
+        $peerIds = $stars->map(fn (StarredMessage $star) => $star->message->isSentBy($user) && ! $star->message->isGroupMessage() ? $star->message->receiver_id : $star->message->sender_id);
         $savedNames = $this->contacts->savedNames($user, $peerIds->unique()->values()->all());
 
         return response()->json([
             'data' => $stars->map(function (StarredMessage $star) use ($request, $user, $savedNames) {
                 $message = $star->message;
-                $peer = $message->isSentBy($user) ? $message->receiver : $message->sender;
+                // Group messages (Phase 4): the person who wrote it, and the group.
+                $peer = $message->isSentBy($user) && ! $message->isGroupMessage() ? $message->receiver : $message->sender;
                 $peerData = (new UserResource($peer))->resolve($request);
                 $peerData['saved_name'] = $savedNames[$peer->id] ?? null;
 
@@ -54,6 +55,7 @@ class StarredMessageController extends Controller
                     'star_id' => $star->id,
                     'starred_at' => $star->created_at?->toIso8601String(),
                     'peer' => $peerData,
+                    'group' => $message->isGroupMessage() ? ['id' => $message->conversation_id, 'name' => $message->conversation?->name] : null,
                     'message' => (new MessageResource($message))->resolve($request),
                 ];
             })->values(),

@@ -74,7 +74,37 @@ export class GroupCall {
         }
         const choice = await pickPeople(this.chat, { title: 'New group call', max: this.max - 1, chooseType: true });
         if (!choice) return;
+        await this.startWith(choice.ids, choice.type);
+    }
 
+    /**
+     * Call button in a group chat (Phase 4): everyone in the group rings when they fit in
+     * a call, otherwise choose who.
+     */
+    async startForGroup(conversation, type) {
+        if (this.manager.busy) {
+            toast.info('Finish your current call first.');
+            return;
+        }
+        const me = Number(this.me.id);
+        const others = (conversation.group?.members ?? [])
+            .filter((m) => m.active && Number(m.user.id) !== me)
+            .map((m) => ({ id: Number(m.user.id), name: this.chat.displayName(m.user.id, m.user.name), user: this.chat.decorate(m.user) }));
+
+        if (!others.length) {
+            toast.info('There is nobody else in this group to call.');
+            return;
+        }
+        if (others.length <= this.max - 1) {
+            await this.startWith(others.map((person) => person.id), type);
+            return;
+        }
+        const choice = await pickPeople(this.chat, { title: `Choose up to ${this.max - 1} people to call`, max: this.max - 1, people: others, submitLabel: type === 'video' ? 'Video call' : 'Voice call' });
+        if (choice) await this.startWith(choice.ids, type);
+    }
+
+    async startWith(ids, type) {
+        const choice = { ids, type };
         const probe = this.manager.createSession({ call: { id: null, type: choice.type }, role: 'caller', peer: {} });
         let localStream;
         try {

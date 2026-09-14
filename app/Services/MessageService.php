@@ -7,6 +7,7 @@ use App\Events\MessageSent;
 use App\Events\MessagesStatusUpdated;
 use App\Events\MessageUpdated;
 use App\Jobs\AttachLinkPreview;
+use App\Jobs\FanOutBroadcast;
 use App\Jobs\SendReadPush;
 use App\Models\ChatSetting;
 use App\Models\Conversation;
@@ -40,6 +41,8 @@ class MessageService
             ->visibleTo($user)
             ->when($beforeId, fn ($q) => $q->where('id', '<', $beforeId))
             ->with(Message::DISPLAY_RELATIONS)
+            // Group chats show who wrote each message.
+            ->when($conversation->isGroup(), fn ($q) => $q->with('sender:id,name'))
             ->withViewerState($user)
             ->orderByDesc('id')
             ->limit($limit + 1)
@@ -90,6 +93,7 @@ class MessageService
             'message_type' => Message::TYPE_TEXT,
             'reply_to_id' => $data['reply_to_id'] ?? null,
             'link_preview_id' => $preview?->getKey(),
+            'attachment_meta' => $this->mentionMeta($sender, $conversation, $text, $data['mentions'] ?? []) ?: null,
         ]);
 
         if ($url !== null && ! $preview && $this->linkPreviews->needsFetch($url)) {
@@ -124,9 +128,12 @@ class MessageService
 
         $stored = $this->attachments->store($file, $type, $meta, $data['thumbnail'] ?? null, ($data['quality'] ?? null) === 'hd');
 
+        $caption = $type === Message::TYPE_VOICE ? null : ($this->cleanText($data['message'] ?? '') ?: null);
+        $stored['attachment_meta'] = ($stored['attachment_meta'] ?? []) + $this->mentionMeta($sender, $conversation, (string) $caption, $data['mentions'] ?? []);
+
         try {
             return $this->create($sender, $conversation, $stored + [
-                'message' => $type === Message::TYPE_VOICE ? null : ($this->cleanText($data['message'] ?? '') ?: null),
+                'message' => $caption,
                 'message_type' => $type,
                 'reply_to_id' => $data['reply_to_id'] ?? null,
             ]);
@@ -135,6 +142,31 @@ class MessageService
 
             throw $e;
         }
+    }
+
+    /**
+     * @mentions of people in a group (G4): only people in it, only names that appear in the text.
+     *
+     * @param  list<array{id: int|string, name: string}>  $mentions
+     * @return array{mentions?: list<array{id: int, name: string}>, mention_ids?: list<int>}
+     */
+    private function mentionMeta(User $sender, Conversation $conversation, string $text, array $mentions): array
+    {
+        if (! $conversation->isGroup() || $mentions === [] || $text === '') {
+            return [];
+        }
+
+        $memberIds = $conversation->activeMemberIds();
+        $valid = collect($mentions)
+            ->map(fn ($mention) => ['id' => (int) ($mention['id'] ?? 0), 'name' => trim((string) ($mention['name'] ?? ''))])
+            ->filter(fn ($mention) => $mention['name'] !== ''
+                && $mention['id'] !== (int) $sender->getKey()
+                && in_array($mention['id'], $memberIds, true)
+                && str_contains($text, '@'.$mention['name']))
+            ->unique('id')
+            ->values();
+
+        return $valid->isEmpty() ? [] : ['mentions' => $valid->all(), 'mention_ids' => $valid->pluck('id')->all()];
     }
 
     /**
@@ -373,45 +405,67 @@ class MessageService
         $forwarded = [];
 
         foreach ($conversations as $conversation) {
-            $attributes = [
-                'message' => $original->message,
-                'message_type' => $original->message_type,
+            $forwarded[] = $this->createCopy($user, $conversation, $original, [
                 'forward_count' => min(65535, (int) $original->forward_count + 1),
-                'link_preview_id' => $original->link_preview_id,
-            ];
-
-            if ($original->attachment) {
-                $attributes += $this->attachments->duplicate($original);
-            }
-
-            // A forwarded poll starts again without votes.
-            if ($original->message_type === Message::TYPE_CONTACT || $original->message_type === Message::TYPE_POLL) {
-                $attributes['attachment_meta'] = $original->attachment_meta;
-            }
-
-            // A forwarded location is the last known point, never live.
-            if ($original->message_type === Message::TYPE_LOCATION) {
-                $meta = $original->attachment_meta ?? [];
-                $attributes['attachment_meta'] = [
-                    'lat' => $meta['lat'] ?? 0.0,
-                    'lng' => $meta['lng'] ?? 0.0,
-                    'accuracy' => $meta['accuracy'] ?? null,
-                    'updated_at' => $meta['updated_at'] ?? now()->toIso8601String(),
-                ];
-            }
-
-            try {
-                $forwarded[] = $this->create($user, $conversation, $attributes);
-            } catch (Throwable $e) {
-                if (isset($attributes['attachment'])) {
-                    $this->attachments->delete(new Message($attributes));
-                }
-
-                throw $e;
-            }
+            ]);
         }
 
         return $forwarded;
+    }
+
+    /**
+     * G9: a broadcast list message, copied into the one-to-one chat with a recipient.
+     */
+    public function copyForBroadcast(User $owner, Conversation $chat, Message $original): Message
+    {
+        return $this->createCopy($owner, $chat, $original, [
+            'broadcast_message_id' => $original->getKey(),
+            'forward_count' => (int) $original->forward_count,
+        ]);
+    }
+
+    /**
+     * An independent copy of a message in another chat (files are duplicated).
+     *
+     * @param  array<string, mixed>  $extra
+     */
+    private function createCopy(User $user, Conversation $conversation, Message $original, array $extra): Message
+    {
+        $attributes = $extra + [
+            'message' => $original->message,
+            'message_type' => $original->message_type,
+            'link_preview_id' => $original->link_preview_id,
+        ];
+
+        if ($original->attachment) {
+            $attributes += $this->attachments->duplicate($original);
+        }
+
+        // A copied poll starts again without votes.
+        if ($original->message_type === Message::TYPE_CONTACT || $original->message_type === Message::TYPE_POLL) {
+            $attributes['attachment_meta'] = $original->attachment_meta;
+        }
+
+        // A copied location is the last known point, never live.
+        if ($original->message_type === Message::TYPE_LOCATION) {
+            $meta = $original->attachment_meta ?? [];
+            $attributes['attachment_meta'] = [
+                'lat' => $meta['lat'] ?? 0.0,
+                'lng' => $meta['lng'] ?? 0.0,
+                'accuracy' => $meta['accuracy'] ?? null,
+                'updated_at' => $meta['updated_at'] ?? now()->toIso8601String(),
+            ];
+        }
+
+        try {
+            return $this->create($user, $conversation, $attributes);
+        } catch (Throwable $e) {
+            if (isset($attributes['attachment'])) {
+                $this->attachments->delete(new Message($attributes));
+            }
+
+            throw $e;
+        }
     }
 
     /**
@@ -466,6 +520,15 @@ class MessageService
      */
     public function deleteForMe(Message $message, User $user): void
     {
+        // Someone else's group message: hidden only for this member.
+        if ($message->isGroupMessage() && ! $message->isSentBy($user)) {
+            DB::table('message_hides')->insertOrIgnore(['message_id' => $message->getKey(), 'user_id' => $user->getKey(), 'created_at' => now()]);
+            $message->stars()->where('user_id', $user->getKey())->delete();
+            broadcast(new MessageHidden($message->id, $message->conversation_id, $user->getKey()))->toOthers();
+
+            return;
+        }
+
         $column = $message->isSentBy($user) ? 'deleted_for_sender' : 'deleted_for_receiver';
         // A note to self is both sent and received by the same person.
         $message->forceFill($message->sender_id === $message->receiver_id
@@ -474,7 +537,7 @@ class MessageService
         $message->stars()->where('user_id', $user->getKey())->delete();
 
         // Nobody can see it anymore: free the stored file.
-        if ($message->deleted_for_sender && $message->deleted_for_receiver && $message->attachment) {
+        if (! $message->isGroupMessage() && $message->deleted_for_sender && $message->deleted_for_receiver && $message->attachment) {
             $this->attachments->delete($message);
             $message->forceFill(['attachment' => null, 'attachment_meta' => null])->save();
         }
@@ -487,6 +550,12 @@ class MessageService
      */
     public function deleteForEveryone(Message $message): Message
     {
+        // Deleting a broadcast list message deletes it in every recipient's chat too (G9).
+        if ($message->conversation?->isBroadcast()) {
+            Message::query()->where('broadcast_message_id', $message->getKey())->where('deleted_for_everyone', false)
+                ->get()->each(fn (Message $copy) => $this->deleteForEveryone($copy));
+        }
+
         $this->attachments->delete($message);
 
         $message->forceFill([
@@ -527,7 +596,8 @@ class MessageService
             /** @var Message $message */
             $message = $conversation->messages()->make($attributes + [
                 'sender_id' => $sender->getKey(),
-                'receiver_id' => $conversation->otherParticipantId($sender),
+                // Group messages have no single receiver (Phase 4).
+                'receiver_id' => $conversation->hasMembers() ? null : $conversation->otherParticipantId($sender),
                 'sent_at' => now(),
             ]);
 
@@ -544,9 +614,17 @@ class MessageService
         });
 
         $message->load(['replyTo', 'linkPreview']);
+        if ($conversation->isGroup()) {
+            $message->load('sender:id,name');
+        }
 
         // Broadcast after commit; the sending browser tab is excluded (X-Socket-ID).
         broadcast(new MessageSent($message))->toOthers();
+
+        // A broadcast list (G9): copy it into each recipient's chat after the response.
+        if ($conversation->isBroadcast() && $message->message_type !== Message::TYPE_SYSTEM) {
+            FanOutBroadcast::dispatchAfterResponse($message->getKey());
+        }
 
         return $message;
     }
@@ -560,6 +638,8 @@ class MessageService
      */
     public function markDelivered(User $receiver, ?array $ids = null): int
     {
+        $groupCount = app(GroupReceiptService::class)->markDelivered($receiver, $ids);
+
         $pending = Message::query()
             ->where('receiver_id', $receiver->getKey())
             ->whereNull('delivered_at')
@@ -568,7 +648,7 @@ class MessageService
             ->get(['id', 'conversation_id', 'sender_id']);
 
         if ($pending->isEmpty()) {
-            return 0;
+            return $groupCount;
         }
 
         $now = now();
@@ -577,6 +657,9 @@ class MessageService
             ->whereIn('id', $pending->pluck('id'))
             ->whereNull('delivered_at')
             ->update(['delivered_at' => $now]);
+
+        // Copies of broadcast list messages (G9) update the list's ticks.
+        app(BroadcastService::class)->settle($pending->pluck('id')->map(fn ($id) => (int) $id)->all());
 
         $pending->groupBy('conversation_id')->each(function ($group, $conversationId) use ($now) {
             broadcast(new MessagesStatusUpdated(
@@ -588,7 +671,7 @@ class MessageService
             ));
         });
 
-        return $pending->count();
+        return $pending->count() + $groupCount;
     }
 
     /**
@@ -598,12 +681,19 @@ class MessageService
      */
     public function markSeen(Conversation $conversation, User $reader): array
     {
-        $ids = $conversation->messages()
-            ->where('receiver_id', $reader->getKey())
-            ->whereNull('seen_at')
-            ->pluck('id')
-            ->map(fn ($id) => (int) $id)
-            ->all();
+        // Channels (G11) have no receipts: the follower's place in the channel moves on.
+        if ($conversation->isChannel()) {
+            app(ChannelService::class)->markRead($conversation, $reader);
+        }
+
+        $ids = $conversation->isChannel() ? [] : ($conversation->isGroup()
+            ? app(GroupReceiptService::class)->markSeen($conversation, $reader)
+            : $conversation->messages()
+                ->where('receiver_id', $reader->getKey())
+                ->whereNull('seen_at')
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->all());
 
         $now = now();
 
@@ -622,10 +712,20 @@ class MessageService
             return [];
         }
 
+        // Group receipts were written above; phones still drop the chat's notification.
+        if ($conversation->isGroup()) {
+            if (app(PushService::class)->enabled()) {
+                SendReadPush::dispatchAfterResponse($reader->getKey(), $conversation->getKey());
+            }
+
+            return $ids;
+        }
+
         DB::transaction(function () use ($ids, $now) {
             Message::query()->whereIn('id', $ids)->whereNull('delivered_at')->update(['delivered_at' => $now]);
             Message::query()->whereIn('id', $ids)->whereNull('seen_at')->update(['seen_at' => $now]);
         });
+        app(BroadcastService::class)->settle($ids);
 
         broadcast(new MessagesStatusUpdated(
             $conversation->getKey(),

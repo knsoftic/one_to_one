@@ -15,7 +15,9 @@ export function applyReaction(reactions, userId, emoji) {
 
     for (const reaction of reactions ?? []) {
         const userIds = reaction.user_ids.filter((uid) => Number(uid) !== id);
-        if (userIds.length) next.push({ emoji: reaction.emoji, count: userIds.length, user_ids: userIds });
+        // Channels (G11) only list me, so the count is not the number of ids.
+        const count = Number(reaction.count ?? reaction.user_ids.length) - (userIds.length < reaction.user_ids.length ? 1 : 0);
+        if (count > 0) next.push({ emoji: reaction.emoji, count, user_ids: userIds });
     }
 
     if (emoji) {
@@ -107,6 +109,7 @@ export class Reactions {
                 typeof message.id === 'number' &&
                 !message.is_deleted &&
                 message.type !== 'call' &&
+                conversation?.type !== 'broadcast' &&
                 !conversation?.blocked_by_me &&
                 !conversation?.blocked_me,
         );
@@ -180,10 +183,20 @@ export class Reactions {
 
         const meId = Number(this.chat.me.id);
         const rows = [];
+        // Channels (G11): how many reacted with what; only your own reaction is yours to see.
+        if (this.chat.activeConversation()?.type === 'channel') {
+            return this.openCounts(message, anchor, meId);
+        }
         for (const reaction of message.reactions ?? []) {
             for (const userId of reaction.user_ids) {
                 const mine = Number(userId) === meId;
-                const user = mine ? this.chat.me : this.chat.participantOf(this.chat.activeConversation()) ?? {};
+                const conversation = this.chat.activeConversation();
+                const known = this.chat.users.get(Number(userId)) ?? { id: userId };
+                const user = mine
+                    ? this.chat.me
+                    : conversation?.type === 'group'
+                      ? this.chat.decorate(known)
+                      : this.chat.participantOf(conversation) ?? {};
                 rows.push({ mine, user, emoji: reaction.emoji });
             }
         }
@@ -217,6 +230,34 @@ export class Reactions {
                 this.closePopover();
                 const mine = reactionOf(message.reactions, meId);
                 if (mine) this.toggle(message, mine);
+            }
+        });
+    }
+
+    openCounts(message, anchor, meId) {
+        const mine = reactionOf(message.reactions, meId);
+        const popover = document.createElement('div');
+        popover.className = 'reaction-popover reaction-details';
+        popover.setAttribute('role', 'dialog');
+        popover.setAttribute('aria-label', 'Reactions');
+        popover.innerHTML = (message.reactions ?? [])
+            .map((reaction) => (reaction.emoji === mine && this.canReact(message)
+                ? html`<button type="button" class="reaction-row is-mine" data-reaction-remove>
+                      <span class="reaction-row-emoji">${reaction.emoji}</span>
+                      <span class="reaction-row-name">${reaction.count}<small>Includes you · tap to remove</small></span>
+                  </button>`
+                : html`<div class="reaction-row">
+                      <span class="reaction-row-emoji">${reaction.emoji}</span>
+                      <span class="reaction-row-name">${reaction.count}</span>
+                  </div>`))
+            .join('');
+
+        this.place(popover, anchor, message.is_mine);
+        popover.addEventListener('click', (event) => {
+            event.stopPropagation();
+            if (event.target.closest('[data-reaction-remove]') && mine) {
+                this.closePopover();
+                this.toggle(message, mine);
             }
         });
     }

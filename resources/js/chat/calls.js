@@ -239,7 +239,7 @@ export class CallManager {
     updateHeader(conversation) {
         const blocked = Boolean(conversation?.blocked_by_me || conversation?.blocked_me);
         document.querySelectorAll('[data-call-button]').forEach((button) => {
-            button.hidden = !this.config.enabled || Boolean(conversation?.is_self);
+            button.hidden = !this.config.enabled || Boolean(conversation?.is_self) || ['broadcast', 'channel'].includes(conversation?.type);
             button.disabled = blocked || this.busy;
             button.title = blocked ? "You can't call this user" : button.dataset.callLabel;
         });
@@ -260,6 +260,16 @@ export class CallManager {
         const conversation = this.chat.conversations.get(conversationId);
         if (conversation?.blocked_by_me || conversation?.blocked_me) {
             toast.error("You can't call this user.");
+            return;
+        }
+
+        // A group chat rings its people in a group call (Phase 4).
+        if (conversation?.type === 'group') {
+            if (!conversation.group?.is_member) {
+                toast.error("You're no longer a member of this group.");
+                return;
+            }
+            this.group?.startForGroup(conversation, type);
             return;
         }
 

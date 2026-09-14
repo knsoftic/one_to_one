@@ -5,20 +5,24 @@ use App\Http\Controllers\AttachmentController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\BlockController;
+use App\Http\Controllers\BroadcastController;
 use App\Http\Controllers\CallController;
 use App\Http\Controllers\CallLinkController;
 use App\Http\Controllers\CallLogController;
 use App\Http\Controllers\CallRoomController;
+use App\Http\Controllers\ChannelController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\ChatListController;
 use App\Http\Controllers\ChatLockController;
 use App\Http\Controllers\ChatSettingsController;
+use App\Http\Controllers\CommunityController;
 use App\Http\Controllers\ContactCardController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\ConversationController;
 use App\Http\Controllers\DeviceController;
 use App\Http\Controllers\DisappearingMessageController;
 use App\Http\Controllers\GifController;
+use App\Http\Controllers\GroupController;
 use App\Http\Controllers\LinkPreviewController;
 use App\Http\Controllers\LiveLocationController;
 use App\Http\Controllers\MessageController;
@@ -276,6 +280,59 @@ Route::middleware(['auth', 'active'])->group(function () {
         ->middleware('throttle:calls-start')
         ->name('calls.store');
     Route::get('/calls/active', [CallController::class, 'active'])->middleware('throttle:chat-actions')->name('calls.active');
+    // Communities (G10)
+    Route::get('/communities', [CommunityController::class, 'index'])->name('communities.index');
+    Route::post('/communities', [CommunityController::class, 'store'])->middleware('throttle:chat-actions')->name('communities.store');
+    Route::prefix('/communities/{community}')->whereNumber('community')->middleware('throttle:chat-actions')->group(function () {
+        Route::get('/', [CommunityController::class, 'show'])->name('communities.show');
+        Route::post('/', [CommunityController::class, 'update'])->name('communities.update');
+        Route::delete('/', [CommunityController::class, 'destroy'])->name('communities.destroy');
+        Route::post('/leave', [CommunityController::class, 'leave'])->name('communities.leave');
+        Route::delete('/members/{user}', [CommunityController::class, 'removeMember'])->whereNumber('user')->name('communities.members.destroy');
+        Route::post('/groups', [CommunityController::class, 'storeGroup'])->name('communities.groups.store');
+        Route::post('/groups/{conversation}', [CommunityController::class, 'linkGroup'])->whereNumber('conversation')->name('communities.groups.link');
+        Route::delete('/groups/{conversation}', [CommunityController::class, 'unlinkGroup'])->whereNumber('conversation')->name('communities.groups.unlink');
+        Route::post('/groups/{conversation}/join', [CommunityController::class, 'joinGroup'])->whereNumber('conversation')->name('communities.groups.join');
+        Route::get('/invite', [CommunityController::class, 'invite'])->name('communities.invite');
+        Route::post('/invite', [CommunityController::class, 'invite'])->name('communities.invite.reset');
+    });
+    Route::get('/community/{token}', [CommunityController::class, 'joinPage'])->where('token', '[A-Za-z0-9]{16,40}')->name('communities.join.show');
+    Route::post('/community/{token}', [CommunityController::class, 'join'])->where('token', '[A-Za-z0-9]{16,40}')->middleware('throttle:chat-actions')->name('communities.join');
+
+    // Channels (G11)
+    Route::get('/channels', [ChannelController::class, 'index'])->middleware('throttle:chat-search')->name('channels.index');
+    Route::post('/channels', [ChannelController::class, 'store'])->middleware('throttle:chat-actions')->name('channels.store');
+    Route::prefix('/channels/{conversation}')->whereNumber('conversation')->middleware('throttle:chat-actions')->group(function () {
+        Route::get('/', [ChannelController::class, 'show'])->name('channels.show');
+        Route::post('/', [ChannelController::class, 'update'])->name('channels.update');
+        Route::delete('/', [ChannelController::class, 'destroy'])->name('channels.destroy');
+        Route::post('/follow', [ChannelController::class, 'follow'])->name('channels.follow');
+        Route::delete('/follow', [ChannelController::class, 'unfollow'])->name('channels.unfollow');
+    });
+    Route::get('/channel/{token}', [ChannelController::class, 'linkPage'])->where('token', '[A-Za-z0-9]{16,40}')->name('channels.link');
+
+    // Broadcast lists (G9)
+    Route::post('/broadcasts', [BroadcastController::class, 'store'])->middleware('throttle:chat-actions')->name('broadcasts.store');
+    Route::patch('/broadcasts/{conversation}', [BroadcastController::class, 'update'])->whereNumber('conversation')->middleware('throttle:chat-actions')->name('broadcasts.update');
+    Route::delete('/broadcasts/{conversation}', [BroadcastController::class, 'destroy'])->whereNumber('conversation')->middleware('throttle:chat-actions')->name('broadcasts.destroy');
+
+    // Group chats (Phase 4)
+    Route::get('/messages/{message}/receipts', [GroupController::class, 'receipts'])->middleware('throttle:chat-actions')->name('messages.receipts');
+    Route::post('/groups', [GroupController::class, 'store'])->middleware('throttle:chat-actions')->name('groups.store');
+    Route::prefix('/groups/{conversation}')->whereNumber('conversation')->middleware('throttle:chat-actions')->group(function () {
+        Route::post('/', [GroupController::class, 'update'])->name('groups.update');
+        Route::delete('/', [GroupController::class, 'destroy'])->name('groups.destroy');
+        Route::patch('/settings', [GroupController::class, 'settings'])->name('groups.settings');
+        Route::post('/members', [GroupController::class, 'addMembers'])->name('groups.members.store');
+        Route::patch('/members/{user}', [GroupController::class, 'updateMember'])->whereNumber('user')->name('groups.members.update');
+        Route::delete('/members/{user}', [GroupController::class, 'removeMember'])->whereNumber('user')->name('groups.members.destroy');
+        Route::post('/leave', [GroupController::class, 'leave'])->name('groups.leave');
+        Route::get('/invite', [GroupController::class, 'invite'])->name('groups.invite');
+        Route::post('/invite', [GroupController::class, 'invite'])->name('groups.invite.reset');
+    });
+    Route::get('/join/{token}', [GroupController::class, 'joinPage'])->where('token', '[A-Za-z0-9]{16,40}')->name('groups.join.show');
+    Route::post('/join/{token}', [GroupController::class, 'join'])->where('token', '[A-Za-z0-9]{16,40}')->middleware('throttle:chat-actions')->name('groups.join');
+
     // Call links (K7)
     Route::get('/call/{token}', [CallLinkController::class, 'show'])->where('token', '[A-Za-z0-9]{16,40}')->name('call-links.show');
     Route::get('/call-links', [CallLinkController::class, 'index'])->name('call-links.index');

@@ -83,6 +83,18 @@ export class Realtime {
             .listen('.messages.expired', (e) => this.chat.disappearing?.onExpired(e))
             .listen('.chat.settings', (e) => this.chat.refreshConversation(Number(e.conversation_id)))
             .listen('.chat.lists', () => this.chat.chatLists?.load())
+            .listen('.group.updated', (e) => {
+                const id = Number(e.conversation_id);
+                if (this.chat.conversations.get(id)?.type === 'channel') {
+                    this.chat.channels?.onUpdated(id);
+                } else if (this.chat.conversations.get(id)?.type === 'broadcast') {
+                    this.chat.refreshConversation(id).then((c) => {
+                        if (!c) this.chat.forgetConversation(id);
+                    });
+                } else {
+                    this.chat.groups?.onUpdated(id);
+                }
+            })
             .listen('.call.incoming', (e) => this.chat.calls?.onIncoming(e.call))
             .listen('.call.updated', (e) => this.chat.calls?.onCallUpdated(e.call))
             .listen('.call.signal', (e) => this.chat.calls?.onSignal(e.signal))

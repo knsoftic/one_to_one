@@ -47,7 +47,8 @@ class UserController extends Controller
 
         $contactIds = Conversation::query()
             ->forUser($viewer)
-            ->get(['user_one_id', 'user_two_id'])
+            ->where('type', Conversation::TYPE_DIRECT)
+            ->get(['type', 'user_one_id', 'user_two_id'])
             ->map(fn (Conversation $c) => $c->otherParticipantId($viewer))
             ->unique()
             ->values();

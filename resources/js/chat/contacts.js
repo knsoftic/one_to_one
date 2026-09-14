@@ -232,9 +232,9 @@ export class ContactsPanel {
         if (!this.loaded) return;
 
         const me = this.chat.me;
-        const self = me && (!term || `${me.name} ${me.username} you message yourself`.toLowerCase().includes(term.replace(/^@/, '')))
+        const self = (this.chat.api.has('groupsStore') && !term ? T.newGroupItem() : '') + (me && (!term || `${me.name} ${me.username} you message yourself`.toLowerCase().includes(term.replace(/^@/, '')))
             ? T.messageYourselfItem(me)
-            : '';
+            : '');
 
         if (!this.contacts.length) {
             this.el.list.innerHTML = self + this.invitableHtml(term, digits) + T.emptyState({

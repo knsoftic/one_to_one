@@ -20,6 +20,11 @@ class DisappearingMessageController extends Controller
     public function update(Request $request, Conversation $conversation): JsonResponse
     {
         Gate::authorize('sendMessage', $conversation);
+        abort_if(
+            ($conversation->isGroup() || $conversation->isChannel()) && $conversation->only_admins_edit && ! $conversation->isAdmin($request->user()),
+            403,
+            'Only admins can change disappearing messages in this group.',
+        );
 
         $validated = $request->validate([
             'seconds' => ['present', 'nullable', 'integer', Rule::in([0, ...DisappearingMessageService::DURATIONS])],

@@ -65,7 +65,7 @@ class DisappearingMessageService
                     $first = $group->first();
                     broadcast(new MessagesExpired(
                         (int) $conversationId,
-                        [(int) $first->sender_id, (int) $first->receiver_id],
+                        $first->audienceIds(),
                         $group->modelKeys(),
                     ));
 

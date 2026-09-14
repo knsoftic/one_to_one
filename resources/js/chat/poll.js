@@ -23,14 +23,18 @@ export function nextSelection(current, optionId, multiple) {
 /** The poll as it looks after a user's answers change (for instant feedback). */
 export function applyVote(poll, userId, selection) {
     const uid = Number(userId);
+    // Counts move by one: channel polls (G11) only list my own votes.
+    const had = poll.options.some((option) => option.voter_ids.map(Number).includes(uid));
     const options = poll.options.map((option) => {
         const voters = option.voter_ids.filter((id) => Number(id) !== uid);
-        if (selection.includes(option.id)) voters.push(uid);
-        return { ...option, voter_ids: voters, count: voters.length };
+        const was = voters.length < option.voter_ids.length;
+        const now = selection.includes(option.id);
+        if (now) voters.push(uid);
+        return { ...option, voter_ids: voters, count: Math.max(0, Number(option.count ?? option.voter_ids.length) - (was ? 1 : 0) + (now ? 1 : 0)) };
     });
-    const voters = new Set(options.flatMap((option) => option.voter_ids.map(Number)));
+    const total = Number(poll.total_voters ?? 0) - (had ? 1 : 0) + (selection.length ? 1 : 0);
 
-    return { ...poll, options, total_voters: voters.size };
+    return { ...poll, options, total_voters: Math.max(0, total) };
 }
 
 /** Options typed in the creator: trimmed, non-empty, no duplicates (case-insensitive). */

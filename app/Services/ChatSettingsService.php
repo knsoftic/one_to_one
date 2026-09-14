@@ -140,6 +140,14 @@ class ChatSettingsService
      */
     public function delete(User $user, Conversation $conversation): ChatSetting
     {
+        // Like WhatsApp: exit a group before deleting it (G8).
+        if ($conversation->isGroup() && $conversation->ended_at === null && $conversation->isActiveMember($user)) {
+            throw new RuntimeException('Exit the group before deleting it.');
+        }
+        if ($conversation->isChannel() && $conversation->isActiveMember($user)) {
+            throw new RuntimeException('Unfollow the channel before deleting it.');
+        }
+
         $setting = $this->clear($user, $conversation);
 
         $setting->forceFill([

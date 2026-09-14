@@ -62,11 +62,34 @@ class SendMessageRequest extends FormRequest
             'gif_id' => ['nullable', 'string', 'max:64', 'regex:/^[A-Za-z0-9_-]+$/', 'prohibits:attachment,voice'],
             'reply_to_id' => [
                 'nullable', 'integer',
-                Rule::exists('messages', 'id')
-                    ->where('conversation_id', $conversation->getKey())
-                    ->where('deleted_for_everyone', false),
+                function (string $attribute, mixed $value, \Closure $fail) use ($conversation) {
+                    $reply = Message::query()->whereKey((int) $value)->where('deleted_for_everyone', false)->first();
+                    $user = $this->user();
+
+                    if ($reply && (int) $reply->conversation_id === (int) $conversation->getKey()) {
+                        return;
+                    }
+
+                    // G7: "Reply privately" to someone's group message, in your chat with them.
+                    $private = $reply
+                        && $reply->isGroupMessage()
+                        && ! $conversation->isGroup()
+                        && ! $conversation->isSelf()
+                        && ! $reply->isSentBy($user)
+                        && $conversation->hasParticipant((int) $reply->sender_id)
+                        && $reply->involves($user)
+                        && ! $reply->isDeletedFor($user);
+
+                    if (! $private) {
+                        $fail('The message you are replying to is no longer available.');
+                    }
+                },
             ],
             'client_id' => ['nullable', 'string', 'max:64'],
+            // @mentions in group chats (G4): who, and the name as written in the text.
+            'mentions' => ['nullable', 'array', 'max:50'],
+            'mentions.*.id' => ['required', 'integer'],
+            'mentions.*.name' => ['required', 'string', 'max:100'],
             // false = the sender removed the link preview.
             'link_preview' => ['nullable', 'boolean'],
             // Photos/videos picked together share an id and are shown as an album.
