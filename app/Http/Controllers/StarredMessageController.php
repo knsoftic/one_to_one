@@ -6,6 +6,7 @@ use App\Http\Resources\MessageResource;
 use App\Http\Resources\UserResource;
 use App\Models\Message;
 use App\Models\StarredMessage;
+use App\Services\ChatLockService;
 use App\Services\ContactService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -28,7 +29,9 @@ class StarredMessageController extends Controller
         $stars = StarredMessage::query()
             ->where('user_id', $user->getKey())
             ->when($validated['before'] ?? null, fn ($q, $before) => $q->where('id', '<', $before))
-            ->whereHas('message', fn ($q) => $q->visibleTo($user)->where('deleted_for_everyone', false))
+            ->whereHas('message', fn ($q) => $q->visibleTo($user)->where('deleted_for_everyone', false)
+                // Starred messages of locked chats (C9) stay hidden until the code is entered.
+                ->whereNotIn('conversation_id', app(ChatLockService::class)->hiddenIds($user)))
             ->with(['message' => fn ($q) => $q->with([...Message::DISPLAY_RELATIONS, 'sender', 'receiver'])->withViewerState($user)])
             ->orderByDesc('id')
             ->limit(self::PER_PAGE + 1)

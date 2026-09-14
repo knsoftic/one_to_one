@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Broadcasting\ResilientBroadcastManager;
+use App\Services\ChatLockService;
 use App\Services\PushService;
 use App\View\Composers\AppConfigComposer;
 use App\View\Composers\ChatConfigComposer;
@@ -28,6 +29,9 @@ class AppServiceProvider extends ServiceProvider
 
         // Reads the Firebase service-account file once per request.
         $this->app->singleton(PushService::class);
+
+        // Remembers lock checks for one request (C9).
+        $this->app->scoped(ChatLockService::class);
     }
 
     /**
@@ -65,6 +69,9 @@ class AppServiceProvider extends ServiceProvider
         ]);
 
         RateLimiter::for('chat-send', fn (Request $request) => Limit::perMinute(60)->by('send:'.($request->user()?->id ?? $request->ip())));
+
+        // Secret code attempts for locked chats (C9).
+        RateLimiter::for('chat-lock', fn (Request $request) => Limit::perMinute(5)->by($request->route()?->getName().':'.($request->user()?->id ?? $request->ip())));
 
         RateLimiter::for('chat-actions', fn (Request $request) => Limit::perMinute(120)->by('actions:'.($request->user()?->id ?? $request->ip())));
 

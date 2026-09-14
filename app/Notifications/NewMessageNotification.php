@@ -19,7 +19,10 @@ class NewMessageNotification extends Notification
 
     private ?string $displayName = null;
 
-    public function __construct(public Message $message) {}
+    /**
+     * @param  bool  $private  the chat is locked (C9): no sender, no text
+     */
+    public function __construct(public Message $message, public bool $private = false) {}
 
     /**
      * @return list<string>
@@ -31,6 +34,19 @@ class NewMessageNotification extends Notification
 
     public function toArray(User $notifiable): array
     {
+        if ($this->private) {
+            return [
+                'type' => 'new_message',
+                'title' => 'New message',
+                'body' => '',
+                'conversation_id' => $this->message->conversation_id,
+                'message_id' => $this->message->id,
+                'message_type' => Message::TYPE_TEXT,
+                'locked' => true,
+                'sender' => ['id' => 0, 'name' => config('app.name'), 'display_name' => config('app.name'), 'username' => null, 'avatar_url' => null, 'initials' => '', 'avatar_hue' => 0],
+            ];
+        }
+
         $sender = $this->message->sender;
 
         return [

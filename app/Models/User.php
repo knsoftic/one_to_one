@@ -69,6 +69,7 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+        'chat_lock_pin',
     ];
 
     protected static function booted(): void
@@ -130,6 +131,11 @@ class User extends Authenticatable
     public function stickers(): HasMany
     {
         return $this->hasMany(Sticker::class);
+    }
+
+    public function chatLists(): HasMany
+    {
+        return $this->hasMany(ChatList::class);
     }
 
     /** Mobile app installs that receive push notifications for this user. */

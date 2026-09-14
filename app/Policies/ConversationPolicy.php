@@ -4,6 +4,7 @@ namespace App\Policies;
 
 use App\Models\Conversation;
 use App\Models\User;
+use App\Services\ChatLockService;
 use Illuminate\Auth\Access\Response;
 
 class ConversationPolicy
@@ -13,6 +14,21 @@ class ConversationPolicy
      * (Administrators get no special access to private chats.)
      */
     public function view(User $user, Conversation $conversation): Response
+    {
+        if (! $conversation->hasParticipant($user)) {
+            return Response::denyAsNotFound();
+        }
+
+        // A locked chat opens only after the secret code (C9).
+        return app(ChatLockService::class)->canOpen($user, (int) $conversation->getKey())
+            ? Response::allow()
+            : Response::denyWithStatus(423, 'This chat is locked.');
+    }
+
+    /**
+     * Being in the chat, without seeing its messages (page shell, "mark as read" from a phone notification).
+     */
+    public function participate(User $user, Conversation $conversation): Response
     {
         return $conversation->hasParticipant($user)
             ? Response::allow()

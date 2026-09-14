@@ -271,7 +271,7 @@ export class AttachmentComposer {
                 duration: item.video?.duration ?? null,
                 loading: item.type === 'video' && !item.video,
                 hd: this.hd,
-                viewOnce: this.viewOnce,
+                viewOnce: this.viewOnceChoice(),
             });
             return;
         }
@@ -289,9 +289,14 @@ export class AttachmentComposer {
                 activeIndex: this.activeIndex,
                 canAdd: items.length < MAX_FILES,
                 hd: this.hd,
-                viewOnce: this.viewOnce,
+                viewOnce: this.viewOnceChoice(),
             })
             : '';
+    }
+
+    /** View once is not offered in "Message yourself" (C7): null hides the switch. */
+    viewOnceChoice() {
+        return this.chat.activeConversation?.()?.is_self ? null : this.viewOnce;
     }
 
     clear() {
@@ -323,7 +328,7 @@ export class AttachmentComposer {
         // View once media is never grouped into an album.
         const albumId = media.length > 1 && !this.viewOnce ? newAlbumId() : null;
         const hd = this.hd;
-        const viewOnce = this.viewOnce;
+        const viewOnce = this.viewOnceChoice() === true;
 
         // The poster blobs stay usable after their preview URLs are revoked.
         this.clear();

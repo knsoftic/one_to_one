@@ -32,6 +32,12 @@ class SyncService
         $messages = $this->changedMessages($user, $since);
         $truncated = $messages->count() >= self::MESSAGE_LIMIT;
 
+        // Messages of locked chats (C9) are left out until the code is entered.
+        $hidden = app(ChatLockService::class)->hiddenIds($user);
+        if ($hidden !== []) {
+            $messages = $messages->reject(fn (Message $message) => in_array((int) $message->conversation_id, $hidden, true));
+        }
+
         return [
             'server_time' => $serverTime->toIso8601String(),
             'truncated' => $truncated,

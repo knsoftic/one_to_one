@@ -16,9 +16,9 @@ class StartConversationRequest extends FormRequest
     public function rules(): array
     {
         return [
+            // Your own id opens "Message yourself" (C7).
             'user_id' => [
                 'required', 'integer',
-                Rule::notIn([$this->user()->getKey()]),
                 Rule::exists('users', 'id')->where('status', User::STATUS_ACTIVE),
             ],
         ];
@@ -27,7 +27,6 @@ class StartConversationRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'user_id.not_in' => 'You cannot start a conversation with yourself.',
             'user_id.exists' => 'This user is not available.',
         ];
     }

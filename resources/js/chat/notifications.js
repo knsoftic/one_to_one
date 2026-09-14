@@ -45,6 +45,14 @@ export class Notifier {
         document.addEventListener('chat:incoming', (event) => {
             const { message, viewing } = event.detail;
             if (viewing) return;
+            // Muted chats make no sound or notification (C2).
+            const conversation = this.chat.conversations.get(Number(message.conversation_id));
+            if (T.isChatMuted(conversation)) return;
+            // Locked chats (C9) never show who wrote or what.
+            if (conversation?.settings?.locked) {
+                this.present({ messageId: message.id, conversationId: Number(message.conversation_id), title: 'New message', body: '', sender: {} });
+                return;
+            }
             // Call history only alerts about missed calls.
             if (message.type === 'call' && message.seen_at) return;
 

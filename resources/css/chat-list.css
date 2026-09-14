@@ -1,0 +1,139 @@
+/* ==========================================================================
+   Chat list features (roadmap Phase 2): pin, mute, archive, unread mark,
+   clear/delete, lists, notes to self, invites and locked chats.
+   ========================================================================== */
+
+/* ---------- Chat row with an options button ---------- */
+.conversation-entry { position: relative; }
+.conversation-menu-btn {
+    position: absolute;
+    right: 0.45rem;
+    bottom: 0.55rem;
+    z-index: 1;
+    width: 1.6rem;
+    height: 1.6rem;
+    display: grid;
+    place-items: center;
+    border: 0;
+    border-radius: 999px;
+    color: var(--c-muted);
+    background: var(--c-surface-2);
+    opacity: 0;
+    cursor: pointer;
+    transition: opacity 0.15s ease;
+}
+.conversation-menu-btn .icon { width: 1rem; height: 1rem; }
+.conversation-entry:hover .conversation-menu-btn,
+.conversation-menu-btn:focus-visible { opacity: 1; }
+.conversation-entry:hover .conversation-badges { margin-right: 1.7rem; }
+.conversation-item.is-active + .conversation-menu-btn { background: var(--c-primary-soft); }
+@media (hover: none) {
+    .conversation-menu-btn { display: none; }
+    .conversation-entry:hover .conversation-badges { margin-right: 0; }
+}
+
+.conversation-flag { display: inline-flex; color: var(--c-subtle); }
+.conversation-flag .icon { width: 0.95rem; height: 0.95rem; }
+.badge.badge-dot { width: 0.7rem; min-width: 0.7rem; height: 0.7rem; padding: 0; }
+.conversation-item.is-muted.has-unread .conversation-time { color: var(--c-subtle); }
+
+.chat-list-menu { min-width: 13.5rem; }
+.chat-list-menu.is-sheet {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 71;
+    min-width: 0;
+    max-height: 80dvh;
+    overflow-y: auto;
+    padding: 0.6rem 0.6rem calc(0.75rem + env(safe-area-inset-bottom));
+    border-radius: 22px 22px 0 0;
+    border-bottom: 0;
+    animation: sheet-up 0.28s var(--ease-out);
+}
+.chat-list-menu.is-sheet .dropdown-item { padding: 0.85rem 0.9rem; font-size: 1rem; border-radius: 12px; }
+.chat-list-menu.is-sheet .dropdown-item .icon { width: 1.25rem; height: 1.25rem; }
+
+/* ---------- Archived folder ---------- */
+.archived-row {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    width: 100%;
+    padding: 0.6rem 0.65rem;
+    border: 0;
+    border-radius: 14px;
+    font: inherit;
+    text-align: left;
+    color: var(--c-text);
+    background: transparent;
+    cursor: pointer;
+}
+.archived-row:hover { background: var(--c-surface-2); }
+.archived-row-icon { width: 2.9rem; display: grid; place-items: center; color: var(--c-primary); }
+.archived-row-icon .icon { width: 1.25rem; height: 1.25rem; }
+.archived-row-label { flex: 1; font-size: 0.925rem; font-weight: 600; }
+.archived-row-count { font-size: 0.8rem; color: var(--c-muted); }
+.archived-header { display: flex; align-items: center; gap: 0.35rem; padding: 0.35rem 0.25rem; }
+.archived-header-title { font-size: 1rem; font-weight: 700; }
+.archived-hint { margin: 0 0.65rem 0.5rem; font-size: 0.75rem; color: var(--c-muted); }
+
+/* ---------- C6 Favourites and lists ---------- */
+.sidebar-filters { overflow-x: auto; scrollbar-width: none; }
+.sidebar-filters::-webkit-scrollbar { display: none; }
+.sidebar-filters .chip { flex-shrink: 0; }
+.sidebar-list-chips { display: contents; }
+.chip-add { padding-inline: 0.5rem; }
+.chip-add .icon { width: 0.95rem; height: 0.95rem; }
+.chat-list-panel { max-width: 24rem; text-align: left; display: flex; flex-direction: column; gap: 0.5rem; }
+.chat-list-choices { max-height: 16rem; overflow-y: auto; display: flex; flex-direction: column; margin: 0 -0.3rem; }
+.chat-list-choice { display: flex; align-items: center; gap: 0.65rem; padding: 0.5rem 0.4rem; border-radius: 10px; font-size: 0.9rem; cursor: pointer; }
+.chat-list-choice:hover { background: var(--c-surface-2); }
+.chat-list-choice[hidden] { display: none; }
+.chat-list-choice input { width: 1.05rem; height: 1.05rem; accent-color: var(--c-primary); }
+.chat-list-new { align-self: flex-start; }
+.chat-list-new .icon { width: 1rem; height: 1rem; }
+
+/* ---------- C8 Invite friends ---------- */
+.invite-panel { max-width: 25rem; }
+.invite-message {
+    margin: 0.25rem 0 1rem;
+    padding: 0.7rem 0.85rem;
+    border-radius: 14px;
+    font-size: 0.85rem;
+    line-height: 1.45;
+    text-align: left;
+    color: var(--c-text);
+    background: var(--c-surface-2);
+    overflow-wrap: anywhere;
+}
+.invite-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(4.6rem, 1fr)); gap: 0.5rem; margin-bottom: 0.25rem; }
+.invite-option {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.6rem 0.25rem;
+    border: 0;
+    border-radius: 14px;
+    font: inherit;
+    font-size: 0.78rem;
+    color: var(--c-text);
+    background: transparent;
+    cursor: pointer;
+}
+.invite-option:hover, .invite-option:focus-visible { background: var(--c-surface-2); }
+.invite-option-icon { width: 2.6rem; height: 2.6rem; display: grid; place-items: center; border-radius: 999px; color: var(--c-primary); background: var(--c-primary-soft); }
+.invite-option-icon .icon { width: 1.2rem; height: 1.2rem; }
+.invite-contact { cursor: default; }
+.invite-contact .btn { flex-shrink: 0; }
+.avatar-fallback.is-neutral { color: var(--c-muted); background: var(--c-surface-2); }
+
+/* ---------- C9 Chat lock ---------- */
+.chat-lock-panel { max-width: 22rem; display: flex; flex-direction: column; gap: 0.55rem; }
+.chat-lock-panel .modal-actions { margin-top: 0.35rem; }
+.chat-lock-code { text-align: center; font-size: 1.35rem; letter-spacing: 0.5em; font-variant-numeric: tabular-nums; }
+.chat-lock-code::placeholder { font-size: 0.9rem; letter-spacing: normal; }
+.chat-lock-forgot { align-self: center; border: 0; padding: 0.2rem; font: inherit; font-size: 0.82rem; color: var(--c-primary); background: none; cursor: pointer; }
+.chat-lock-forgot:hover { text-decoration: underline; }

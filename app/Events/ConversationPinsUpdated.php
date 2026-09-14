@@ -21,10 +21,11 @@ class ConversationPinsUpdated implements ShouldBroadcastNow
 
     public function broadcastOn(): array
     {
-        return [
-            new PrivateChannel('App.Models.User.'.$this->conversation->user_one_id),
-            new PrivateChannel('App.Models.User.'.$this->conversation->user_two_id),
-        ];
+        // One channel when both are the same person ("Message yourself").
+        return array_map(
+            fn ($id) => new PrivateChannel('App.Models.User.'.$id),
+            array_values(array_unique([(int) $this->conversation->user_one_id, (int) $this->conversation->user_two_id])),
+        );
     }
 
     public function broadcastAs(): string

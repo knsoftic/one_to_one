@@ -23,7 +23,8 @@ class ChatController extends Controller
 
     public function show(Request $request, Conversation $conversation): View
     {
-        Gate::authorize('view', $conversation);
+        // Locked chats (C9) still open the page; the chat asks for the secret code.
+        Gate::authorize('participate', $conversation);
 
         return view('chat.index', [
             'user' => $request->user(),

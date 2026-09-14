@@ -4,6 +4,7 @@ namespace App\Http\Resources;
 
 use App\Models\Conversation;
 use App\Models\Message;
+use App\Services\ChatLockService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -17,6 +18,20 @@ class ConversationResource extends JsonResource
     public function toArray(Request $request): array
     {
         $viewer = $request->user();
+
+        // A locked chat (C9) shows nothing but its place in "Locked chats" until the code is entered.
+        if (($this->my_settings['locked'] ?? false) && ! app(ChatLockService::class)->isUnlocked()) {
+            return [
+                'id' => $this->id,
+                'is_self' => false,
+                'participant' => null,
+                'last_message' => null,
+                'unread_count' => (int) ($this->unread_count ?? 0),
+                'settings' => $this->my_settings,
+                'is_locked_out' => true,
+            ];
+        }
+
         $other = $this->resource->otherParticipant($viewer);
         $latest = $this->relationLoaded('latestMessage') ? $this->getRelation('latestMessage') : null;
 
@@ -36,6 +51,7 @@ class ConversationResource extends JsonResource
         return [
             'id' => $this->id,
             'participant' => $participant,
+            'is_self' => $this->resource->isSelf(),
             'last_message' => $latest ? [
                 'id' => $latest->id,
                 'sender_id' => $latest->sender_id,
@@ -50,6 +66,8 @@ class ConversationResource extends JsonResource
             ] : null,
             'unread_count' => (int) ($this->unread_count ?? 0),
             'disappearing_seconds' => $this->disappearing_seconds,
+            // The viewer's own settings for this chat (Phase 2).
+            'settings' => $this->when(isset($this->my_settings), fn () => $this->my_settings),
             'pinned_messages' => $this->when(isset($this->pinned_messages), fn () => $this->pinned_messages),
             'blocked_by_me' => $this->when(isset($this->blocked_by_me), fn () => (bool) $this->blocked_by_me),
             'blocked_me' => $this->when(isset($this->blocked_me), fn () => (bool) $this->blocked_me),

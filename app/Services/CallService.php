@@ -38,6 +38,10 @@ class CallService
      */
     public function start(User $caller, Conversation $conversation, string $type, string $clientId): Call
     {
+        if ($conversation->isSelf()) {
+            throw new HttpException(422, 'You cannot call yourself.');
+        }
+
         $this->expireStale();
 
         $calleeId = $conversation->otherParticipantId($caller);

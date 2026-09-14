@@ -45,7 +45,11 @@ export class VoiceRecorder {
             this.el.once.setAttribute('aria-pressed', String(this.viewOnce));
         });
 
-        document.addEventListener('chat:opened', () => this.discard());
+        document.addEventListener('chat:opened', () => {
+            this.discard();
+            // No view once in "Message yourself" (C7).
+            if (this.el.once) this.el.once.hidden = Boolean(this.chat.activeConversation?.()?.is_self);
+        });
         document.addEventListener('chat:closed', () => this.discard());
     }
 

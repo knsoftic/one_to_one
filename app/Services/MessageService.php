@@ -8,6 +8,7 @@ use App\Events\MessagesStatusUpdated;
 use App\Events\MessageUpdated;
 use App\Jobs\AttachLinkPreview;
 use App\Jobs\SendReadPush;
+use App\Models\ChatSetting;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\Sticker;
@@ -111,7 +112,9 @@ class MessageService
 
         $viewOnce = filter_var($data['view_once'] ?? false, FILTER_VALIDATE_BOOL)
             && in_array($type, [Message::TYPE_IMAGE, Message::TYPE_VIDEO, Message::TYPE_VOICE], true)
-            && ! str_ends_with(strtolower($file->getClientOriginalName()), '.gif');
+            && ! str_ends_with(strtolower($file->getClientOriginalName()), '.gif')
+            // Nobody else could ever open it in "Message yourself".
+            && ! $conversation->isSelf();
 
         if ($viewOnce) {
             $meta['view_once'] = true;
@@ -464,7 +467,10 @@ class MessageService
     public function deleteForMe(Message $message, User $user): void
     {
         $column = $message->isSentBy($user) ? 'deleted_for_sender' : 'deleted_for_receiver';
-        $message->forceFill([$column => true])->save();
+        // A note to self is both sent and received by the same person.
+        $message->forceFill($message->sender_id === $message->receiver_id
+            ? ['deleted_for_sender' => true, 'deleted_for_receiver' => true]
+            : [$column => true])->save();
         $message->stars()->where('user_id', $user->getKey())->delete();
 
         // Nobody can see it anymore: free the stored file.
@@ -519,11 +525,18 @@ class MessageService
 
         $message = DB::transaction(function () use ($sender, $conversation, $attributes) {
             /** @var Message $message */
-            $message = $conversation->messages()->create($attributes + [
+            $message = $conversation->messages()->make($attributes + [
                 'sender_id' => $sender->getKey(),
                 'receiver_id' => $conversation->otherParticipantId($sender),
                 'sent_at' => now(),
             ]);
+
+            // Notes to self are delivered and read the moment they are sent (C7).
+            if ($conversation->isSelf()) {
+                $message->forceFill(['delivered_at' => now(), 'seen_at' => now()]);
+            }
+
+            $message->save();
 
             $conversation->forceFill(['last_message_id' => $message->getKey()])->save();
 
@@ -594,10 +607,16 @@ class MessageService
 
         $now = now();
 
-        // Reading the chat also clears its entries in the notification centre.
+        // Reading the chat also clears its entries in the notification centre
+        // and a "Mark as unread" mark (C4).
         $reader->unreadNotifications()
             ->where('data->conversation_id', $conversation->getKey())
             ->update(['read_at' => $now]);
+        ChatSetting::query()
+            ->where('user_id', $reader->getKey())
+            ->where('conversation_id', $conversation->getKey())
+            ->where('marked_unread', true)
+            ->update(['marked_unread' => false]);
 
         if ($ids === []) {
             return [];

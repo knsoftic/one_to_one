@@ -69,25 +69,87 @@ export function conversationItem(conversation, { active = false, typing = false,
             html`<span class="conversation-preview-text${last.is_deleted ? ' is-deleted' : ''}">${prefix}${last.preview}</span>`;
     }
 
-    const classes = ['conversation-item', active && 'is-active', unread > 0 && 'has-unread'].filter(Boolean).join(' ');
+    // My own settings for this chat (Phase 2).
+    const settings = conversation.settings ?? {};
+    const muted = isChatMuted(conversation);
+    const markedUnread = unread === 0 && Boolean(settings.marked_unread);
+    const classes = ['conversation-item', active && 'is-active', (unread > 0 || markedUnread) && 'has-unread', muted && 'is-muted'].filter(Boolean).join(' ');
+
+    let unreadBadge = '';
+    if (unread > 0) unreadBadge = html`<span class="badge ${muted ? 'badge-muted' : 'badge-primary'} badge-pop">${unread > 99 ? '99+' : unread}</span>`;
+    else if (markedUnread) unreadBadge = '<span class="badge badge-primary badge-dot" title="Marked as unread"></span>';
 
     return html`
-        <button type="button" class="${classes}" data-conversation-id="${conversation.id}" aria-current="${active ? 'true' : 'false'}">
-            ${raw(avatar(user, 'md', { status: true }))}
-            <span class="conversation-body">
-                <span class="conversation-row">
-                    <span class="conversation-name">${user.name ?? 'Unknown user'}</span>
-                    <span class="conversation-time">${last ? formatListTime(last.created_at) : ''}</span>
-                </span>
-                <span class="conversation-row">
-                    <span class="conversation-preview">${raw(preview)}</span>
-                    <span class="conversation-badges">
-                        ${raw(conversation.blocked_by_me ? `<span class="badge badge-danger" title="Blocked">${icon('ban', 'icon-xs')}</span>` : '')}
-                        ${raw(unread > 0 ? html`<span class="badge badge-primary badge-pop">${unread > 99 ? '99+' : unread}</span>` : '')}
+        <div class="conversation-entry">
+            <button type="button" class="${classes}" data-conversation-id="${conversation.id}" aria-current="${active ? 'true' : 'false'}">
+                ${raw(avatar(user, 'md', { status: true }))}
+                <span class="conversation-body">
+                    <span class="conversation-row">
+                        <span class="conversation-name">${user.name ?? 'Unknown user'}</span>
+                        <span class="conversation-time">${last ? formatListTime(last.created_at) : ''}</span>
+                    </span>
+                    <span class="conversation-row">
+                        <span class="conversation-preview">${raw(preview)}</span>
+                        <span class="conversation-badges">
+                            ${raw(conversation.blocked_by_me ? `<span class="badge badge-danger" title="Blocked">${icon('ban', 'icon-xs')}</span>` : '')}
+                            ${raw(muted ? `<span class="conversation-flag" title="Muted">${icon('bell-off')}</span>` : '')}
+                            ${raw(settings.pinned ? `<span class="conversation-flag" title="Pinned">${icon('pin')}</span>` : '')}
+                            ${raw(unreadBadge)}
+                        </span>
                     </span>
                 </span>
-            </span>
+            </button>
+            <button type="button" class="conversation-menu-btn" data-chat-menu="${conversation.id}" aria-label="Chat options" title="Chat options">${raw(icon('chevron-down'))}</button>
+        </div>
+    `;
+}
+
+/** Muted right now (a timed mute ends by itself). */
+export function isChatMuted(conversation, now = Date.now()) {
+    const settings = conversation?.settings;
+    if (!settings?.muted) return false;
+    return !settings.muted_until || Date.parse(settings.muted_until) > now;
+}
+
+/** "Archived" folder row at the top of the chat list (C3). */
+export function archivedRow(count, unreadChats) {
+    return html`
+        <button type="button" class="archived-row" data-open-archived>
+            <span class="archived-row-icon">${raw(icon('archive'))}</span>
+            <span class="archived-row-label">Archived</span>
+            <span class="archived-row-count">${raw(unreadChats ? html`<span class="badge badge-primary">${unreadChats}</span>` : String(count))}</span>
         </button>
+    `;
+}
+
+export function archivedHeader() {
+    return html`
+        <div class="archived-header">
+            <button type="button" class="btn-icon" data-close-archived aria-label="Back to chats">${raw(icon('arrow-left'))}</button>
+            <span class="archived-header-title">Archived</span>
+        </div>
+        <p class="archived-hint">These chats stay archived when new messages arrive.</p>
+    `;
+}
+
+/** "Locked chats" folder row (C9): only the number, never names. */
+export function lockedRow(count, unreadChats) {
+    return html`
+        <button type="button" class="archived-row" data-open-locked>
+            <span class="archived-row-icon">${raw(icon('lock-keyhole'))}</span>
+            <span class="archived-row-label">Locked chats</span>
+            <span class="archived-row-count">${raw(unreadChats ? html`<span class="badge badge-primary">${unreadChats}</span>` : String(count))}</span>
+        </button>
+    `;
+}
+
+export function lockedHeader() {
+    return html`
+        <div class="archived-header">
+            <button type="button" class="btn-icon" data-close-locked aria-label="Lock and go back to chats">${raw(icon('arrow-left'))}</button>
+            <span class="archived-header-title">Locked chats</span>
+        </div>
+        <p class="archived-hint">These chats open only with your secret code. Going back locks them again.</p>
     `;
 }
 
@@ -101,6 +163,36 @@ export function searchResultItem(user) {
             </span>
             ${raw(icon('message-square-plus', 'text-subtle'))}
         </button>
+    `;
+}
+
+/** "Message yourself" at the top of the contacts panel (C7). */
+export function messageYourselfItem(user) {
+    return html`
+        <button type="button" class="conversation-item contact-item" data-start-user-id="${user.id}">
+            ${raw(avatar(user, 'md'))}
+            <span class="conversation-body">
+                <span class="conversation-name">${user.name} (You)</span>
+                <span class="search-result-meta">Message yourself</span>
+            </span>
+        </button>
+    `;
+}
+
+/** A phone contact who is not on the app yet, with an Invite button (C8). */
+export function inviteContactItem({ name, phone, index }) {
+    const parts = String(name).trim().split(/\s+/).map((part) => part.match(/[\p{L}\p{N}]/u)?.[0] ?? '').filter(Boolean);
+    const initials = ((parts[0] ?? '') + (parts.length > 1 ? parts[parts.length - 1] : '')).toUpperCase() || '#';
+
+    return html`
+        <div class="conversation-item contact-item invite-contact">
+            <span class="avatar avatar-md"><span class="avatar-fallback is-neutral">${initials}</span></span>
+            <span class="conversation-body">
+                <span class="conversation-name">${name}</span>
+                <span class="search-result-meta">${phone}</span>
+            </span>
+            <button type="button" class="btn btn-secondary btn-sm" data-invite-index="${index}">Invite</button>
+        </div>
     `;
 }
 
@@ -700,7 +792,7 @@ export function attachmentPreview({ type, name, size, url, duration = null, load
                 <span class="composer-context-title">${name}</span>
                 <span class="composer-context-text">${details} — add a caption (optional)</span>
             </span>
-            ${raw((type === 'image' && !/\.gif$/i.test(name)) || type === 'video' ? viewOnceToggle(viewOnce) : '')}
+            ${raw(viewOnce !== null && ((type === 'image' && !/\.gif$/i.test(name)) || type === 'video') ? viewOnceToggle(viewOnce) : '')}
             ${raw(type === 'image' && !/\.gif$/i.test(name) ? hdToggle(hd) + editButton() : '')}
             <button type="button" class="btn-icon btn-icon-sm" data-remove-attachment aria-label="Remove attachment">${raw(icon('x'))}</button>
         </div>
@@ -746,7 +838,7 @@ export function attachmentTray({ items, activeIndex = 0, canAdd = true, hd = fal
                     <span class="composer-context-title">${activeLabel} ${activeIndex + 1} of ${items.length} · ${active.name}</span>
                     <span class="composer-context-text">${formatBytes(active.size)} — type a caption for this ${activeLabel.toLowerCase()} (optional)</span>
                 </span>
-                ${raw(items.some((item) => item.type === 'image' || item.type === 'video') ? viewOnceToggle(viewOnce) : '')}
+                ${raw(viewOnce !== null && items.some((item) => item.type === 'image' || item.type === 'video') ? viewOnceToggle(viewOnce) : '')}
                 ${raw(items.some((item) => item.type === 'image') ? hdToggle(hd) : '')}
                 ${raw(active.type === 'image' && !/\.gif$/i.test(active.name) ? editButton() : '')}
                 <button type="button" class="btn-icon btn-icon-sm" data-remove-attachment aria-label="Remove this file" title="Remove">${raw(icon('trash-2'))}</button>

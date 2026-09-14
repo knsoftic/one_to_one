@@ -81,6 +81,8 @@ export class Realtime {
             .listen('.block.changed', (e) => this.chat.onBlockChanged?.(e))
             .listen('.conversation.pins', (e) => this.chat.refreshConversation(Number(e.conversation_id)))
             .listen('.messages.expired', (e) => this.chat.disappearing?.onExpired(e))
+            .listen('.chat.settings', (e) => this.chat.refreshConversation(Number(e.conversation_id)))
+            .listen('.chat.lists', () => this.chat.chatLists?.load())
             .listen('.call.incoming', (e) => this.chat.calls?.onIncoming(e.call))
             .listen('.call.updated', (e) => this.chat.calls?.onCallUpdated(e.call))
             .listen('.call.signal', (e) => this.chat.calls?.onSignal(e.signal))

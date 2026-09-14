@@ -18,6 +18,10 @@ import { StarredMessages } from './starred';
 import { PinnedMessages } from './pins';
 import { albumLayout } from './album';
 import { LinkPreviewComposer } from './link-preview';
+import { ChatListActions, chatListOrder, hasUnread, lockedChats, unreadTotal } from './chat-list';
+import { ChatLock } from './chat-lock';
+import { ChatLists, matchesFilter } from './chat-lists';
+import { InviteFriends } from './invite';
 import { LocationSharing } from './location';
 import { ContactSharing } from './contact-share';
 import { Polls } from './poll';
@@ -83,6 +87,8 @@ export class ChatApp {
         this.fileChain = Promise.resolve();
 
         this.filter = 'all';
+        /** 'chats' or 'archived' (Phase 2). */
+        this.listMode = 'chats';
         this.searchAbort = null;
         this.active = null;
         this.openToken = 0;
@@ -151,6 +157,7 @@ export class ChatApp {
         this.voice = new VoiceRecorder(this);
         this.blocks = new BlockManager(this);
         this.notifier = new Notifier(this);
+        this.invite = new InviteFriends(this);
         this.contactsPanel = new ContactsPanel(this);
         this.calls = new CallManager(this);
         this.forwardDialog = new ForwardDialog(this);
@@ -159,6 +166,9 @@ export class ChatApp {
         this.starred = new StarredMessages(this);
         this.pins = new PinnedMessages(this);
         this.linkPreviews = new LinkPreviewComposer(this);
+        this.chatLock = new ChatLock(this);
+        this.chatList = new ChatListActions(this);
+        this.chatLists = new ChatLists(this);
         this.locationSharing = new LocationSharing(this);
         this.contactSharing = new ContactSharing(this);
         this.polls = new Polls(this);
@@ -283,13 +293,7 @@ export class ChatApp {
         filters.addEventListener('click', (event) => {
             const button = event.target.closest('[data-filter]');
             if (!button) return;
-            this.filter = button.dataset.filter;
-            filters.querySelectorAll('[data-filter]').forEach((b) => {
-                const active = b === button;
-                b.classList.toggle('is-active', active);
-                b.setAttribute('aria-selected', active ? 'true' : 'false');
-            });
-            this.renderConversations();
+            this.setFilter(button.dataset.filter);
         });
 
         const onPick = (event) => {
@@ -404,6 +408,11 @@ export class ChatApp {
     participantOf(conversation) {
         const participant = conversation?.participant;
         if (!participant) return null;
+        // "Message yourself" (C7): your own name, no presence.
+        if (conversation.is_self) {
+            const me = { ...participant, ...(this.users.get(participant.id) ?? {}) };
+            return { ...me, name: `${me.name} (You)`, saved_name: null, is_online: false, last_seen: null, is_self: true };
+        }
         const saved = this.savedNames.get(Number(participant.id)) ?? participant.saved_name;
         const merged = {
             ...participant,
@@ -419,31 +428,81 @@ export class ChatApp {
         return new Set([...this.conversations.values()].filter((c) => c.blocked_me && c.participant).map((c) => c.participant.id));
     }
 
+    /** Recent chats (archived included, deleted ones left out), newest first. */
     sortedConversations() {
         const time = (c) => new Date(c.last_message.created_at).getTime() || 0;
 
+        // Locked chats (C9) stay out of search, forwarding and list pickers.
         return [...this.conversations.values()]
-            .filter((c) => c.last_message)
+            .filter((c) => c.last_message && !c.settings?.hidden && !c.settings?.locked)
             .sort((a, b) => time(b) - time(a) || (b.last_message.id ?? 0) - (a.last_message.id ?? 0));
+    }
+
+    /** All, Unread, Favorites or one of my lists (C6). */
+    setFilter(filter) {
+        this.filter = filter;
+        this.el.filters.querySelectorAll('[data-filter]').forEach((b) => {
+            const active = b.dataset.filter === filter;
+            b.classList.toggle('is-active', active);
+            b.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+        this.renderConversations();
+    }
+
+    setListMode(mode) {
+        this.listMode = mode;
+        this.el.filters.hidden = mode !== 'chats';
+        this.renderConversations();
+        this.el.sidebarScroll.scrollTop = 0;
+    }
+
+    /** A chat deleted for me (here or on another device). */
+    forgetConversation(id) {
+        this.conversations.delete(Number(id));
+        if (this.active?.id === Number(id)) this.closeConversation();
+        this.renderConversations();
     }
 
     renderConversations() {
         if (!this.conversationsLoaded) return;
 
-        const all = this.sortedConversations();
-        const visible = this.filter === 'unread' ? all.filter((c) => c.unread_count > 0) : all;
+        const values = [...this.conversations.values()];
+        const lockedMode = this.listMode === 'locked';
+        const archivedMode = this.listMode === 'archived' || lockedMode;
+        const all = chatListOrder(values, this.listMode);
+        const visible = archivedMode ? all : all.filter((c) => matchesFilter(c, this.filter, this.chatLists?.lists));
         const list = this.el.conversationList;
 
-        if (!all.length) {
+        // "Locked chats" (C9) and "Archived" folders at the top of the main list; a back row inside them.
+        const archived = archivedMode ? [] : chatListOrder(values, 'archived');
+        const locked = archivedMode ? [] : lockedChats(values);
+        const archivedUnread = archived.filter(hasUnread).length;
+        const header = lockedMode
+            ? T.lockedHeader()
+            : archivedMode
+              ? T.archivedHeader()
+              : this.filter === 'all'
+                ? (locked.length ? T.lockedRow(locked.length, locked.filter(hasUnread).length) : '') + (archived.length ? T.archivedRow(archived.length, archivedUnread) : '')
+                : '';
+
+        if (!all.length && lockedMode) {
+            list.innerHTML = header + T.emptyState({ iconName: 'lock-keyhole', title: 'No locked chats', text: 'Open a chat menu and choose "Lock chat".' });
+        } else if (!all.length && archivedMode) {
+            list.innerHTML = header + T.emptyState({ iconName: 'archive', title: 'No archived chats', text: 'Archived chats stay here, even when new messages arrive.' });
+        } else if (!all.length && !archived.length && !locked.length) {
             list.innerHTML = T.emptyState({
                 iconName: 'message-square-plus',
                 title: 'No conversations yet',
                 text: 'Search for someone by name, username, email or mobile number to start chatting.',
             });
         } else if (!visible.length) {
-            list.innerHTML = T.emptyState({ iconName: 'check-check', title: 'All caught up', text: 'You have no unread messages.' });
+            const empty = {
+                unread: { iconName: 'check-check', title: 'All caught up', text: 'You have no unread messages.' },
+                favorites: { iconName: 'heart', title: 'No favourites yet', text: 'Open a chat menu and choose "Add to Favorites".' },
+            }[this.filter] ?? { iconName: 'tag', title: 'This list is empty', text: 'Right-click the list name to add chats.' };
+            list.innerHTML = header + T.emptyState(empty);
         } else {
-            list.innerHTML = visible
+            list.innerHTML = header + visible
                 .map((conversation) =>
                     T.conversationItem(
                         { ...conversation, participant: this.participantOf(conversation) },
@@ -461,7 +520,8 @@ export class ChatApp {
     }
 
     updateUnreadTotals() {
-        const total = [...this.conversations.values()].reduce((sum, c) => sum + (c.unread_count || 0), 0);
+        // Muted and archived chats do not add to the badge or the page title (C2, C3).
+        const total = unreadTotal(this.conversations.values());
         const badge = this.el.totalUnread;
         badge.hidden = total === 0;
         badge.textContent = total > 99 ? '99+' : String(total);
@@ -642,6 +702,17 @@ export class ChatApp {
         } catch (error) {
             if (token !== this.openToken) return;
             const status = error?.response?.status;
+            // A locked chat (C9): ask for the secret code, then open it again.
+            if (status === 423) {
+                this.active = null;
+                if (await this.chatLock.unlock()) {
+                    this.setListMode('locked');
+                    this.openConversation(id, { navigation: 'replace' });
+                } else {
+                    this.closeConversation({ navigation: 'replace' });
+                }
+                return;
+            }
             if (status === 404 || status === 403) {
                 toast.error('This conversation is not available.');
                 this.closeConversation({ navigation: 'replace' });
@@ -705,7 +776,9 @@ export class ChatApp {
         status.classList.toggle('is-online', !typing && !hidePresence && Boolean(user?.is_online));
         avatarEl?.classList.toggle('is-online', !hidePresence && Boolean(user?.is_online));
 
-        if (typing) {
+        if (conversation.is_self) {
+            status.textContent = 'Message yourself';
+        } else if (typing) {
             status.textContent = this.typingActions.get(conversation.id) === 'recording' ? 'recording audio…' : 'typing…';
         } else if (hidePresence) {
             status.textContent = conversation.blocked_by_me ? 'You blocked this user' : '';
@@ -1511,6 +1584,8 @@ export class ChatApp {
         }
 
         const isNewest = !conversation.last_message || message.id >= conversation.last_message.id;
+        // A deleted chat comes back with a new message (C5).
+        if (conversation.settings?.hidden) conversation.settings = { ...conversation.settings, hidden: false };
         if (isNewest) {
             conversation.last_message = {
                 id: message.id,
@@ -1722,7 +1797,7 @@ export class ChatApp {
         if (!this.active?.loaded || !this.api.has('typing')) return;
 
         const conversation = this.activeConversation();
-        if (conversation?.blocked_by_me || conversation?.blocked_me) return;
+        if (conversation?.blocked_by_me || conversation?.blocked_me || conversation?.is_self) return;
 
         if (!this.el.composerInput.value.trim()) {
             this.stopTyping();
@@ -1745,7 +1820,7 @@ export class ChatApp {
     /** Tell the other person you are recording a voice message (refreshed while recording). */
     startRecordingIndicator() {
         const conversation = this.activeConversation();
-        if (!this.active?.loaded || !this.api.has('typing') || conversation?.blocked_by_me || conversation?.blocked_me) return;
+        if (!this.active?.loaded || !this.api.has('typing') || conversation?.blocked_by_me || conversation?.blocked_me || conversation?.is_self) return;
 
         this.stopTyping();
         const id = this.active.id;
@@ -1856,12 +1931,21 @@ export class ChatApp {
         try {
             const conversation = await this.api.conversation(id);
             const merged = this.upsertConversation(conversation);
+            if (merged.settings?.hidden && this.active?.id === id) {
+                this.closeConversation();
+                return merged;
+            }
             if (this.active?.id === id) {
                 this.renderHeader(merged);
                 this.updateComposerState(merged);
             }
             return merged;
-        } catch {
+        } catch (error) {
+            // Locked on another device (C9): reload the list without its details.
+            if (error?.response?.status === 423) {
+                if (this.active?.id === id) this.closeConversation();
+                this.loadConversations();
+            }
             return null;
         }
     }

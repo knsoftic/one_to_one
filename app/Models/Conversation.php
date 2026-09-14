@@ -30,12 +30,13 @@ class Conversation extends Model
     {
         // Participants are always stored in ascending order so the unique
         // (user_one_id, user_two_id) index prevents duplicate conversations.
+        // Both ids are the same for "Message yourself" (C7).
         static::saving(function (Conversation $conversation) {
             $one = (int) $conversation->user_one_id;
             $two = (int) $conversation->user_two_id;
 
-            if ($one === $two) {
-                throw new InvalidArgumentException('A conversation requires two different users.');
+            if ($one < 1 || $two < 1) {
+                throw new InvalidArgumentException('A conversation requires two users.');
             }
 
             if ($one > $two) {
@@ -103,6 +104,14 @@ class Conversation extends Model
         $b = $b instanceof User ? (int) $b->getKey() : $b;
 
         return [min($a, $b), max($a, $b)];
+    }
+
+    /**
+     * "Message yourself": notes, links and files a person keeps for themselves (C7).
+     */
+    public function isSelf(): bool
+    {
+        return (int) $this->user_one_id === (int) $this->user_two_id;
     }
 
     public function hasParticipant(User|int $user): bool

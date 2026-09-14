@@ -50,6 +50,23 @@ export function parseVcf(text) {
 }
 
 /**
+ * Phone contacts to invite, one row per number, sorted by name (C8).
+ *
+ * @param {{name?: string, phones: string[]}[]} entries
+ * @param {{name: string, phone: string}[]} previous earlier results kept in this session
+ */
+export function uniqueInvitable(entries, previous = []) {
+    const byNumber = new Map(previous.map((entry) => [entry.phone.replace(/\D/g, '').slice(-9), entry]));
+    for (const entry of entries) {
+        const phone = String(entry.phones?.[0] ?? '').trim();
+        const key = phone.replace(/\D/g, '').slice(-9);
+        if (key.length < 6 || byNumber.has(key)) continue;
+        byNumber.set(key, { name: String(entry.name ?? '').trim() || phone, phone });
+    }
+    return [...byNumber.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/**
  * "New chat" panel: contacts saved in the phone who are registered on the
  * app (like WhatsApp), plus search for anyone else.
  */
@@ -57,6 +74,8 @@ export class ContactsPanel {
     constructor(chat) {
         this.chat = chat;
         this.contacts = [];
+        /** Phone-book entries nobody is registered with (C8), kept in memory only. */
+        this.invitable = [];
         this.loaded = false;
         this.searchAbort = null;
 
@@ -107,6 +126,11 @@ export class ContactsPanel {
         });
 
         this.el.view.addEventListener('click', (event) => {
+            const invite = event.target.closest('[data-invite-index]');
+            if (invite) {
+                this.chat.invite?.open(this.invitable[Number(invite.dataset.inviteIndex)]);
+                return;
+            }
             const start = event.target.closest('[data-start-user-id]');
             if (start) {
                 this.close();
@@ -155,6 +179,10 @@ export class ContactsPanel {
         if (this.native && !this.askedThisSession && !this.lastSyncAt()) {
             this.askedThisSession = true;
             this.syncFromNativePhoneBook({ quietDenied: true });
+        } else if (this.native && !this.invitableChecked) {
+            // Once per session: find phone contacts to invite (permission already granted).
+            this.invitableChecked = true;
+            this.refreshInvitable();
         }
     }
 
@@ -202,8 +230,13 @@ export class ContactsPanel {
 
         if (!this.loaded) return;
 
+        const me = this.chat.me;
+        const self = me && (!term || `${me.name} ${me.username} you message yourself`.toLowerCase().includes(term.replace(/^@/, '')))
+            ? T.messageYourselfItem(me)
+            : '';
+
         if (!this.contacts.length) {
-            this.el.list.innerHTML = T.emptyState({
+            this.el.list.innerHTML = self + this.invitableHtml(term, digits) + T.emptyState({
                 iconName: 'users',
                 title: 'No contacts yet',
                 text: this.pickerSupported
@@ -214,10 +247,33 @@ export class ContactsPanel {
         }
 
         this.el.list.innerHTML =
+            self +
             T.sectionTitle(term ? 'Matching contacts' : 'Contacts') +
             (visible.length
                 ? visible.map((contact) => T.contactItem(contact, this.chat.presenceOf(contact.user))).join('')
-                : html`<p class="contacts-none">No saved contacts match “${this.el.search.value.trim()}”.</p>`);
+                : html`<p class="contacts-none">No saved contacts match “${this.el.search.value.trim()}”.</p>`) +
+            this.invitableHtml(term, digits);
+    }
+
+    /** "Invite to …" section with phone contacts who are not on the app (C8). */
+    invitableHtml(term, digits) {
+        const rows = this.invitable
+            .map((entry, index) => ({ ...entry, index }))
+            .filter((entry) => !term || entry.name.toLowerCase().includes(term) || (digits.length >= 3 && entry.phone.replace(/\D/g, '').includes(digits)))
+            .slice(0, 200);
+
+        if (!rows.length) return '';
+        return T.sectionTitle(`Invite to ${this.chat.config.appName ?? 'the app'}`) + rows.map((entry) => T.inviteContactItem(entry)).join('');
+    }
+
+    async refreshInvitable() {
+        try {
+            const { NativeApp } = await import('../native/plugins');
+            const permissions = await NativeApp.checkPermissions();
+            if (permissions?.contacts === 'granted') await this.syncFromNativePhoneBook({ silent: true });
+        } catch {
+            /* optional */
+        }
     }
 
     async searchPeople(term) {
@@ -330,12 +386,17 @@ export class ContactsPanel {
         try {
             let latest = null;
             let matched = 0;
+            const invitable = [];
             for (let i = 0; i < entries.length; i += SYNC_BATCH) {
-                const { data } = await axios.post(this.chat.api.url('contactsSync'), { contacts: entries.slice(i, i + SYNC_BATCH) });
+                const batch = entries.slice(i, i + SYNC_BATCH);
+                const { data } = await axios.post(this.chat.api.url('contactsSync'), { contacts: batch });
                 matched += data.matched.length;
                 latest = data.data;
+                (data.unmatched ?? []).forEach((index) => batch[index] && invitable.push(batch[index]));
             }
+            this.invitable = uniqueInvitable(invitable, this.invitable);
             if (latest) this.setContacts(latest);
+            else this.render();
 
             note?.querySelector('.toast-close')?.click();
             if (silent) {

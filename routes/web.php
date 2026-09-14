@@ -7,6 +7,9 @@ use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\BlockController;
 use App\Http\Controllers\CallController;
 use App\Http\Controllers\ChatController;
+use App\Http\Controllers\ChatListController;
+use App\Http\Controllers\ChatLockController;
+use App\Http\Controllers\ChatSettingsController;
 use App\Http\Controllers\ContactCardController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\ConversationController;
@@ -101,6 +104,31 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/conversations/{conversation}', [ConversationController::class, 'show'])
         ->whereNumber('conversation')
         ->name('conversations.show');
+
+    // My chat lists ("Family", "Work"…) — C6
+    // Chat lock (C9)
+    Route::post('/chat-lock/pin', [ChatLockController::class, 'storePin'])->middleware('throttle:chat-lock')->name('chat-lock.pin.store');
+    Route::delete('/chat-lock/pin', [ChatLockController::class, 'destroyPin'])->middleware('throttle:chat-lock')->name('chat-lock.pin.destroy');
+    Route::post('/chat-lock/unlock', [ChatLockController::class, 'unlock'])->middleware('throttle:chat-lock')->name('chat-lock.unlock');
+    Route::post('/chat-lock/lock', [ChatLockController::class, 'lock'])->name('chat-lock.lock');
+
+    Route::get('/chat-lists', [ChatListController::class, 'index'])->name('chat-lists.index');
+    Route::post('/chat-lists', [ChatListController::class, 'store'])->middleware('throttle:chat-actions')->name('chat-lists.store');
+    Route::patch('/chat-lists/{chatList}', [ChatListController::class, 'update'])->whereNumber('chatList')->middleware('throttle:chat-actions')->name('chat-lists.update');
+    Route::delete('/chat-lists/{chatList}', [ChatListController::class, 'destroy'])->whereNumber('chatList')->middleware('throttle:chat-actions')->name('chat-lists.destroy');
+    // My chat list settings (Phase 2): pin, mute, archive, unread, favourite, clear, delete
+    Route::patch('/conversations/{conversation}/settings', [ChatSettingsController::class, 'update'])
+        ->whereNumber('conversation')
+        ->middleware('throttle:chat-actions')
+        ->name('conversations.settings');
+    Route::post('/conversations/{conversation}/clear', [ChatSettingsController::class, 'clear'])
+        ->whereNumber('conversation')
+        ->middleware('throttle:chat-actions')
+        ->name('conversations.clear');
+    Route::delete('/conversations/{conversation}', [ChatSettingsController::class, 'destroy'])
+        ->whereNumber('conversation')
+        ->middleware('throttle:chat-actions')
+        ->name('conversations.destroy');
 
     // Messages
     Route::get('/conversations/{conversation}/messages', [MessageController::class, 'index'])

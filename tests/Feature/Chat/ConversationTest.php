@@ -72,12 +72,11 @@ class ConversationTest extends TestCase
         $this->assertTrue($service->findOrCreate($a, $b)->is($service->findOrCreate($b, $a)));
     }
 
-    public function test_users_cannot_start_a_conversation_with_themselves_or_unavailable_users(): void
+    public function test_users_cannot_start_a_conversation_with_unavailable_users(): void
     {
         $user = User::factory()->create();
         $suspended = User::factory()->suspended()->create();
 
-        $this->actingAs($user)->postJson('/conversations', ['user_id' => $user->id])->assertUnprocessable();
         $this->actingAs($user)->postJson('/conversations', ['user_id' => $suspended->id])->assertUnprocessable();
         $this->actingAs($user)->postJson('/conversations', ['user_id' => 999999])->assertUnprocessable();
     }

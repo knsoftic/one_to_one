@@ -79,6 +79,9 @@
                 <button type="button" class="chip" data-filter="unread" role="tab" aria-selected="false">
                     Unread <span class="badge badge-primary" data-total-unread hidden>0</span>
                 </button>
+                <button type="button" class="chip" data-filter="favorites" role="tab" aria-selected="false">Favorites</button>
+                <span class="sidebar-list-chips" data-list-chips></span>
+                <button type="button" class="chip chip-add" data-action="new-chat-list" aria-label="New list" title="New list"><x-icon name="plus" /></button>
             </div>
 
             <div class="sidebar-scroll" data-sidebar-scroll>
@@ -152,6 +155,13 @@
                             </span>
                             <input id="contacts-import-input" type="file" accept=".vcf,text/vcard,text/x-vcard" class="sr-only" data-contacts-import>
                         </label>
+                        <button type="button" class="contacts-action" data-invite-friends>
+                            <span class="contacts-action-icon is-muted"><x-icon name="user-plus" /></span>
+                            <span class="min-w-0">
+                                <span class="contacts-action-title">Invite friends</span>
+                                <span class="contacts-action-text">Send a link by WhatsApp, SMS or email</span>
+                            </span>
+                        </button>
                     </div>
 
                     <div data-contacts-results hidden></div>

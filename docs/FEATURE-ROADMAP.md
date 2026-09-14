@@ -1,4 +1,4 @@
-# One2One Chat — Feature Roadmap (WhatsApp jaisi features)
+| [x] || [x] || [x] || [x] || [x] |# One2One Chat — Feature Roadmap (WhatsApp jaisi features)
 
 Ye list un features ki hai jo WhatsApp mein hain (aur kuch mazeed kaam ke) lekin abhi One2One Chat mein **nahi** hain.
 Hum inhe **ek ek karke** banayenge. Kaam shuru karne ke liye bas number batayein, jaise: *"M1 banao"*.
@@ -49,19 +49,21 @@ light/dark theme · admin panel.
 | M22 | **View once** | Photo/video/voice jo sirf ek dafa khule | 🟡 | [x] |
 | M23 | **Clipboard se photo paste** | Ctrl+V / copy kar ke photo bhejna (pehle se tha) | 🟢 | [x] |
 
-## Phase 2 — Chat list
+## Phase 2 — Chat list — ✅ mukammal
+
+> Tafseel aur tests: `development-progress.md` → "Roadmap Phase 2". Naye migrations chalane honge (chat_settings, chat_lists, users.chat_lock_pin); naya APK nahi chahiye.
 
 | # | Feature | Kya milega | Mehnat | Status |
 |---|---------|-----------|--------|--------|
-| C1 | **Pin chat** | 3 chats tak list ke oopar | 🟢 | [ ] |
-| C2 | **Mute chat** | 8 ghante / 1 hafta / hamesha — notification band | 🟢 | [ ] |
-| C3 | **Archive chat** | Chat "Archived" mein, naya message aane par bhi wahin rahe | 🟢 | [ ] |
-| C4 | **Mark as unread / read** | List se hi unread nishan lagana/hatana | 🟢 | [ ] |
-| C5 | **Clear chat / Delete chat** | Sirf apni taraf se saare messages ya poori chat hatana | 🟢 | [ ] |
-| C6 | **Favorites aur apni lists** | "Favorites", "Family", "Work" jaise filters | 🟡 | [ ] |
-| C7 | **Message yourself** | Apne aap ko notes/files bhejna | 🟢 | [ ] |
-| C8 | **Invite friends** | Jo contact app par nahi, usse WhatsApp/SMS se download link bhejna | 🟢 | [ ] |
-| C9 | **Chat lock** | Kisi chat ko fingerprint/PIN ke peeche chhupana | 🟡 | [ ] |
+| C1 | **Pin chat** | 3 chats tak list ke oopar | 🟢 | [x] |
+| C2 | **Mute chat** | 8 ghante / 1 hafta / hamesha — notification band | 🟢 | [x] |
+| C3 | **Archive chat** | Chat "Archived" mein, naya message aane par bhi wahin rahe | 🟢 | [x] |
+| C4 | **Mark as unread / read** | List se hi unread nishan lagana/hatana | 🟢 | [x] |
+| C5 | **Clear chat / Delete chat** | Sirf apni taraf se saare messages ya poori chat hatana | 🟢 | [x] |
+| C6 | **Favorites aur apni lists** | "Favorites", "Family", "Work" jaise filters | 🟡 | [x] |
+| C7 | **Message yourself** | Apne aap ko notes/files bhejna | 🟢 | [x] |
+| C8 | **Invite friends** | Jo contact app par nahi, usse WhatsApp/SMS se download link bhejna | 🟢 | [x] |
+| C9 | **Chat lock** | Kisi chat ko fingerprint/PIN ke peeche chhupana | 🟡 | [x] |
 
 ## Phase 3 — Calls
 

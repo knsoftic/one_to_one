@@ -28,15 +28,18 @@ class ContactService
 
     /**
      * @param  list<array{name?: ?string, phones: list<string>}>  $entries
-     * @return array{matched: Collection<int, Contact>, checked: int}
+     * @return array{matched: Collection<int, Contact>, checked: int, unmatched: list<int>}
      */
     public function sync(User $user, array $entries): array
     {
-        // suffix => [[digits, name, formatted], ...]
+        // suffix => [[phone, name, index], ...]
         $bySuffix = [];
         $checked = 0;
+        // Entries with at least one usable number; the ones left unmatched can be invited (C8).
+        $withPhone = [];
+        $matchedEntries = [];
 
-        foreach ($entries as $entry) {
+        foreach (array_values($entries) as $index => $entry) {
             $name = $this->cleanName($entry['name'] ?? '');
 
             foreach (array_slice($entry['phones'] ?? [], 0, 5) as $phone) {
@@ -45,12 +48,21 @@ class ContactService
                     continue;
                 }
                 $checked++;
-                $bySuffix[$suffix][] = ['phone' => Phone::normalize((string) $phone), 'name' => $name];
+                $withPhone[$index] = true;
+                $bySuffix[$suffix][] = ['phone' => Phone::normalize((string) $phone), 'name' => $name, 'index' => $index];
             }
         }
 
         if ($bySuffix === []) {
-            return ['matched' => new Collection, 'checked' => $checked];
+            return ['matched' => new Collection, 'checked' => $checked, 'unmatched' => []];
+        }
+
+        // My own number is not someone to invite.
+        $mySuffix = $user->phone ? Phone::suffix((string) $user->phone) : null;
+        foreach ($mySuffix !== null ? $bySuffix[$mySuffix] ?? [] : [] as $entry) {
+            if (Phone::matches($entry['phone'], (string) $user->phone)) {
+                $matchedEntries[$entry['index']] = true;
+            }
         }
 
         $candidates = collect(array_keys($bySuffix))
@@ -69,12 +81,16 @@ class ContactService
                     continue;
                 }
 
-                Contact::query()->updateOrCreate(
-                    ['user_id' => $user->getKey(), 'contact_user_id' => $candidate->id],
-                    ['name' => $entry['name'] ?: $candidate->name, 'phone' => $entry['phone']],
-                );
-                $matchedIds[] = $candidate->id;
-                break;
+                $matchedEntries[$entry['index']] = true;
+
+                // The first phone-book entry with this number names the contact.
+                if (! in_array($candidate->id, $matchedIds, true)) {
+                    Contact::query()->updateOrCreate(
+                        ['user_id' => $user->getKey(), 'contact_user_id' => $candidate->id],
+                        ['name' => $entry['name'] ?: $candidate->name, 'phone' => $entry['phone']],
+                    );
+                    $matchedIds[] = $candidate->id;
+                }
             }
         }
 
@@ -84,7 +100,11 @@ class ContactService
             ->orderBy('name')
             ->get();
 
-        return ['matched' => $matched, 'checked' => $checked];
+        return [
+            'matched' => $matched,
+            'checked' => $checked,
+            'unmatched' => array_values(array_diff(array_keys($withPhone), array_keys($matchedEntries))),
+        ];
     }
 
     /**

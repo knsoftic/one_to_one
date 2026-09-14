@@ -4,6 +4,7 @@ namespace App\Policies;
 
 use App\Models\Message;
 use App\Models\User;
+use App\Services\ChatLockService;
 use Illuminate\Auth\Access\Response;
 
 class MessagePolicy
@@ -18,7 +19,9 @@ class MessagePolicy
             return Response::denyAsNotFound();
         }
 
-        return Response::allow();
+        return app(ChatLockService::class)->canOpen($user, (int) $message->conversation_id)
+            ? Response::allow()
+            : Response::denyWithStatus(423, 'This chat is locked.');
     }
 
     public function update(User $user, Message $message): Response

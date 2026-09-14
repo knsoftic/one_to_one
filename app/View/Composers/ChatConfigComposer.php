@@ -3,6 +3,7 @@
 namespace App\View\Composers;
 
 use App\Http\Resources\UserResource;
+use App\Services\ChatLockService;
 use App\Services\GifService;
 use Illuminate\Support\Facades\Route;
 use Illuminate\View\View;
@@ -49,6 +50,17 @@ class ChatConfigComposer
             'messageLocation' => ['messages.location.update', ['message' => $id]],
             'messageVote' => ['messages.vote', ['message' => $id]],
             'disappearing' => ['conversations.disappearing', ['conversation' => $id]],
+            'conversationSettings' => ['conversations.settings', ['conversation' => $id]],
+            'chatLockPin' => ['chat-lock.pin.store', []],
+            'chatLockPinDestroy' => ['chat-lock.pin.destroy', []],
+            'chatLockUnlock' => ['chat-lock.unlock', []],
+            'chatLockLock' => ['chat-lock.lock', []],
+            'chatLists' => ['chat-lists.index', []],
+            'chatListsStore' => ['chat-lists.store', []],
+            'chatListUpdate' => ['chat-lists.update', ['chatList' => $id]],
+            'chatListDestroy' => ['chat-lists.destroy', ['chatList' => $id]],
+            'conversationClear' => ['conversations.clear', ['conversation' => $id]],
+            'conversationDestroy' => ['conversations.destroy', ['conversation' => $id]],
             'viewOnce' => ['messages.view-once', ['message' => $id]],
             'stickers' => ['stickers.index', []],
             'stickersStore' => ['stickers.store', []],
@@ -93,6 +105,11 @@ class ChatConfigComposer
 
         $view->with('chatConfig', [
             'appName' => config('app.name'),
+            'invite' => ['url' => config('chat.invite.url') ?: route('register')],
+            'chatLock' => [
+                'enabled' => $user->chat_lock_pin !== null,
+                'unlockedUntil' => app(ChatLockService::class)->unlockedUntil()?->toIso8601String(),
+            ],
             'user' => (new UserResource($user))->resolve($request),
             'initialConversationId' => $view->getData()['initialConversationId'] ?? null,
             'routes' => $routes,

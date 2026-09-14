@@ -5,6 +5,7 @@ namespace App\Listeners;
 use App\Events\MessageSent;
 use App\Jobs\SendMessagePush;
 use App\Models\Call;
+use App\Models\ChatSetting;
 use App\Models\Message;
 use App\Notifications\NewMessageNotification;
 use App\Services\PushService;
@@ -29,8 +30,18 @@ class SendNewMessageNotification
             return;
         }
 
-        // Chat notices (e.g. disappearing messages turned on) never notify.
-        if ($message->message_type === Message::TYPE_SYSTEM) {
+        // Chat notices (e.g. disappearing messages turned on) and notes to self never notify.
+        if ($message->message_type === Message::TYPE_SYSTEM || (int) $message->sender_id === (int) $message->receiver_id) {
+            return;
+        }
+
+        $setting = ChatSetting::query()
+            ->where('user_id', $receiver->getKey())
+            ->where('conversation_id', $message->conversation_id)
+            ->first(['muted_until', 'locked_at']);
+
+        // Muted chats (C2) still count as unread, but make no notification or push.
+        if ($setting?->isMuted()) {
             return;
         }
 
@@ -42,7 +53,8 @@ class SendNewMessageNotification
 
         // One id for the notification centre, the realtime event and the push,
         // so the phone never shows the same message twice.
-        $notification = new NewMessageNotification($message);
+        // Locked chats (C9) notify without saying who wrote or what.
+        $notification = new NewMessageNotification($message, private: $setting?->locked_at !== null);
         $notification->id = (string) Str::uuid();
 
         try {

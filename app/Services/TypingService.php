@@ -21,6 +21,11 @@ class TypingService
 
     public function set(Conversation $conversation, User $user, bool $active, string $action = self::ACTION_TYPING): void
     {
+        // Nobody to tell in "Message yourself".
+        if ($conversation->isSelf()) {
+            return;
+        }
+
         $key = $this->key($conversation->getKey(), $user->getKey());
 
         if ($active) {

@@ -34,6 +34,8 @@ class ContactController extends Controller
         return response()->json([
             'matched' => ContactResource::collection($result['matched'])->resolve($request),
             'checked' => $result['checked'],
+            // Positions of the sent entries nobody is registered with, to offer "Invite" (C8).
+            'unmatched' => $result['unmatched'],
             'data' => ContactResource::collection($this->contacts->listFor($request->user()))->resolve($request),
         ]);
     }

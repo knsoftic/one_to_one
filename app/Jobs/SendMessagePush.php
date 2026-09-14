@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Models\ChatSetting;
 use App\Models\Message;
 use App\Services\ContactService;
 use App\Services\PushService;
@@ -33,8 +34,15 @@ class SendMessagePush
             return;
         }
 
+        // Locked chats (C9): the phone shows only that a message arrived.
+        $locked = ChatSetting::query()
+            ->where('user_id', $receiver->getKey())
+            ->where('conversation_id', $message->conversation_id)
+            ->whereNotNull('locked_at')
+            ->exists();
+
         // The name saved in the receiver's phone book, like WhatsApp.
-        $name = $contacts->savedNames($receiver, [$sender->id])[$sender->id] ?? $sender->name;
+        $name = $locked ? (string) config('app.name') : ($contacts->savedNames($receiver, [$sender->id])[$sender->id] ?? $sender->name);
 
         try {
             $push->sendToUser($receiver, [
@@ -42,12 +50,12 @@ class SendMessagePush
                 'id' => $this->notificationId ?? 'message-'.$message->id,
                 'conversation_id' => $message->conversation_id,
                 'message_id' => $message->id,
-                'sender_id' => $sender->id,
+                'sender_id' => $locked ? 0 : $sender->id,
                 'sender_name' => $name,
-                'avatar_url' => $sender->avatar_url,
-                'initials' => $sender->initials,
-                'avatar_hue' => $sender->avatar_hue,
-                'body' => config('chat.mobile.show_preview', true) ? $message->preview(200) : '',
+                'avatar_url' => $locked ? null : $sender->avatar_url,
+                'initials' => $locked ? '' : $sender->initials,
+                'avatar_hue' => $locked ? 0 : $sender->avatar_hue,
+                'body' => ! $locked && config('chat.mobile.show_preview', true) ? $message->preview(200) : '',
                 'sent_at' => ($message->sent_at ?? $message->created_at)?->getTimestampMs(),
             ], PushService::PRIORITY_HIGH);
         } catch (Throwable $e) {

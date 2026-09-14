@@ -14,7 +14,7 @@ export class BlockManager {
         document.addEventListener('chat:menu', (event) => {
             const { conversation, items } = event.detail;
             const participant = conversation?.participant;
-            if (!participant || !chat.api.has('block')) return;
+            if (!participant || conversation.is_self || !chat.api.has('block')) return;
 
             items.push(
                 conversation.blocked_by_me

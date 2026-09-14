@@ -124,7 +124,7 @@ class DeviceApiController extends Controller
     public function read(Request $request, Conversation $conversation): JsonResponse
     {
         $user = $request->user();
-        Gate::forUser($user)->authorize('view', $conversation);
+        Gate::forUser($user)->authorize('participate', $conversation);
 
         return response()->json(['ids' => $this->messages->markSeen($conversation, $user)]);
     }

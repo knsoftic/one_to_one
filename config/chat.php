@@ -218,6 +218,26 @@ return [
         'turn_ttl_seconds' => (int) env('CHAT_CALL_TURN_TTL', 43200),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Invite friends (C8)
+    |--------------------------------------------------------------------------
+    |
+    | The link sent to friends who are not on the app yet. Empty = the sign-up
+    | page of this site; set it to e.g. an APK or Play Store link.
+    |
+    */
+
+    'invite' => [
+        'url' => env('CHAT_INVITE_URL'),
+    ],
+
+    // Chat lock (C9): how long "Locked chats" stay open after the secret code
+    // was entered (extended while they are in use).
+    'lock' => [
+        'unlock_minutes' => (int) env('CHAT_LOCK_UNLOCK_MINUTES', 10),
+    ],
+
     'admin' => [
         'name' => env('ADMIN_NAME', 'Administrator'),
         'username' => env('ADMIN_USERNAME', 'admin'),

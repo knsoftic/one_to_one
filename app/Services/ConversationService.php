@@ -3,11 +3,11 @@
 namespace App\Services;
 
 use App\Models\BlockedUser;
+use App\Models\ChatSetting;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Collection;
-use InvalidArgumentException;
 
 class ConversationService
 {
@@ -15,14 +15,11 @@ class ConversationService
 
     /**
      * Return the single conversation between two users, creating it when needed.
+     * Passing the same user twice gives their "Message yourself" chat (C7).
      * Safe under concurrency thanks to the unique participants index.
      */
     public function findOrCreate(User $user, User $other): Conversation
     {
-        if ($user->is($other)) {
-            throw new InvalidArgumentException('You cannot start a conversation with yourself.');
-        }
-
         [$one, $two] = Conversation::orderedPair($user, $other);
 
         return Conversation::query()->createOrFirst([
@@ -52,21 +49,50 @@ class ConversationService
 
         $conversations = Conversation::query()
             ->forUser($userId)
+            ->leftJoin('chat_settings as my_settings', fn ($join) => $join
+                ->on('my_settings.conversation_id', '=', 'conversations.id')
+                ->where('my_settings.user_id', '=', $userId))
             ->select('conversations.*')
             ->selectSub($visible('MAX(messages.id)'), 'latest_message_id')
             ->selectSub($visible('MAX(messages.created_at)'), 'latest_message_at')
+            ->addSelect(['my_settings.cleared_at as settings_cleared_at', 'my_settings.deleted_at as settings_deleted_at'])
             ->withCount(['messages as unread_count' => fn ($q) => $q->unreadFor($userId)])
             ->with(['userOne', 'userTwo'])
-            ->havingNotNull('latest_message_id')
-            ->orderByDesc('latest_message_at')
+            // Chats with messages, plus cleared chats that were not deleted (they stay in the list, empty).
+            ->havingRaw('latest_message_id IS NOT NULL OR (settings_cleared_at IS NOT NULL AND settings_deleted_at IS NULL)')
+            ->orderByRaw('COALESCE(latest_message_at, settings_cleared_at) DESC')
             ->orderByDesc('latest_message_id')
             ->limit($limit)
             ->get();
 
-        return $this->attachSavedNames(
+        return $this->attachSettings($this->attachSavedNames(
             $this->attachBlockFlags($this->attachLatestMessages($conversations), $user),
             $user,
-        );
+        ), $user);
+    }
+
+    /**
+     * Add the viewer's own chat settings (pinned, muted, archived…) as `my_settings`.
+     *
+     * @param  Collection<int, Conversation>  $conversations
+     * @return Collection<int, Conversation>
+     */
+    private function attachSettings(Collection $conversations, User $user): Collection
+    {
+        $settings = ChatSetting::query()
+            ->where('user_id', $user->getKey())
+            ->whereIn('conversation_id', $conversations->modelKeys())
+            ->get()
+            ->keyBy('conversation_id');
+
+        return $conversations->each(function (Conversation $conversation) use ($settings) {
+            $setting = $settings->get($conversation->getKey());
+
+            $conversation->setAttribute('my_settings', ChatSetting::payload($setting) + [
+                // A deleted chat stays out of the list until a new message arrives.
+                'hidden' => $setting?->deleted_at !== null && $conversation->getAttribute('latest_message_id') === null,
+            ]);
+        });
     }
 
     /**
@@ -83,7 +109,7 @@ class ConversationService
         $conversation->setAttribute('latest_message_id', $latest?->id);
         $conversation->setRelation('latestMessage', $latest);
 
-        $this->attachSavedNames($this->attachBlockFlags(new Collection([$conversation]), $user), $user);
+        $this->attachSettings($this->attachSavedNames($this->attachBlockFlags(new Collection([$conversation]), $user), $user), $user);
 
         // Pinned messages are shown when a chat is opened (not in the chat list).
         $conversation->setAttribute('pinned_messages', app(PinService::class)->visibleFor($conversation, $user));

@@ -159,7 +159,7 @@ class Message extends Model
      */
 
     /**
-     * Messages the given user has not deleted "for me".
+     * Messages the given user has not deleted "for me" or cleared from the chat.
      */
     public function scopeVisibleTo(Builder $query, User|int $user): Builder
     {
@@ -168,20 +168,37 @@ class Message extends Model
         return $query->where(function (Builder $q) use ($id) {
             $q->where(fn (Builder $s) => $s->where('sender_id', $id)->where('deleted_for_sender', false))
                 ->orWhere(fn (Builder $r) => $r->where('receiver_id', $id)->where('deleted_for_receiver', false));
-        });
+        })->notClearedFor($id);
     }
 
     /**
      * Messages received by the user that they have not seen yet.
+     * Notes to self never count as unread.
      */
     public function scopeUnreadFor(Builder $query, User|int $user): Builder
     {
         $id = $user instanceof User ? $user->getKey() : $user;
 
         return $query->where('receiver_id', $id)
+            ->where('sender_id', '!=', $id)
             ->whereNull('seen_at')
             ->where('deleted_for_receiver', false)
-            ->where('deleted_for_everyone', false);
+            ->where('deleted_for_everyone', false)
+            ->notClearedFor($id);
+    }
+
+    /**
+     * Leave out messages hidden by the user's "Clear chat" / "Delete chat".
+     */
+    public function scopeNotClearedFor(Builder $query, User|int $user): Builder
+    {
+        $id = $user instanceof User ? $user->getKey() : $user;
+
+        return $query->whereNotExists(fn ($sub) => $sub->selectRaw('1')
+            ->from('chat_settings')
+            ->whereColumn('chat_settings.conversation_id', $query->qualifyColumn('conversation_id'))
+            ->where('chat_settings.user_id', $id)
+            ->whereColumn('chat_settings.cleared_message_id', '>=', $query->qualifyColumn('id')));
     }
 
     /* -----------------------------------------------------------------
