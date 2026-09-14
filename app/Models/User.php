@@ -7,6 +7,7 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -28,7 +29,10 @@ class User extends Authenticatable
 
     public const STATUS_SUSPENDED = 'suspended';
 
-    public const STATUSES = [self::STATUS_ACTIVE, self::STATUS_INACTIVE, self::STATUS_SUSPENDED];
+    /** Banned from the admin panel, for a while or for good (see banned_until). */
+    public const STATUS_BANNED = 'banned';
+
+    public const STATUSES = [self::STATUS_ACTIVE, self::STATUS_INACTIVE, self::STATUS_SUSPENDED, self::STATUS_BANNED];
 
     public const THEMES = ['light', 'dark', 'system'];
 
@@ -107,6 +111,8 @@ class User extends Authenticatable
             'notification_sound' => 'boolean',
             'read_receipts' => 'boolean',
             'two_step_enabled_at' => 'datetime',
+            'banned_at' => 'datetime',
+            'banned_until' => 'datetime',
             'password' => 'hashed',
         ];
     }
@@ -142,6 +148,12 @@ class User extends Authenticatable
     public function contacts(): HasMany
     {
         return $this->hasMany(Contact::class, 'user_id');
+    }
+
+    /** The administrator who banned this account. */
+    public function bannedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'banned_by');
     }
 
     /** Browsers that passed two-step verification (P7). */
@@ -249,20 +261,29 @@ class User extends Authenticatable
     /**
      * Search by name, username, email or phone number.
      */
-    public function scopeSearch(Builder $query, string $term): Builder
+    public function scopeSearch(Builder $query, string $term, bool $partialContact = false): Builder
     {
         $term = trim($term);
         $like = '%'.addcslashes($term, '%_\\').'%';
         // National formats ("0345…") should match international storage ("+92345…").
         $digits = ltrim((string) preg_replace('/[^0-9]/', '', $term), '0');
+        $isNumber = preg_match('/^[\d\s()+\-]+$/', $term) === 1;
 
-        return $query->where(function (Builder $q) use ($like, $digits, $term) {
-            $q->where('name', 'like', $like)
-                ->orWhere('username', 'like', $like)
-                ->orWhere('email', 'like', $like);
+        return $query->where(function (Builder $q) use ($like, $digits, $term, $isNumber, $partialContact) {
+            $q->where('name', 'like', $like)->orWhere('username', 'like', $like);
 
-            if (strlen($digits) >= 3 && preg_match('/^[\d\s()+\-]+$/', $term)) {
-                $q->orWhere('phone', 'like', '%'.$digits.'%');
+            // People search the app with a full email or mobile number, so nobody can
+            // work out someone's email or number letter by letter (admins may search parts).
+            if ($partialContact) {
+                $q->orWhere('email', 'like', $like);
+                if (strlen($digits) >= 3 && $isNumber) {
+                    $q->orWhere('phone', 'like', '%'.$digits.'%');
+                }
+            } else {
+                $q->orWhere('email', mb_strtolower($term));
+                if ($isNumber && ($suffix = Phone::suffix($term)) !== null) {
+                    $q->orWhere('phone_suffix', $suffix);
+                }
             }
         });
     }
@@ -280,6 +301,17 @@ class User extends Authenticatable
     public function isActive(): bool
     {
         return $this->status === self::STATUS_ACTIVE;
+    }
+
+    public function isBanned(): bool
+    {
+        return $this->status === self::STATUS_BANNED;
+    }
+
+    /** A ban with an end date whose time is up (lifted on the next visit or by the scheduler). */
+    public function banHasEnded(): bool
+    {
+        return $this->isBanned() && $this->banned_until !== null && $this->banned_until->isPast();
     }
 
     /**

@@ -3,17 +3,21 @@
 namespace App\Services;
 
 use App\Models\BlockedUser;
+use App\Models\Call;
+use App\Models\Community;
 use App\Models\Conversation;
 use App\Models\Message;
+use App\Models\Status;
 use App\Models\User;
+use App\Models\UserReport;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
- * Administrative operations. Deliberately exposes counts and account data
- * only — never private message content.
+ * Administrative operations on accounts: statistics, status, roles, profile edits,
+ * signing out and deleting. Reading chats lives in AdminContentService.
  */
 class AdminService
 {
@@ -38,6 +42,13 @@ class AdminService
             'suspended_users' => User::query()->where('status', User::STATUS_SUSPENDED)->count(),
             'inactive_users' => User::query()->where('status', User::STATUS_INACTIVE)->count(),
             'messages_today' => Message::query()->where('created_at', '>=', today())->count(),
+            'banned_users' => User::query()->where('status', User::STATUS_BANNED)->count(),
+            'groups' => Conversation::query()->where('type', Conversation::TYPE_GROUP)->where('is_announcement', false)->whereNull('ended_at')->count(),
+            'channels' => Conversation::query()->where('type', Conversation::TYPE_CHANNEL)->count(),
+            'communities' => Community::query()->count(),
+            'statuses' => Status::query()->active()->count(),
+            'calls_today' => Call::query()->where('created_at', '>=', today())->count(),
+            'open_reports' => UserReport::query()->open()->count(),
         ];
     }
 
@@ -70,7 +81,7 @@ class AdminService
     public function users(array $filters, int $perPage = 15): LengthAwarePaginator
     {
         return User::query()
-            ->when($filters['q'] ?? null, fn ($q, $term) => $q->search($term))
+            ->when($filters['q'] ?? null, fn ($q, $term) => $q->search($term, partialContact: true))
             ->when($filters['status'] ?? null, fn ($q, $status) => $q->where('status', $status))
             ->when($filters['role'] ?? null, fn ($q, $role) => $q->where('role', $role))
             ->when(($filters['online'] ?? null) === '1', fn ($q) => $q->online())
@@ -116,6 +127,49 @@ class AdminService
     public function deleteUser(User $user): void
     {
         $this->deletion->delete($user);
+    }
+
+    /**
+     * Edit someone's profile details from the admin panel.
+     *
+     * @param  array{name: string, username: string, email: string, phone: string, about?: ?string}  $data
+     */
+    public function updateProfile(User $user, array $data): User
+    {
+        $user->fill(['name' => $data['name'], 'username' => $data['username'], 'email' => $data['email']]);
+        if ($user->isDirty('email')) {
+            $user->email_verified_at = null;
+        }
+        if ((string) $user->phone !== $data['phone']) {
+            $user->forceFill(['phone' => $data['phone'], 'phone_verified_at' => null]);
+        }
+        $about = trim((string) preg_replace('/\s+/u', ' ', (string) ($data['about'] ?? '')));
+        $user->about = $about === '' ? null : mb_substr($about, 0, 139);
+        $user->save();
+
+        return $user;
+    }
+
+    public function setRole(User $user, string $role): User
+    {
+        $user->forceFill(['role' => $role])->save();
+
+        return $user;
+    }
+
+    /** Sign someone out of every browser and phone. */
+    public function logOutEverywhere(User $user): void
+    {
+        $this->signOutEverywhere($user);
+        $user->deviceTokens()->delete();
+    }
+
+    public function removePhoto(User $user): void
+    {
+        if ($user->profile_image) {
+            app(ImageService::class)->deleteAvatar($user->profile_image);
+            $user->forceFill(['profile_image' => null])->save();
+        }
     }
 
     private function signOutEverywhere(User $user): void

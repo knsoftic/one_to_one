@@ -36,9 +36,10 @@ class LastSeenPrivacyTest extends TestCase
             User::factory()->create(['name' => 'Sara']),
         ];
 
-        // Ayesha chats with Bilal; Sara is a stranger to her.
+        // Ayesha chats with Bilal (she wrote to him); Sara is a stranger to her.
         $chat = Conversation::factory()->between($this->ayesha, $this->bilal)->create();
-        $message = Message::factory()->inConversation($chat, $this->bilal)->create();
+        Message::factory()->inConversation($chat, $this->bilal)->create();
+        $message = Message::factory()->inConversation($chat, $this->ayesha)->create();
         $chat->forceFill(['last_message_id' => $message->id])->save();
 
         app(PresenceService::class)->touch($this->ayesha, force: true);
@@ -51,6 +52,12 @@ class LastSeenPrivacyTest extends TestCase
 
         $this->ayesha->forceFill(['last_seen_privacy' => 'contacts'])->save();
         $this->assertSeesPresence($this->bilal, online: true, lastSeen: true);
+        $this->assertSeesPresence($this->sara, online: true, lastSeen: false);
+
+        // A stranger's unanswered message doesn't make them her contact.
+        $strangerChat = Conversation::factory()->between($this->ayesha, $this->sara)->create();
+        $hello = Message::factory()->inConversation($strangerChat, $this->sara)->create();
+        $strangerChat->forceFill(['last_message_id' => $hello->id])->save();
         $this->assertSeesPresence($this->sara, online: true, lastSeen: false);
 
         // Someone who saved Ayesha isn't her contact; someone Ayesha saved is.

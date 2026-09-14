@@ -294,9 +294,10 @@ export class AttachmentComposer {
             : '';
     }
 
-    /** View once is not offered in "Message yourself" (C7): null hides the switch. */
+    /** View once is only offered in one-to-one chats (not "Message yourself", C7): null hides the switch. */
     viewOnceChoice() {
-        return this.chat.activeConversation?.()?.is_self ? null : this.viewOnce;
+        const conversation = this.chat.activeConversation?.();
+        return conversation?.is_self || (conversation?.type && conversation.type !== 'direct') ? null : this.viewOnce;
     }
 
     clear() {

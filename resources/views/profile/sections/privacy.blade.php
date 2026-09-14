@@ -57,6 +57,17 @@
     </button>
 </div>
 
+<div class="wa-group">
+    <h3 class="wa-group-title">Your messages</h3>
+    <div class="wa-row">
+        <x-icon name="eye" class="wa-row-icon" />
+        <span class="wa-row-body">
+            <span class="wa-row-title">Who can read chats</span>
+            <span class="wa-row-text" data-admin-access-note>Chats on {{ config('app.name') }} aren't end-to-end encrypted. To keep the app safe, its administrators can open chats, messages and files — for example after a report. Every time they do, it is recorded.</span>
+        </span>
+    </div>
+</div>
+
 {{-- App lock (P8): shown only inside the Android app --}}
 <div class="wa-group" data-app-lock-row hidden>
     <h3 class="wa-group-title">App lock</h3>

@@ -39,6 +39,9 @@ const ICONS = [
     'smartphone', 'scan-line', 'fingerprint-pattern',
     // Phase 7 — account
     'message-square', 'log-in', 'triangle-alert', 'file-json', 'file-down', 'scan-qr-code', 'arrow-right-left',
+    // Admin panel
+    'message-square-warning', 'calendar', 'gavel', 'shield-ban', 'history', 'sliders-horizontal', 'user-pen', 'image-off', 'crown',
+    'scroll-text', 'message-square-off', 'layers', 'clipboard-list', 'file-search', 'inbox',
 ];
 
 const pascal = (name) => name.replace(/(^|-)([a-z0-9])/g, (_, __, c) => c.toUpperCase());

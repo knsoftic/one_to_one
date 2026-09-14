@@ -48,5 +48,23 @@ document.addEventListener('submit', async (event) => {
     }
 });
 
+// Notice for everyone (admin panel): hidden in this browser once closed.
+document.querySelectorAll('[data-app-notice]').forEach((notice) => {
+    const key = `app-notice:${notice.dataset.appNotice}`;
+    try {
+        if (localStorage.getItem(key)) notice.remove();
+    } catch {
+        /* storage unavailable: keep showing it */
+    }
+    notice.querySelector('[data-app-notice-close]')?.addEventListener('click', () => {
+        notice.remove();
+        try {
+            localStorage.setItem(key, '1');
+        } catch {
+            /* storage unavailable */
+        }
+    });
+});
+
 if (config.flash?.status) toast.success(config.flash.status);
 if (config.flash?.error) toast.error(config.flash.error);

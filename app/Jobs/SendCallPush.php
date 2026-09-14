@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Models\Call;
 use App\Services\ContactService;
+use App\Services\PrivacyService;
 use App\Services\PushService;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Support\Facades\Log;
@@ -50,7 +51,7 @@ class SendCallPush
                     'caller_id' => $caller->id,
                     // The name saved in the callee's phone book, like WhatsApp.
                     'caller_name' => $contacts->savedNames($callee, [$caller->id])[$caller->id] ?? $caller->name,
-                    'avatar_url' => $caller->avatar_url,
+                    'avatar_url' => app(PrivacyService::class)->canSeePhoto($caller, $callee) ? $caller->avatar_url : null,
                     'initials' => $caller->initials,
                     'avatar_hue' => $caller->avatar_hue,
                     'started_at' => $call->created_at?->getTimestampMs(),

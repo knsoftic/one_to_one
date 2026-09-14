@@ -290,7 +290,28 @@ class GroupService
             throw new HttpException(422, 'Delete the community to delete its announcements.');
         }
 
-        $notice = $this->notice($by, $group, 'group_ended', [], broadcast: false);
+        $this->close($group, $by, ['id' => $by->getKey(), 'name' => $by->name]);
+    }
+
+    /**
+     * The app's administrators delete a group for everyone (admin panel).
+     */
+    public function endByModerator(Conversation $group, User $admin): void
+    {
+        abort_unless($group->isGroup() && $group->ended_at === null, 404);
+
+        $this->close($group, $admin, self::MODERATOR);
+    }
+
+    /** Who a notice names when the app's administrators act. */
+    public const MODERATOR = ['id' => 0, 'name' => 'An administrator'];
+
+    /**
+     * @param  array{id: int, name: string}  $actor
+     */
+    private function close(Conversation $group, User $by, array $actor): void
+    {
+        $notice = $this->messages->systemNotice($by, $group, ['event' => 'group_ended', 'actor' => $actor]);
         $members = $group->activeMembers()->get();
 
         DB::transaction(function () use ($group, $members, $notice) {
@@ -420,9 +441,9 @@ class GroupService
             $request ??= request();
             $members = $group->members()->with('user')->orderByDesc('role')->orderBy('joined_at')->get()
                 ->filter(fn (ConversationMember $member) => $member->user !== null)
-                ->filter(fn (ConversationMember $member) => ! $hideMembers
-                    || (int) $member->user_id === (int) $viewer->getKey()
-                    || ($member->isActive() && $member->role === ConversationMember::ROLE_ADMIN));
+                ->filter(fn (ConversationMember $member) => (int) $member->user_id === (int) $viewer->getKey()
+                    // Someone who left or was removed no longer sees who is in the group.
+                    || ($active && (! $hideMembers || ($member->isActive() && $member->role === ConversationMember::ROLE_ADMIN))));
             $saved = $this->contacts->savedNames($viewer, $members->pluck('user_id')->all());
 
             $payload['members'] = $members

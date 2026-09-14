@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\BlockedUser;
 use App\Models\Contact;
 use App\Models\Conversation;
+use App\Models\Message;
 use App\Models\User;
 use Illuminate\Support\Collection;
 
@@ -151,7 +152,7 @@ class PrivacyService
     private function contactOwnersFor(int $viewerId): array
     {
         return $this->contactOf[$viewerId] ??= Contact::query()->where('contact_user_id', $viewerId)->pluck('user_id')
-            ->concat($this->chatPartnerIds($viewerId))
+            ->concat($this->peopleWhoWroteTo($viewerId))
             ->mapWithKeys(fn ($id) => [(int) $id => true])
             ->all();
     }
@@ -180,5 +181,18 @@ class PrivacyService
             ->map(fn (Conversation $c) => (int) $c->user_one_id === $userId ? (int) $c->user_two_id : (int) $c->user_one_id)
             ->reject(fn (int $id) => $id === $userId)
             ->values();
+    }
+
+    /**
+     * People who sent $userId a one-to-one message: $userId is in their contacts.
+     * A stranger's unanswered "hi" doesn't make them a contact of the person they wrote to.
+     *
+     * @return Collection<int, int>
+     */
+    private function peopleWhoWroteTo(int $userId): Collection
+    {
+        return Message::query()->where('receiver_id', $userId)->where('sender_id', '!=', $userId)
+            ->where('message_type', '!=', Message::TYPE_SYSTEM)
+            ->distinct()->pluck('sender_id')->map(fn ($id) => (int) $id);
     }
 }

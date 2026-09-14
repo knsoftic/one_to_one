@@ -101,6 +101,13 @@
 
             {{-- ======================= Chats view ======================= --}}
             <div class="sidebar-view" data-sidebar-view="chats">
+            @if (filled($appNotice = \App\Models\AppSetting::get('notice')))
+                <div class="app-notice" role="status" data-app-notice="{{ md5($appNotice) }}">
+                    <x-icon name="megaphone" />
+                    <p>{{ $appNotice }}</p>
+                    <button type="button" data-app-notice-close aria-label="Hide notice"><x-icon name="x" class="icon-sm" /></button>
+                </div>
+            @endif
             <div class="sidebar-search">
                 <div class="input-wrap">
                     <x-icon name="search" />

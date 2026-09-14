@@ -483,6 +483,10 @@ export class Statuses {
         this.recomputeViewed();
         this.render();
         this.updateDot();
+        if (this.reloadAfterViewer) {
+            this.reloadAfterViewer = false;
+            this.load();
+        }
     }
 
     recomputeViewed() {
@@ -581,7 +585,9 @@ export class Statuses {
     onRemoteUpdate() {
         clearTimeout(this.remoteTimer);
         this.remoteTimer = setTimeout(() => {
-            if (!this.viewer) this.load();
+            // While an update is open, reload once the viewer closes.
+            if (this.viewer) this.reloadAfterViewer = true;
+            else this.load();
         }, 800);
     }
 

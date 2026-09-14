@@ -496,6 +496,19 @@ class CallRoomService
         }
     }
 
+    /** Close the places of people whose devices stopped reporting in, in every group call (scheduled). */
+    public function expireAllStale(): int
+    {
+        $deadline = now()->subSeconds((int) config('chat.calls.stale_after_seconds', 90));
+        $rooms = CallRoom::query()->active()
+            ->whereHas('participants', fn ($q) => $q->joined()->where('last_seen_at', '<', $deadline))
+            ->limit(100)->get();
+
+        $rooms->each(fn (CallRoom $room) => $this->expireStale($room));
+
+        return $rooms->count();
+    }
+
     /** In a call already (ringing or talking one-to-one, or in a group call). */
     public function isBusy(User|int $user): bool
     {
@@ -503,6 +516,8 @@ class CallRoomService
 
         return Call::query()->active()->involving($id)->exists()
             || CallRoomParticipant::query()->joined()->where('user_id', $id)
+                // A device that stopped reporting in isn't in the call any more.
+                ->where('last_seen_at', '>=', now()->subSeconds((int) config('chat.calls.stale_after_seconds', 90)))
                 ->whereHas('room', fn ($q) => $q->active())
                 ->exists();
     }

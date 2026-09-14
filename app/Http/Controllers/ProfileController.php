@@ -61,14 +61,13 @@ class ProfileController extends Controller
             $request->boolean('remove_profile_image'),
         );
 
-        return redirect()->route('profile.edit')->with('status', 'Your profile has been updated.');
+        return redirect()->route('profile.edit', ['tab' => 'profile'])->with('status', 'Your profile has been updated.');
     }
 
     public function updatePassword(UpdatePasswordRequest $request): RedirectResponse
     {
-        $this->accounts->updatePassword($request->user(), $request->validated('password'));
-
         $request->session()->regenerate();
+        $this->accounts->updatePassword($request->user(), $request->validated('password'), $request->session()->getId());
 
         return redirect()->route('profile.edit', ['tab' => 'security'])->with('status', 'Your password has been changed.');
     }

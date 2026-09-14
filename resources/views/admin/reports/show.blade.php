@@ -9,7 +9,12 @@
                     <h2 class="text-xl font-bold mt-2">{{ $report->reportedUser->name }}</h2>
                     <p class="text-muted">{{ '@'.$report->reportedUser->username }}</p>
                     <div class="flex flex-wrap justify-center gap-1.5"><x-admin.status-badge :user="$report->reportedUser" /></div>
-                    <div class="mt-3"><x-admin.user-actions :user="$report->reportedUser" /></div>
+                    <div class="mt-3 flex flex-wrap justify-center gap-2">
+                        @if ($report->conversation_id)
+                            <a href="{{ route('admin.chats.show', $report->conversation_id) }}" class="btn btn-primary btn-sm"><x-icon name="message-circle" /> Open the chat</a>
+                        @endif
+                        <x-admin.user-actions :user="$report->reportedUser" />
+                    </div>
                     <a href="{{ route('admin.users.show', $report->reportedUser) }}" class="text-sm text-primary mt-1">View account</a>
                 </div>
             @endif

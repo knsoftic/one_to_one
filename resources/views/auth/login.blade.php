@@ -53,10 +53,12 @@
         </a>
     @endif
 
-    <p class="auth-alt">
-        Don't have an account?
-        <a href="{{ route('register') }}" class="auth-link">Create one</a>
-    </p>
+    @if (\App\Models\AppSetting::get('registration_open'))
+        <p class="auth-alt">
+            Don't have an account?
+            <a href="{{ route('register') }}" class="auth-link">Create one</a>
+        </p>
+    @endif
     </div>
 
     {{-- Log in with your phone (P10) --}}

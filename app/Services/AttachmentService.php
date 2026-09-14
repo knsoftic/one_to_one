@@ -80,7 +80,7 @@ class AttachmentService
         }
 
         // A forwarded photo stands on its own, outside the original album.
-        $meta = array_diff_key($message->attachment_meta ?? [], ['album' => true]);
+        $meta = array_diff_key($message->attachment_meta ?? [], ['album' => true, 'mentions' => true, 'mention_ids' => true]);
         $directory = now()->format('Y/m');
         $basename = Str::uuid()->toString();
         $extension = pathinfo($message->attachment, PATHINFO_EXTENSION);

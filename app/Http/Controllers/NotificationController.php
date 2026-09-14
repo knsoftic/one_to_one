@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ChatSetting;
+use App\Services\ChatLockService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Notifications\DatabaseNotification;
@@ -15,13 +17,21 @@ class NotificationController extends Controller
     {
         $user = $request->user();
 
+        // Chats in "Locked chats" (C9) stay hidden until the secret code is entered.
+        $locked = app(ChatLockService::class)->isUnlocked()
+            ? []
+            : ChatSetting::query()->where('user_id', $user->getKey())->whereNotNull('locked_at')->pluck('conversation_id')->map(fn ($id) => (int) $id)->all();
+
         $notifications = $user->notifications()
             ->latest()
             ->limit(20)
             ->get()
             ->map(fn (DatabaseNotification $notification) => [
                 'id' => $notification->id,
-                'data' => $notification->data,
+                'data' => in_array((int) ($notification->data['conversation_id'] ?? 0), $locked, true)
+                    ? ['type' => $notification->data['type'] ?? 'new_message', 'title' => 'New message', 'body' => '', 'conversation_id' => (int) $notification->data['conversation_id'], 'locked' => true,
+                        'sender' => ['id' => 0, 'name' => config('app.name'), 'display_name' => config('app.name'), 'username' => null, 'avatar_url' => null, 'initials' => '', 'avatar_hue' => 0]]
+                    : $notification->data,
                 'read' => $notification->read_at !== null,
                 'created_at' => $notification->created_at?->toIso8601String(),
             ]);

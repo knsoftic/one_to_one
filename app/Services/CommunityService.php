@@ -110,14 +110,32 @@ class CommunityService
     public function delete(Community $community, User $by): void
     {
         $this->ensureAdmin($community, $by);
+        $this->destroy($community, $by);
+    }
+
+    /** The app's administrators delete a community (admin panel). Its groups stay as ordinary groups. */
+    public function deleteByModerator(Community $community, User $admin): void
+    {
+        $this->destroy($community, $admin, GroupService::MODERATOR);
+    }
+
+    /**
+     * @param  array{id: int, name: string}|null  $actor
+     */
+    private function destroy(Community $community, User $by, ?array $actor = null): void
+    {
         $announcement = $this->announcement($community);
 
         foreach ($community->groups()->get() as $group) {
             $group->forceFill(['community_id' => null])->save();
-            $this->notice($by, $group, 'community_unlinked', ['name' => $community->name]);
+            $this->notice($by, $group, 'community_unlinked', ['name' => $community->name], $actor);
         }
 
-        $this->groups->end($announcement, $by, forCommunity: true);
+        if ($actor === null) {
+            $this->groups->end($announcement, $by, forCommunity: true);
+        } elseif ($announcement->ended_at === null) {
+            $this->groups->endByModerator($announcement, $by);
+        }
         $announcement->forceFill(['community_id' => null, 'is_announcement' => false])->save();
         $community->delete();
     }
@@ -401,10 +419,11 @@ class CommunityService
 
     /**
      * @param  array<string, mixed>  $meta
+     * @param  array{id: int, name: string}|null  $named  who the notice names (defaults to $actor)
      */
-    private function notice(User $actor, Conversation $group, string $event, array $meta): void
+    private function notice(User $actor, Conversation $group, string $event, array $meta, ?array $named = null): void
     {
-        $this->messages->systemNotice($actor, $group, ['event' => $event, 'actor' => ['id' => $actor->getKey(), 'name' => $actor->name]] + $meta);
+        $this->messages->systemNotice($actor, $group, ['event' => $event, 'actor' => $named ?? ['id' => $actor->getKey(), 'name' => $actor->name]] + $meta);
         broadcast(new GroupUpdated($group));
     }
 

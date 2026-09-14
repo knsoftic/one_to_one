@@ -3,10 +3,12 @@
 namespace App\Http\Requests\Auth;
 
 use App\Models\User;
+use App\Services\BanService;
 use App\Support\Phone;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
@@ -57,6 +59,15 @@ class LoginRequest extends FormRequest
 
         /** @var User $user */
         $user = Auth::getLastAttempted();
+
+        // Banned (admin panel): the ban screen explains why and until when.
+        $bans = app(BanService::class);
+        if ($user->isBanned() && ! $bans->liftIfEnded($user)) {
+            RateLimiter::clear($this->throttleKey());
+            $bans->remember($this, $user);
+
+            throw new HttpResponseException(redirect()->route('account.banned'));
+        }
 
         if (! $user->isActive()) {
             throw ValidationException::withMessages([

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Conversation;
 use App\Models\User;
 use App\Models\UserReport;
+use App\Services\AdminAuditService;
 use App\Services\ReportService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -64,6 +65,8 @@ class ReportController extends Controller
         ]);
 
         $this->reports->review($report, $request->user(), $validated['status'], $validated['admin_note'] ?? null);
+        $report->loadMissing('reportedUser');
+        app(AdminAuditService::class)->record($request->user(), 'report.updated', $report, 'Marked the report about '.($report->reportedUser?->name ?? 'a deleted account').' as '.$validated['status']);
 
         return redirect()->route('admin.reports.show', $report)->with('status', match ($validated['status']) {
             UserReport::STATUS_REVIEWED => 'Report marked as reviewed.',

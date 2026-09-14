@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Resources\ConversationResource;
 use App\Models\ChatSetting;
 use App\Models\Conversation;
+use App\Services\ChatLockService;
 use App\Services\ChatSettingsService;
 use App\Services\ConversationService;
 use Illuminate\Http\JsonResponse;
@@ -45,6 +46,9 @@ class ChatSettingsController extends Controller
         }
 
         abort_if(($changes['locked'] ?? false) && ! $request->user()->chat_lock_pin, 422, 'Create a secret code first.');
+        // Taking a chat out of "Locked chats" needs the secret code first (C9).
+        abort_if(array_key_exists('locked', $changes) && ! $changes['locked'] && ! app(ChatLockService::class)->isUnlocked()
+            && ChatSetting::query()->where('user_id', $request->user()->getKey())->where('conversation_id', $conversation->getKey())->whereNotNull('locked_at')->exists(), 423, 'Enter your secret code to unlock chats first.');
 
         try {
             $this->settings->update($request->user(), $conversation, $changes);

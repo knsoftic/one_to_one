@@ -128,7 +128,7 @@ class ConversationTest extends TestCase
         $this->actingAs($intruder)->getJson('/conversations')->assertOk()->assertJsonCount(0);
     }
 
-    public function test_admins_cannot_read_private_conversations_either(): void
+    public function test_admins_cannot_open_other_peoples_chats_in_the_chat_app(): void
     {
         [$a, $b] = User::factory()->count(2)->create();
         $admin = User::factory()->admin()->create();
@@ -137,7 +137,7 @@ class ConversationTest extends TestCase
         $this->actingAs($admin)->getJson("/conversations/{$conversation->id}/messages")->assertNotFound();
     }
 
-    public function test_search_finds_users_by_name_username_email_and_phone(): void
+    public function test_search_finds_users_by_name_username_full_email_and_phone(): void
     {
         $me = User::factory()->create();
         $target = User::factory()->create([
@@ -145,7 +145,8 @@ class ConversationTest extends TestCase
         ]);
         User::factory()->suspended()->create(['name' => 'Ahmed Suspended']);
 
-        foreach (['Ahmed', '@ahmed.raza', 'ahmed.r@example', '0345 1234', '3451234567'] as $term) {
+        // Email and mobile number only match in full (G: nobody can guess them letter by letter).
+        foreach (['Ahmed', '@ahmed.raza', 'ahmed.r@example.com', '0345 1234567', '3451234567'] as $term) {
             $this->actingAs($me)->getJson('/users/search?q='.urlencode($term))
                 ->assertOk()
                 ->assertJsonFragment(['id' => $target->id]);

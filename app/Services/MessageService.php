@@ -137,8 +137,9 @@ class MessageService
         $viewOnce = filter_var($data['view_once'] ?? false, FILTER_VALIDATE_BOOL)
             && in_array($type, [Message::TYPE_IMAGE, Message::TYPE_VIDEO, Message::TYPE_VOICE], true)
             && ! str_ends_with(strtolower($file->getClientOriginalName()), '.gif')
-            // Nobody else could ever open it in "Message yourself".
-            && ! $conversation->isSelf();
+            // Nobody else could ever open it in "Message yourself"; one-to-one chats only.
+            && ! $conversation->isSelf()
+            && ! $conversation->hasMembers();
 
         if ($viewOnce) {
             $meta['view_once'] = true;

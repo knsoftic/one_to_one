@@ -50,6 +50,21 @@
             </label>
         @endforeach
 
+        {{-- Changing the email asks for the password (shown once the email is edited). --}}
+        @php($passwordInvalid = $errors->getBag('profile')->has('current_password'))
+        <label class="wa-field" for="profile-current-password" data-email-password @unless ($passwordInvalid) hidden @endunless>
+            <x-icon name="lock" class="wa-field-icon" />
+            <span class="wa-field-body">
+                <span class="wa-field-label">Current password</span>
+                <input id="profile-current-password" name="current_password" type="password" autocomplete="current-password" @class(['wa-field-input', 'is-invalid' => $passwordInvalid]) data-profile-input>
+                @if ($passwordInvalid)
+                    <span class="form-error"><x-icon name="circle-alert" />{{ $errors->getBag('profile')->first('current_password') }}</span>
+                @else
+                    <span class="wa-field-hint">Needed to change your email.</span>
+                @endif
+            </span>
+        </label>
+
         <button type="button" class="wa-field" data-settings-open="account">
             <x-icon name="phone" class="wa-field-icon" />
             <span class="wa-field-body">

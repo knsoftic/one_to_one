@@ -96,6 +96,13 @@ class ChannelService
     public function delete(Conversation $channel, User $by): void
     {
         $this->ensureAdmin($channel, $by);
+        $this->destroy($channel);
+    }
+
+    /** Remove a channel with its updates and files (also used by the admin panel). */
+    public function destroy(Conversation $channel): void
+    {
+        abort_unless($channel->isChannel(), 404);
 
         broadcast(new GroupUpdated($channel));
 

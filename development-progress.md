@@ -929,3 +929,29 @@ PHPUnit **402 passed**, Vitest **170 passed**, Pint ✅, build ✅, migration ro
 - Tests: `CommunityTest` +2 (members see only admins and themselves, admins see all, no join / add / leave / remove notices, reactions and votes hidden from members, quiet removal keeps visibility, community groups still show members; the migration removes old notices and keeps ordinary group notices). `groups.test.js` +1 (count-only header, private note and admins list, no Add members, admin view, no call buttons).
 - Checked in the browser: community announcements info on a phone (dark).
 - Verification: PHPUnit **404 passed**, Vitest **177 passed**, Pint ✅, build ✅.
+
+## Admin panel (full control), bans and the feature check ✅
+**Admin panel** (WhatsApp colours, menu slides in on phones):
+- **Dashboard**: users, online, messages (today), chats, groups, channels, communities, live status updates, calls today, open reports, banned, blocked; messages per day for 14 days; account health (active / inactive / suspended / banned); newest users; latest admin activity.
+- **Users**: search (parts of email / number allowed for admins), filters incl. **Banned**. A user's page: profile, ban details, email / mobile (verified), last seen, two-step, privacy, reports, where they're signed in, counts (sent / received / chats / groups / communities / channels / blocks), their chats (open any), and tools: **Ban** (1 / 3 / 7 / 30 / 90 days or permanent, with a reason the person sees), lift ban, **edit profile**, **make / remove administrator** (never yourself, never the last admin), activate / deactivate / suspend, **sign out of every device**, remove profile photo, turn off two-step verification, status updates, admin history, delete account. Other admins are protected until their role is removed.
+- **Chats**: every one-to-one chat, group, community announcement, channel and broadcast list (search by name or person, per user). The **chat viewer** reads like WhatsApp (wallpaper, bubbles, sender names, photos / videos / voice / files / locations / contacts / polls / calls / replies / reactions / ticks, older pages) with **Delete for everyone** per message. **Search messages** across all chats with highlighted matches.
+- **Groups, Channels, Communities**: lists and pages (members / followers / admins, details, groups of a community) with **delete** (groups show "An administrator deleted this group"; a deleted community's groups stay as ordinary groups). **Status updates**: live updates with previews and delete.
+- **Audit log**: every chat opened, message search, ban / unban, status / role / profile edit, sign-out, photo removal, two-step reset, deletions, report review and settings change — who, when, network; filters. **App settings**: allow new accounts on / off, and a **notice for everyone** shown at the top of the chats (closable per browser).
+- Honesty for users (chosen: notice + access log): Settings → Privacy → "Who can read chats" explains administrators can open chats and every access is recorded; the login page no longer says "Private by default".
+
+**Ban screen**: banned people are signed out everywhere (sessions, remember token, phone push tokens) and see "Your account has been banned" with the reason, when it ends (or "Permanent") and since when; signing in shows it too; the app's requests get 403 `banned: true`. Temporary bans end by themselves (on the next visit and `chat:lift-bans` every 5 minutes).
+
+**Feature check** (whole app reviewed; confirmed problems fixed):
+- Delete my account did nothing (confirm dialog + loading spinner cancelled the submit).
+- People added to a group later could quote older messages to read them, and got edits / reactions of older messages.
+- Changing / resetting the password now signs out every other browser; changing the email needs the current password and the old address gets an email.
+- User search no longer matches parts of emails or mobile numbers (only in full), so they can't be guessed letter by letter.
+- A locked chat can't be taken out of "Locked chats" through the API without the code, and the notification bell hides locked chats.
+- "My contacts" no longer includes strangers who only sent you a message (status, last seen, photo, About).
+- Read receipts off now also hides blue ticks of broadcast list messages; channel followers don't see which admin posted; people who left a group no longer see its member list; photo privacy in the blocked list and incoming call notifications; forwarded media no longer carries @mentions; view once is only for one-to-one chats; two-step PIN guesses are also limited per account; abandoned group calls no longer keep someone "busy" (scheduled clean-up); "Add person" in a call works when the live connection missed the update; the status list reloads after closing the viewer; saving the profile returns to the Profile screen; app lock timeout select fixed on phones.
+
+**Files**: `app/Http/Controllers/Admin/{UserModerationController,ChatController,SpaceController,SystemController}.php`, `AdminController`, `AdminContentService`, `AdminAuditService`, `BanService`, models `AdminAuditLog`, `AppSetting`, migration `2026_09_25_000001_create_admin_tools`, views `admin/**`, `auth/banned.blade.php`, `resources/css/admin.css` (rebuilt), middleware `EnsureAccountIsActive`, `EmailChangedNotification`.
+**Tests**: `tests/Feature/Admin/{BanTest,AdminContentTest,AdminAccountsTest}`, `tests/Feature/Chat/SafetyFixesTest`, profile / privacy / search tests updated, `resources/js/ui/__tests__/forms.test.js`.
+**Checked in the browser**: admin dashboard, chat viewer and user page (desktop and phone, dark), phone menu, ban screen.
+**Verification**: PHPUnit **424 passed**, Vitest **179 passed**, Pint ✅, build ✅.
+**Deploy**: `php artisan migrate` (deploy script). The scheduler must run for temporary bans to end on time (they also end on the person's next visit).

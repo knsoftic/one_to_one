@@ -3,9 +3,12 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use App\Notifications\EmailChangedNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -28,8 +31,9 @@ class ProfileTest extends TestCase
             'name' => 'Updated Name',
             'username' => 'updated.user',
             'email' => 'UPDATED@example.com',
+            'current_password' => 'Password1',
             'phone' => '+1 (555) 010-9999',
-        ])->assertRedirect(route('profile.edit'))->assertSessionHasNoErrors();
+        ])->assertRedirect(route('profile.edit', ['tab' => 'profile']))->assertSessionHasNoErrors();
 
         $user->refresh();
         $this->assertSame('Updated Name', $user->name);
@@ -37,6 +41,33 @@ class ProfileTest extends TestCase
         $this->assertSame('updated@example.com', $user->email);
         // The number changes only with "Change number" (A2).
         $this->assertNotSame('+15550109999', $user->phone);
+    }
+
+    public function test_changing_the_email_needs_the_password_and_tells_the_old_address(): void
+    {
+        Notification::fake();
+        $user = User::factory()->create(['email' => 'old@example.com']);
+        $data = ['name' => $user->name, 'username' => $user->username, 'email' => 'new@example.com'];
+
+        $this->actingAs($user)->put('/settings/profile', $data)->assertSessionHasErrorsIn('profile', ['current_password']);
+        $this->actingAs($user)->put('/settings/profile', $data + ['current_password' => 'wrong'])->assertSessionHasErrorsIn('profile', ['current_password']);
+        $this->assertSame('old@example.com', $user->fresh()->email);
+
+        $this->actingAs($user)->put('/settings/profile', $data + ['current_password' => 'Password1'])->assertSessionHasNoErrors();
+        $this->assertSame('new@example.com', $user->fresh()->email);
+        Notification::assertSentOnDemand(EmailChangedNotification::class, fn ($notification, $channels, $notifiable) => $notifiable->routes['mail'] === 'old@example.com');
+
+        // Other changes don't need it.
+        $this->actingAs($user)->put('/settings/profile', ['name' => 'New Name'] + $data)->assertSessionHasNoErrors();
+    }
+
+    public function test_changing_the_password_signs_out_other_browsers(): void
+    {
+        $user = User::factory()->create();
+        DB::table('sessions')->insert(['id' => 'other-browser', 'user_id' => $user->id, 'payload' => '', 'last_activity' => time()]);
+
+        $this->actingAs($user)->put('/settings/password', ['current_password' => 'Password1', 'password' => 'BrandNew123', 'password_confirmation' => 'BrandNew123'])->assertSessionHasNoErrors();
+        $this->assertDatabaseMissing('sessions', ['id' => 'other-browser']);
     }
 
     public function test_profile_update_keeps_own_unique_values(): void

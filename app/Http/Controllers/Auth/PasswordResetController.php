@@ -9,6 +9,7 @@ use App\Models\User;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
@@ -50,8 +51,9 @@ class PasswordResetController extends Controller
                     'remember_token' => Str::random(60),
                 ])->save();
 
-                // Sign out the mobile app everywhere.
+                // Sign out the mobile app and every browser.
                 $user->deviceTokens()->delete();
+                DB::table('sessions')->where('user_id', $user->getKey())->delete();
 
                 event(new PasswordReset($user));
             }

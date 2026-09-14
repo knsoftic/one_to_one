@@ -8,10 +8,10 @@
             </a>
 
             <div>
-                <h1 class="auth-hero-title">Private conversations, delivered instantly.</h1>
+                <h1 class="auth-hero-title">Your conversations, delivered instantly.</h1>
                 <p class="auth-hero-text">
                     Real-time one-to-one messaging with read receipts, voice notes, file sharing and
-                    typing indicators — secure by design.
+                    typing indicators.
                 </p>
 
                 <div class="auth-preview" aria-hidden="true">
@@ -34,7 +34,7 @@
                 </div>
 
                 <div class="auth-features">
-                    <span class="auth-feature"><x-icon name="shield-check" /> Private by default</span>
+                    <span class="auth-feature"><x-icon name="shield-check" /> Block &amp; report</span>
                     <span class="auth-feature"><x-icon name="check-check" /> Read receipts</span>
                     <span class="auth-feature"><x-icon name="mic" /> Voice notes</span>
                     <span class="auth-feature"><x-icon name="moon" /> Dark mode</span>

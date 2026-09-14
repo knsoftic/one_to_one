@@ -103,6 +103,8 @@ function initLoadingForms() {
     document.addEventListener('submit', (event) => {
         const form = event.target;
         if (!form.matches('[data-loading-form]')) return;
+        // Forms that ask first (data-confirm) show the spinner once confirmed.
+        if (form.matches('[data-confirm]') && form.dataset.confirmed !== '1') return;
 
         const button = form.querySelector('button[type="submit"]');
         if (!button || button.classList.contains('is-loading')) {

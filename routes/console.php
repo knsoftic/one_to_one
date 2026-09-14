@@ -3,6 +3,8 @@
 use App\Console\Commands\ChatDoctor;
 use App\Models\LinkPreview;
 use App\Models\User;
+use App\Services\BanService;
+use App\Services\CallRoomService;
 use App\Services\CallService;
 use App\Services\DisappearingMessageService;
 use App\Services\OtpService;
@@ -54,8 +56,14 @@ Artisan::command('chat:purge-view-once', function (ViewOnceService $viewOnce) {
     $this->info("Removed the files of {$count} opened view once message(s).");
 })->purpose('Remove media of view once messages after they were opened');
 
-Artisan::command('chat:expire-calls', function (CallService $calls) {
+Artisan::command('chat:lift-bans', function (BanService $bans) {
+    $count = $bans->liftEnded();
+    $this->info("Lifted {$count} ban(s) whose time is up.");
+})->purpose('Lift temporary bans that have ended');
+
+Artisan::command('chat:expire-calls', function (CallService $calls, CallRoomService $rooms) {
     $count = $calls->expireStale();
+    $rooms->expireAllStale();
     $this->info("Closed {$count} unanswered or abandoned call(s).");
 })->purpose('End calls nobody answered and calls whose devices disconnected');
 
@@ -74,6 +82,7 @@ Schedule::command('chat:expire-calls')->everyMinute()->withoutOverlapping();
 Schedule::command('chat:expire-messages')->everyMinute()->withoutOverlapping();
 Schedule::command('chat:purge-view-once')->everyMinute()->withoutOverlapping();
 Schedule::command('chat:expire-statuses')->everyFiveMinutes()->withoutOverlapping();
+Schedule::command('chat:lift-bans')->everyFiveMinutes()->withoutOverlapping();
 // SMS codes that expired more than a day ago (Phase 7).
 Schedule::call(fn () => app(OtpService::class)->prune())->daily()->name('prune-otp-codes');
 // Link previews no message uses anymore (and their images).

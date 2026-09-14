@@ -141,11 +141,14 @@ class BroadcastService
 
         $now = now();
         $originals = Message::query()->whereKey($originalIds)->get(['id', 'conversation_id', 'sender_id', 'delivered_at', 'seen_at']);
+        // A copy counts as read only when its recipient shares read receipts (P3).
         $stats = Message::query()->whereIn('broadcast_message_id', $originalIds)
+            ->join('users as recipients', 'recipients.id', '=', 'messages.receiver_id')
             ->groupBy('broadcast_message_id')
-            ->selectRaw('broadcast_message_id, COUNT(*) as total, COUNT(delivered_at) as delivered, COUNT(seen_at) as seen')
+            ->selectRaw('broadcast_message_id, COUNT(*) as total, COUNT(messages.delivered_at) as delivered, SUM(messages.seen_at IS NOT NULL AND recipients.read_receipts = 1) as seen')
             ->get()
             ->keyBy('broadcast_message_id');
+        $receipts = app(ReadReceiptService::class);
 
         foreach ($originals as $original) {
             $stat = $stats->get($original->id);
@@ -157,7 +160,7 @@ class BroadcastService
                 $original->forceFill(['delivered_at' => $now])->save();
                 broadcast(new MessagesStatusUpdated((int) $original->conversation_id, (int) $original->sender_id, [(int) $original->id], Message::STATUS_DELIVERED, $now->toIso8601String()));
             }
-            if (! $original->seen_at && $stat->seen >= $stat->total) {
+            if (! $original->seen_at && (int) $stat->seen >= (int) $stat->total && ! $receipts->hiddenBetween((int) $original->sender_id, 0)) {
                 $original->forceFill(['seen_at' => $now, 'delivered_at' => $original->delivered_at ?? $now])->save();
                 broadcast(new MessagesStatusUpdated((int) $original->conversation_id, (int) $original->sender_id, [(int) $original->id], Message::STATUS_SEEN, $now->toIso8601String()));
             }
@@ -171,12 +174,15 @@ class BroadcastService
      */
     public function receiptsFor(Message $original): Collection
     {
+        $receipts = app(ReadReceiptService::class);
+
         return Message::query()->where('broadcast_message_id', $original->getKey())
             ->get(['receiver_id', 'delivered_at', 'seen_at'])
             ->map(fn (Message $copy) => [
                 'user_id' => (int) $copy->receiver_id,
                 'delivered_at' => $copy->delivered_at?->toIso8601String(),
-                'seen_at' => $copy->seen_at?->toIso8601String(),
+                // Nobody sees when someone read it if either of them turned read receipts off (P3).
+                'seen_at' => $receipts->hiddenBetween((int) $original->sender_id, (int) $copy->receiver_id) ? null : $copy->seen_at?->toIso8601String(),
             ])
             ->values();
     }

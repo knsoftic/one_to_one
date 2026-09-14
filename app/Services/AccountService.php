@@ -3,8 +3,10 @@
 namespace App\Services;
 
 use App\Models\User;
+use App\Notifications\EmailChangedNotification;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
@@ -54,7 +56,8 @@ class AccountService
             $user->about = $about === '' ? null : mb_substr($about, 0, 139);
         }
 
-        if ($user->isDirty('email')) {
+        $oldEmail = $user->isDirty('email') ? (string) $user->getOriginal('email') : null;
+        if ($oldEmail !== null) {
             $user->email_verified_at = null;
         }
 
@@ -66,6 +69,10 @@ class AccountService
         }
 
         $user->save();
+
+        if ($oldEmail) {
+            Notification::route('mail', $oldEmail)->notify(new EmailChangedNotification($user->name, (string) $user->email));
+        }
 
         return $user;
     }
@@ -101,15 +108,21 @@ class AccountService
         return $user;
     }
 
-    public function updatePassword(User $user, string $password): void
+    /**
+     * @param  string|null  $keepSessionId  this browser stays signed in
+     */
+    public function updatePassword(User $user, string $password, ?string $keepSessionId = null): void
     {
         $user->forceFill([
             'password' => $password,
             'remember_token' => Str::random(60),
         ])->save();
 
-        // Phones signed in with the old password must sign in again.
+        // Phones and browsers signed in with the old password must sign in again.
         $user->deviceTokens()->delete();
+        DB::table('sessions')->where('user_id', $user->getKey())
+            ->when($keepSessionId, fn ($q) => $q->where('id', '!=', $keepSessionId))
+            ->delete();
     }
 
     public function updatePreferences(User $user, array $preferences): User

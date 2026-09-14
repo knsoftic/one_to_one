@@ -18,7 +18,8 @@ class UpdateUserStatusRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'status' => ['required', Rule::in(User::STATUSES)],
+            // Bans have their own form (length and reason).
+            'status' => ['required', Rule::in([User::STATUS_ACTIVE, User::STATUS_INACTIVE, User::STATUS_SUSPENDED])],
         ];
     }
 }

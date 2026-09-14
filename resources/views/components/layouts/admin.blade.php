@@ -1,49 +1,90 @@
-@props(['title' => null, 'heading' => null, 'subheading' => null])
+@props(['title' => null, 'heading' => null, 'subheading' => null, 'back' => null])
+@php
+    $openReports = \App\Models\UserReport::query()->open()->count();
+    $banned = \App\Models\User::query()->where('status', \App\Models\User::STATUS_BANNED)->count();
+    $nav = [
+        'Overview' => [
+            ['admin.dashboard', [], 'layout-dashboard', 'Dashboard', 'admin.dashboard', null],
+        ],
+        'People' => [
+            ['admin.users', [], 'users', 'Users', 'admin.users*', null],
+            ['admin.users', ['status' => 'banned'], 'shield-ban', 'Banned', null, $banned ?: null],
+            ['admin.reports', [], 'message-square-warning', 'Reports', 'admin.reports*', $openReports ?: null],
+        ],
+        'Content' => [
+            ['admin.chats', [], 'message-circle', 'Chats', 'admin.chats*', null],
+            ['admin.messages', [], 'file-search', 'Search messages', 'admin.messages*', null],
+            ['admin.groups', [], 'users-round', 'Groups', 'admin.groups*', null],
+            ['admin.channels', [], 'rss', 'Channels', 'admin.channels*', null],
+            ['admin.communities', [], 'layers', 'Communities', 'admin.communities*', null],
+            ['admin.statuses', [], 'circle-dashed', 'Status updates', 'admin.statuses*', null],
+        ],
+        'System' => [
+            ['admin.audit', [], 'scroll-text', 'Audit log', 'admin.audit*', null],
+            ['admin.settings', [], 'sliders-horizontal', 'App settings', 'admin.settings*', null],
+        ],
+    ];
+    $bannedFilter = request()->routeIs('admin.users') && request('status') === 'banned';
+@endphp
 <x-layouts.base :title="$title ? $title.' · Admin' : 'Admin'">
     <div class="admin-shell">
-        <aside class="admin-sidebar">
-            <a href="{{ route('admin.dashboard') }}" class="brand text-ink">
-                <span class="brand-mark"><x-icon name="shield-check" /></span>
-                <span>Admin <span class="text-muted font-semibold">Panel</span></span>
-            </a>
+        <input type="checkbox" id="admin-nav-toggle" class="admin-nav-toggle" aria-hidden="true" tabindex="-1">
 
-            <nav class="admin-nav" aria-label="Admin navigation">
-                <a href="{{ route('admin.dashboard') }}" @class(['admin-nav-link', 'is-active' => request()->routeIs('admin.dashboard')])>
-                    <x-icon name="layout-dashboard" /> Dashboard
-                </a>
-                <a href="{{ route('admin.users') }}" @class(['admin-nav-link', 'is-active' => request()->routeIs('admin.users*')])>
-                    <x-icon name="users" /> Users
-                </a>
-                <a href="{{ route('admin.users', ['status' => 'suspended']) }}" class="admin-nav-link">
-                    <x-icon name="user-x" /> Suspended
-                </a>
-                @php($openReports = \App\Models\UserReport::query()->open()->count())
-                <a href="{{ route('admin.reports') }}" @class(['admin-nav-link', 'is-active' => request()->routeIs('admin.reports*')])>
-                    <x-icon name="circle-alert" /> Reports
-                    @if ($openReports)<span class="badge badge-danger ml-auto">{{ $openReports }}</span>@endif
-                </a>
-                <div class="admin-nav-divider"></div>
-                <a href="{{ route('chat.index') }}" class="admin-nav-link"><x-icon name="message-circle" /> Back to chats</a>
-                <a href="{{ route('profile.edit') }}" class="admin-nav-link"><x-icon name="settings" /> Settings</a>
+        <aside class="admin-sidebar" aria-label="Admin navigation">
+            <div class="admin-brand">
+                <span class="admin-brand-mark"><x-icon name="shield-check" /></span>
+                <span class="admin-brand-text">
+                    <strong>{{ config('app.name') }}</strong>
+                    <small>Admin panel</small>
+                </span>
+                <label for="admin-nav-toggle" class="btn-icon admin-nav-close" aria-label="Close menu"><x-icon name="x" /></label>
+            </div>
+
+            <nav class="admin-nav">
+                @foreach ($nav as $group => $links)
+                    <div class="admin-nav-group">
+                        <span class="admin-nav-heading">{{ $group }}</span>
+                        @foreach ($links as [$route, $params, $icon, $label, $pattern, $count])
+                            @php
+                                $active = $label === 'Banned' ? $bannedFilter : ($pattern && request()->routeIs($pattern) && ! ($label === 'Users' && $bannedFilter));
+                            @endphp
+                            <a href="{{ route($route, $params) }}" @class(['admin-nav-link', 'is-active' => $active]) @if ($active) aria-current="page" @endif>
+                                <x-icon :name="$icon" />
+                                <span>{{ $label }}</span>
+                                @if ($count)
+                                    <span class="admin-nav-count">{{ $count > 99 ? '99+' : $count }}</span>
+                                @endif
+                            </a>
+                        @endforeach
+                    </div>
+                @endforeach
+                <div class="admin-nav-group">
+                    <a href="{{ route('chat.index') }}" class="admin-nav-link"><x-icon name="arrow-left" /> <span>Back to chats</span></a>
+                </div>
             </nav>
 
-            <div class="admin-privacy-note">
-                <x-icon name="lock" class="icon-sm" />
-                <span>Private conversations are end-user data and are not accessible from the admin panel. Reports only include messages the reporter chose to send.</span>
-            </div>
+            <p class="admin-audit-note">
+                <x-icon name="scroll-text" />
+                <span>Opening someone's chat, searching messages and every moderation action is written to the audit log.</span>
+            </p>
         </aside>
+        <label for="admin-nav-toggle" class="admin-scrim" aria-hidden="true"></label>
 
         <div class="admin-main">
             <header class="admin-topbar">
-                <div class="min-w-0">
+                <label for="admin-nav-toggle" class="btn-icon admin-menu-btn" aria-label="Open menu"><x-icon name="menu" /></label>
+                @if ($back)
+                    <a href="{{ $back }}" class="btn-icon" aria-label="Back"><x-icon name="arrow-left" /></a>
+                @endif
+                <div class="admin-topbar-titles">
                     @if ($heading)
-                        <h1 class="page-title truncate">{{ $heading }}</h1>
+                        <h1 class="admin-title">{{ $heading }}</h1>
                     @endif
                     @if ($subheading)
-                        <p class="page-subtitle truncate">{{ $subheading }}</p>
+                        <p class="admin-subtitle">{{ $subheading }}</p>
                     @endif
                 </div>
-                <div class="flex items-center gap-1">
+                <div class="admin-topbar-actions">
                     <x-theme-toggle />
                     <div class="dropdown">
                         <button type="button" class="btn-icon" data-dropdown-toggle aria-haspopup="menu" aria-expanded="false" aria-label="Account menu">
@@ -56,6 +97,7 @@
                             </div>
                             <div class="dropdown-divider"></div>
                             <a href="{{ route('chat.index') }}" class="dropdown-item" role="menuitem"><x-icon name="message-circle" /> Chats</a>
+                            <a href="{{ route('profile.edit') }}" class="dropdown-item" role="menuitem"><x-icon name="settings" /> Settings</a>
                             <form method="POST" action="{{ route('logout') }}">
                                 @csrf
                                 <button type="submit" class="dropdown-item is-danger" role="menuitem"><x-icon name="log-out" /> Log out</button>
@@ -66,9 +108,9 @@
             </header>
 
             <main class="admin-content">
-                <div class="mb-5"><x-alerts /></div>
+                <x-alerts />
                 @if ($errors->any())
-                    <div class="alert alert-error mb-5" role="alert"><x-icon name="circle-alert" /><span>{{ $errors->first() }}</span></div>
+                    <div class="alert alert-error" role="alert"><x-icon name="circle-alert" /><span>{{ $errors->first() }}</span></div>
                 @endif
                 {{ $slot }}
             </main>

@@ -89,11 +89,18 @@ class StatusService
             throw new HttpException(404, 'This status does not exist.');
         }
 
+        $this->remove($status);
+    }
+
+    /** Remove an update and its files for everyone (also used by the admin panel). */
+    public function remove(Status $status): void
+    {
+        $ownerId = (int) $status->user_id;
         $audience = $this->audienceIds($status);
         $this->deleteFiles($status->attachment, $status->attachment_meta['thumbnail'] ?? null);
         $status->delete();
 
-        broadcast(new StatusUpdated((int) $by->getKey(), [...$audience, (int) $by->getKey()]));
+        broadcast(new StatusUpdated($ownerId, [...$audience, $ownerId]));
     }
 
     /** Updates whose 24 hours are over go, with their files. */
@@ -134,7 +141,9 @@ class StatusService
         $id = (int) $user->getKey();
         $saved = Contact::query()->where('user_id', $id)->pluck('contact_user_id');
 
-        return $saved->concat($this->chatPartnerIds($id))
+        // People I saved, and people I have written to (a stranger's "hi" doesn't count).
+        return $saved->concat(Message::query()->where('sender_id', $id)->whereNotNull('receiver_id')
+            ->where('message_type', '!=', Message::TYPE_SYSTEM)->distinct()->pluck('receiver_id'))
             ->map(fn ($other) => (int) $other)
             ->reject(fn (int $other) => $other === $id)
             ->unique()->values()->all();

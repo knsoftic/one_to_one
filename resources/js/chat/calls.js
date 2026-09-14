@@ -509,11 +509,20 @@ export class CallManager {
         const session = this.session;
         if (!session || session.call.id !== call.id || session.status === 'ended') return;
 
+        const wasGroupCall = Boolean(session.call.call_room_id);
         session.call = { ...session.call, ...call, caller: call.caller ?? session.call.caller, callee: call.callee ?? session.call.callee };
         if (call.server_time) session.clockOffset = Date.parse(call.server_time) - Date.now();
 
         if (call.status === 'ended') {
             this.finish(call);
+            return;
+        }
+
+        // "Add person" turned this call into a group call (K6): follow it even when the
+        // live event was missed and this update came from polling.
+        if (call.call_room_id && !wasGroupCall && this.group && !this.group.active && !session.movingToGroup && session.status !== 'ended') {
+            session.movingToGroup = true;
+            this.group.joinFromSession(session, session.iceServers);
             return;
         }
 

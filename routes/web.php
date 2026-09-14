@@ -1,6 +1,10 @@
 <?php
 
 use App\Http\Controllers\AccountController;
+use App\Http\Controllers\Admin\ChatController as AdminChatController;
+use App\Http\Controllers\Admin\SpaceController;
+use App\Http\Controllers\Admin\SystemController;
+use App\Http\Controllers\Admin\UserModerationController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AttachmentController;
 use App\Http\Controllers\Auth\AuthController;
@@ -99,6 +103,9 @@ Route::middleware('guest')->group(function () {
 */
 
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->name('logout');
+
+// Ban screen (admin panel bans): shown right after a banned person is signed out.
+Route::get('/account/banned', [AuthController::class, 'banned'])->name('account.banned');
 
 // "Forgot PIN?" email link: turns two-step verification off (P7).
 Route::get('/two-step/reset/{user}', [TwoStepController::class, 'reset'])->whereNumber('user')->middleware('signed')->name('two-step.reset');
@@ -438,6 +445,41 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('/users/{user}', [AdminController::class, 'showUser'])->whereNumber('user')->name('users.show');
         Route::patch('/users/{user}/status', [AdminController::class, 'updateStatus'])->whereNumber('user')->name('users.status');
         Route::delete('/users/{user}', [AdminController::class, 'destroyUser'])->whereNumber('user')->name('users.destroy');
+        Route::prefix('/users/{user}')->whereNumber('user')->name('users.')->group(function () {
+            Route::put('/', [UserModerationController::class, 'update'])->name('update');
+            Route::post('/ban', [UserModerationController::class, 'ban'])->name('ban');
+            Route::delete('/ban', [UserModerationController::class, 'unban'])->name('unban');
+            Route::patch('/role', [UserModerationController::class, 'role'])->name('role');
+            Route::post('/logout', [UserModerationController::class, 'logout'])->name('logout');
+            Route::delete('/photo', [UserModerationController::class, 'removePhoto'])->name('photo');
+            Route::delete('/two-step', [UserModerationController::class, 'resetTwoStep'])->name('two-step');
+        });
+
+        // Chats and messages (every chat opened is recorded in the audit log)
+        Route::get('/chats', [AdminChatController::class, 'index'])->name('chats');
+        Route::get('/chats/{conversation}', [AdminChatController::class, 'show'])->whereNumber('conversation')->name('chats.show');
+        Route::get('/messages', [AdminChatController::class, 'search'])->middleware('throttle:chat-search')->name('messages');
+        Route::get('/messages/{message}/attachment', [AdminChatController::class, 'attachment'])->whereNumber('message')->name('messages.attachment');
+        Route::delete('/messages/{message}', [AdminChatController::class, 'destroyMessage'])->whereNumber('message')->name('messages.destroy');
+
+        // Groups, channels, communities, status updates
+        Route::get('/groups', [SpaceController::class, 'groups'])->name('groups');
+        Route::get('/groups/{conversation}', [SpaceController::class, 'group'])->whereNumber('conversation')->name('groups.show');
+        Route::delete('/groups/{conversation}', [SpaceController::class, 'destroyGroup'])->whereNumber('conversation')->name('groups.destroy');
+        Route::get('/channels', [SpaceController::class, 'channels'])->name('channels');
+        Route::get('/channels/{conversation}', [SpaceController::class, 'channel'])->whereNumber('conversation')->name('channels.show');
+        Route::delete('/channels/{conversation}', [SpaceController::class, 'destroyChannel'])->whereNumber('conversation')->name('channels.destroy');
+        Route::get('/communities', [SpaceController::class, 'communities'])->name('communities');
+        Route::get('/communities/{community}', [SpaceController::class, 'community'])->whereNumber('community')->name('communities.show');
+        Route::delete('/communities/{community}', [SpaceController::class, 'destroyCommunity'])->whereNumber('community')->name('communities.destroy');
+        Route::get('/statuses', [SpaceController::class, 'statuses'])->name('statuses');
+        Route::get('/statuses/{status}/media', [SpaceController::class, 'statusMedia'])->whereNumber('status')->name('statuses.media');
+        Route::delete('/statuses/{status}', [SpaceController::class, 'destroyStatus'])->whereNumber('status')->name('statuses.destroy');
+
+        // Audit log and app settings
+        Route::get('/audit', [SystemController::class, 'audit'])->name('audit');
+        Route::get('/settings', [SystemController::class, 'settings'])->name('settings');
+        Route::put('/settings', [SystemController::class, 'updateSettings'])->name('settings.update');
         // Reports (Phase 6, P6)
         Route::get('/reports', [ReportController::class, 'index'])->name('reports');
         Route::get('/reports/{report}', [ReportController::class, 'show'])->whereNumber('report')->name('reports.show');

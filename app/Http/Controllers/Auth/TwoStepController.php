@@ -44,13 +44,18 @@ class TwoStepController extends Controller
         $request->validate(['pin' => ['required', 'digits:6']], ['pin.digits' => 'Enter the 6-digit PIN.', 'pin.required' => 'Enter the 6-digit PIN.']);
         $user = $pending['user'];
         $key = 'two-step:'.$user->getKey().'|'.$request->ip();
+        $accountKey = 'two-step-account:'.$user->getKey();
 
+        if (RateLimiter::tooManyAttempts($accountKey, self::MAX_ATTEMPTS * 4)) {
+            throw ValidationException::withMessages(['pin' => 'Too many tries on this account. Try again in '.ceil(RateLimiter::availableIn($accountKey) / 60).' minute(s) or use "Forgot PIN?".']);
+        }
         if (RateLimiter::tooManyAttempts($key, self::MAX_ATTEMPTS)) {
             throw ValidationException::withMessages(['pin' => 'Too many tries. Try again in '.ceil(RateLimiter::availableIn($key) / 60).' minute(s) or use "Forgot PIN?".']);
         }
 
         if (! $this->twoStep->checkPin($user, $request->string('pin')->toString())) {
             RateLimiter::hit($key, 300);
+            RateLimiter::hit($accountKey, 3600);
 
             throw ValidationException::withMessages(['pin' => 'That PIN is not correct.']);
         }

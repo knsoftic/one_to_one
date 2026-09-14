@@ -250,7 +250,10 @@ class Message extends Model
     {
         if ($this->isGroupMessage()) {
             return array_values(array_unique([
-                ...ConversationMember::query()->where('conversation_id', $this->conversation_id)->whereNull('left_at')->pluck('user_id')->map(fn ($id) => (int) $id)->all(),
+                ...ConversationMember::query()->where('conversation_id', $this->conversation_id)->whereNull('left_at')
+                    // People who joined after it was sent never saw it.
+                    ->where('visible_from_message_id', '<=', (int) $this->getKey())
+                    ->pluck('user_id')->map(fn ($id) => (int) $id)->all(),
                 (int) $this->sender_id,
             ]));
         }

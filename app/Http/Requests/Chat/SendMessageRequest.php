@@ -66,7 +66,13 @@ class SendMessageRequest extends FormRequest
                     $reply = Message::query()->whereKey((int) $value)->where('deleted_for_everyone', false)->first();
                     $user = $this->user();
 
+                    // Only messages the sender can see (people who joined a group later can't quote older ones).
                     if ($reply && (int) $reply->conversation_id === (int) $conversation->getKey()) {
+                        if ($reply->involves($user) && ! $reply->isDeletedFor($user)) {
+                            return;
+                        }
+                        $fail('This message is not available.');
+
                         return;
                     }
 

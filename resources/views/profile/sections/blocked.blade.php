@@ -14,7 +14,7 @@
                 <div class="wa-block-picker-list">
                     @foreach ($blockCandidates as $candidate)
                         <div class="wa-row" data-block-candidate data-name="{{ mb_strtolower(($savedNames[$candidate->id] ?? $candidate->name).' '.$candidate->username) }}">
-                            <x-avatar :user="$candidate" size="md" />
+                            <x-avatar :user="$candidate" size="md" :viewer="$user" />
                             <span class="wa-row-body">
                                 <span class="wa-row-title">{{ $savedNames[$candidate->id] ?? $candidate->name }}</span>
                                 <span class="wa-row-text">{{ '@'.$candidate->username }}</span>
@@ -32,7 +32,7 @@
 
     @forelse ($blockedUsers as $blocked)
         <div class="wa-row" data-blocked-row="{{ $blocked->id }}">
-            <x-avatar :user="$blocked" size="md" />
+            <x-avatar :user="$blocked" size="md" :viewer="$user" />
             <span class="wa-row-body">
                 <span class="wa-row-title">{{ $savedNames[$blocked->id] ?? $blocked->name }}</span>
                 <span class="wa-row-text">{{ '@'.$blocked->username }} · blocked {{ \Illuminate\Support\Carbon::parse($blocked->pivot->created_at)->diffForHumans() }}</span>

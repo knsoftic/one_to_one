@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\DeviceController;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RegisterRequest;
+use App\Models\AppSetting;
 use App\Services\AccountService;
+use App\Services\BanService;
 use App\Services\PresenceService;
 use App\Services\TwoStepService;
 use Illuminate\Auth\Events\Registered;
@@ -47,13 +49,30 @@ class AuthController extends Controller
         return redirect()->intended(route('chat.index'));
     }
 
-    public function showRegister(): View
+    public function showRegister(): View|RedirectResponse
     {
+        // Sign-ups can be closed from the admin panel.
+        if (! AppSetting::get('registration_open')) {
+            return redirect()->route('login')->with('status', 'New sign-ups are closed right now.');
+        }
+
         return view('auth.register');
+    }
+
+    /** The ban screen (admin panel bans): why, and until when. */
+    public function banned(Request $request): View|RedirectResponse
+    {
+        $ban = $request->session()->get(BanService::SESSION_KEY);
+
+        return is_array($ban) ? view('auth.banned', ['ban' => $ban]) : redirect()->route('login');
     }
 
     public function register(RegisterRequest $request): RedirectResponse
     {
+        if (! AppSetting::get('registration_open')) {
+            return redirect()->route('login')->with('status', 'New sign-ups are closed right now.');
+        }
+
         $user = $this->accounts->register(
             $request->safe()->only(['name', 'username', 'email', 'phone', 'password']),
             $request->file('profile_image'),

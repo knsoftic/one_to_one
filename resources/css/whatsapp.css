@@ -17,6 +17,7 @@
     --c-rail-active: rgba(11, 20, 26, 0.1);
     --c-avatar-bg: #dfe5e7;
     --c-avatar-text: #54656f;
+    --c-admin-brand: #008069;
     --wa-bubble-radius: 7.5px;
 }
 
@@ -33,6 +34,7 @@
     --c-rail-active: #374248;
     --c-avatar-bg: #374248;
     --c-avatar-text: #aebac1;
+    --c-admin-brand: #202c33;
 }
 
 /* ---------- Shared components ---------- */

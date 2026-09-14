@@ -44,7 +44,8 @@ class MessageResource extends JsonResource
         return [
             'id' => $this->id,
             'conversation_id' => $this->conversation_id,
-            'sender_id' => $this->sender_id,
+            // Channels (G11): followers don't learn which admin posted.
+            'sender_id' => $this->channel && (int) $this->sender_id !== $this->viewerId && ! app(ConversationTypes::class)->isAdmin((int) $this->conversation_id, $this->viewerId) ? null : $this->sender_id,
             'receiver_id' => $this->receiver_id,
             // Group chats (Phase 4): who wrote it, for people not in the reader's contacts.
             'sender_name' => $this->when($this->receiver_id === null && ! $this->channel && $this->relationLoaded('sender'), fn () => $this->sender?->name),

@@ -151,6 +151,17 @@ export function initProfileForm(form = $('[data-profile-form]')) {
     form.addEventListener('input', show);
     form.addEventListener('change', show);
     form.querySelector('[data-avatar-clear]')?.addEventListener('click', show);
+
+    // A new email needs the current password.
+    const email = form.querySelector('input[name="email"]');
+    const password = form.querySelector('[data-email-password]');
+    if (email && password) {
+        const original = email.defaultValue.trim().toLowerCase();
+        email.addEventListener('input', () => {
+            if (password.querySelector('.is-invalid')) return;
+            password.hidden = email.value.trim().toLowerCase() === original;
+        });
+    }
 }
 
 function initBrowserNotificationButton() {
