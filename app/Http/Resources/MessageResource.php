@@ -16,6 +16,9 @@ class MessageResource extends JsonResource
 {
     private bool $channel = false;
 
+    /** Who reacted / voted is private (channels, community announcements for members). */
+    private bool $hideOthers = false;
+
     private ?int $viewerId = null;
 
     /**
@@ -35,6 +38,8 @@ class MessageResource extends JsonResource
         // Channel updates (G11) come from the channel, and followers never see each other.
         $this->channel = $this->receiver_id === null && app(ConversationTypes::class)->isChannel((int) $this->conversation_id);
         $this->viewerId = $viewerId !== null ? (int) $viewerId : null;
+        // Community announcements (G10): members don't see who else is in the community.
+        $this->hideOthers = $this->receiver_id === null && app(ConversationTypes::class)->hidesMembersFrom((int) $this->conversation_id, $this->viewerId);
 
         return [
             'id' => $this->id,
@@ -202,7 +207,7 @@ class MessageResource extends JsonResource
     }
 
     /**
-     * Who reacted / voted; in channels only the viewer themselves.
+     * Who reacted / voted; in channels and (for members) community announcements only the viewer themselves.
      *
      * @return list<int>
      */
@@ -210,7 +215,7 @@ class MessageResource extends JsonResource
     {
         $ids = collect($ids)->map(fn ($id) => (int) $id)->values();
 
-        return ($this->channel ? $ids->filter(fn (int $id) => $id === $this->viewerId)->values() : $ids)->all();
+        return ($this->hideOthers ? $ids->filter(fn (int $id) => $id === $this->viewerId)->values() : $ids)->all();
     }
 
     private function replyPayload(?int $viewerId): ?array

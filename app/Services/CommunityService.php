@@ -253,12 +253,15 @@ class CommunityService
                 continue;
             }
 
-            $notice = $this->messages->systemNotice($by, $group, [
-                'event' => 'member_removed',
-                'actor' => ['id' => $by->getKey(), 'name' => $by->name],
-                'users' => [['id' => $target->getKey(), 'name' => $target->name]],
-            ]);
-            $member->forceFill(['left_at' => now(), 'role' => ConversationMember::ROLE_MEMBER, 'visible_until_message_id' => $notice->getKey()])->save();
+            // The announcements never name members to each other; community groups do, like any group.
+            $until = $group->is_announcement
+                ? (int) $group->messages()->max('id')
+                : $this->messages->systemNotice($by, $group, [
+                    'event' => 'member_removed',
+                    'actor' => ['id' => $by->getKey(), 'name' => $by->name],
+                    'users' => [['id' => $target->getKey(), 'name' => $target->name]],
+                ])->getKey();
+            $member->forceFill(['left_at' => now(), 'role' => ConversationMember::ROLE_MEMBER, 'visible_until_message_id' => $until])->save();
             $group->unsetRelation('members');
             broadcast(new GroupUpdated($group, [(int) $target->getKey()]));
         }
@@ -296,7 +299,8 @@ class CommunityService
             if ($announcement->activeMembers()->count() >= $this->groups->maxMembers() * 4) {
                 throw new HttpException(422, 'This community is full.');
             }
-            $this->groups->addPeople($announcement, collect([$user]), null, 'member_joined_link', $user);
+            // Joining is not announced: members of a community don't see each other (like WhatsApp).
+            $this->groups->addPeople($announcement, collect([$user]), null);
         }
 
         return $community;

@@ -121,4 +121,55 @@ describe('G1 group chats in the UI', () => {
         expect(panel.querySelector('[data-info-add]')).toBeNull();
         expect(panel.querySelector('[data-info-delete-chat]')).not.toBeNull();
     });
+
+    it("community announcements don't show members to each other", async () => {
+        const announcement = groupConversation({
+            name: 'Model Town Society',
+            member_count: 250,
+            members_hidden: true,
+            can_edit_info: false,
+            community: { id: 4, name: 'Model Town Society', is_announcement: true },
+            // The server only sends the admins and me.
+            members: [member(1, 'Ayesha', 'admin', { is_creator: true }), member(2, 'Bilal')],
+        });
+
+        // Header: a count, never names.
+        expect(groupSummary(announcement.group, 2, (id, name) => name)).toBe('250 members');
+
+        const chat = {
+            me: { id: 2 },
+            api: { has: () => true },
+            el: { headerUser: document.createElement('div') },
+            conversations: new Map([[9, announcement]]),
+            config: {},
+            participantOf: (c) => ({ id: `group-${c.id}`, name: c.group.name, initials: 'M', is_group: true }),
+            displayName: (id, name) => name,
+            presenceOf: (user) => user,
+        };
+        const groups = new Groups(chat);
+        groups.panel = document.createElement('div');
+        groups.panel.innerHTML = '<aside data-info-body></aside>';
+        document.body.appendChild(groups.panel);
+
+        groups.renderInfo(announcement);
+        const panel = groups.panel;
+        expect(panel.querySelector('.group-info-count').textContent).toBe('Community announcements · 250 members');
+        expect(panel.querySelector('[data-members-hidden]').textContent).toContain('Only community admins can see everyone');
+        expect([...panel.querySelectorAll('.group-member-name')].map((el) => el.textContent)).toEqual(['Ayesha', 'You']);
+        expect([...panel.querySelectorAll('.group-info-label')].map((el) => el.textContent)).toContain('Community admins');
+        expect(panel.querySelector('[data-info-add]')).toBeNull();
+
+        // Admins see everyone as usual.
+        groups.renderInfo(groupConversation({ members_hidden: false, my_role: 'admin', community: announcement.group.community }));
+        expect(panel.querySelector('[data-members-hidden]')).toBeNull();
+        expect(panel.querySelectorAll('.group-member-name')).toHaveLength(3);
+
+        // No call buttons in the announcements.
+        document.body.insertAdjacentHTML('beforeend', '<button data-call-button data-call-label="Voice call"></button>');
+        const { CallManager } = await import('../calls');
+        CallManager.prototype.updateHeader.call({ config: { enabled: true }, busy: false }, announcement);
+        expect(document.querySelector('[data-call-button]').hidden).toBe(true);
+        CallManager.prototype.updateHeader.call({ config: { enabled: true }, busy: false }, groupConversation());
+        expect(document.querySelector('[data-call-button]').hidden).toBe(false);
+    });
 });

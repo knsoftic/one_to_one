@@ -13,7 +13,8 @@ import * as T from './templates';
 /** Short list of who is in a group for the chat header: "You, Ayesha, Bilal". */
 export function groupSummary(group, meId, nameOf) {
     const members = (group?.members ?? []).filter((m) => m.active);
-    if (!members.length) return `${group?.member_count ?? 0} members`;
+    // Community announcements (G10): members don't see who else is in the community.
+    if (!members.length || group?.members_hidden) return memberCount(group?.member_count ?? members.length);
 
     const names = members
         .sort((a, b) => Number(Number(b.user.id) === Number(meId)) - Number(Number(a.user.id) === Number(meId)))
@@ -21,6 +22,8 @@ export function groupSummary(group, meId, nameOf) {
     const text = names.join(', ');
     return text.length > 70 ? `${text.slice(0, 67)}…` : text;
 }
+
+export const memberCount = (count) => (Number(count) === 1 ? '1 member' : `${Number(count) || 0} members`);
 
 /** Can I change the group's name, icon and description, and add people? */
 export const canEditInfo = (group) => Boolean(group?.can_edit_info);
@@ -214,6 +217,9 @@ export class Groups {
         const admin = isGroupAdmin(group);
         const editable = canEditInfo(group);
         const members = (group.members ?? []).filter((m) => m.active);
+        // Community announcements (G10): members only see the admins and themselves.
+        const hidden = Boolean(group.members_hidden);
+        const total = hidden ? Number(group.member_count ?? members.length) : members.length;
         const nameOf = (user) => (Number(user.id) === me ? 'You' : this.chat.displayName(user.id, user.name));
         const created = group.created_at ? new Date(group.created_at).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' }) : '';
         const creator = (group.members ?? []).find((m) => m.is_creator)?.user;
@@ -229,7 +235,7 @@ export class Groups {
                         <span class="group-member-name">${nameOf(user)}</span>
                         <span class="group-member-meta">${secondary}</span>
                     </span>
-                    ${raw(member.role === 'admin' ? '<span class="group-admin-badge">Group admin</span>' : '')}
+                    ${raw(member.role === 'admin' ? html`<span class="group-admin-badge">${group.community?.is_announcement ? 'Community admin' : 'Group admin'}</span>` : '')}
                 </button>`;
         }).join('');
 
@@ -248,7 +254,7 @@ export class Groups {
                         <h2 class="group-info-name">${group.name}</h2>
                         ${raw(editable ? html`<button type="button" class="btn-icon btn-icon-sm" data-info-edit="name" aria-label="Change group name">${raw(icon('pencil'))}</button>` : '')}
                     </div>
-                    <p class="group-info-count">${group.community?.is_announcement ? 'Community announcements' : 'Group'} · ${members.length === 1 ? '1 member' : `${members.length} members`}</p>
+                    <p class="group-info-count">${group.community?.is_announcement ? 'Community announcements' : 'Group'} · ${memberCount(total)}</p>
                     ${raw(group.community ? html`<button type="button" class="group-community-link" data-info-community="${group.community.id}">${raw(icon('users-round'))} ${group.community.name}</button>` : '')}
                     ${raw(!group.is_member ? html`<p class="group-info-notice">${group.ended ? 'This group was deleted.' : "You're no longer a member of this group."}</p>` : '')}
                 </section>
@@ -278,9 +284,10 @@ export class Groups {
 
                 <section class="group-info-section">
                     <div class="group-info-row">
-                        <span class="group-info-label">${members.length === 1 ? '1 member' : `${members.length} members`}</span>
+                        <span class="group-info-label">${hidden ? (members.some((m) => m.role === 'admin') ? 'Community admins' : 'You') : memberCount(total)}</span>
                     </div>
-                    ${raw(editable ? html`<button type="button" class="group-info-action" data-info-add>${raw(icon('user-plus'))} Add members</button>` : '')}
+                    ${raw(hidden ? html`<p class="group-info-private" data-members-hidden>${raw(icon('lock'))} Only community admins can see everyone in the community. Other members can't see you.</p>` : '')}
+                    ${raw(editable && !hidden ? html`<button type="button" class="group-info-action" data-info-add>${raw(icon('user-plus'))} Add members</button>` : '')}
                     <div class="group-members">${raw(memberRows)}</div>
                 </section>
 

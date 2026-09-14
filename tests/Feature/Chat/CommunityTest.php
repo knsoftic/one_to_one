@@ -4,7 +4,9 @@ namespace Tests\Feature\Chat;
 
 use App\Models\Community;
 use App\Models\Conversation;
+use App\Models\Message;
 use App\Models\User;
+use App\Services\MessageService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -133,6 +135,84 @@ class CommunityTest extends TestCase
         $this->assertNull(Community::find($community->id));
         $this->assertNull(Conversation::find($group)->community_id);
         $this->actingAs($this->bilal)->postJson("/community/{$token}")->assertStatus(410);
+    }
+
+    public function test_members_of_a_community_do_not_see_each_other_but_admins_see_everyone(): void
+    {
+        $community = $this->community($this->ayesha, 'Model Town Society');
+        $announcement = $community->announcement()->value('id');
+        $token = $this->actingAs($this->ayesha)->getJson("/communities/{$community->id}/invite")->json('token');
+        $this->actingAs($this->bilal)->postJson("/community/{$token}")->assertOk();
+        $this->actingAs($this->sara)->postJson("/community/{$token}")->assertOk();
+        $usman = User::factory()->create(['name' => 'Usman']);
+        $this->actingAs($this->ayesha)->postJson("/groups/{$announcement}/members", ['user_ids' => [$usman->id]])->assertOk();
+
+        // Bilal sees how many people there are, but only the admin and himself.
+        $bilalView = $this->actingAs($this->bilal)->getJson("/conversations/{$announcement}")
+            ->assertOk()
+            ->assertJsonPath('group.members_hidden', true)
+            ->assertJsonPath('group.member_count', 4)
+            ->json('group.members');
+        $this->assertEqualsCanonicalizing([$this->ayesha->id, $this->bilal->id], array_column(array_column($bilalView, 'user'), 'id'));
+
+        // The admin sees everyone.
+        $adminView = $this->actingAs($this->ayesha)->getJson("/conversations/{$announcement}")->assertJsonPath('group.members_hidden', false)->json('group.members');
+        $this->assertCount(4, $adminView);
+
+        // Joining, being added and leaving are not announced to the community.
+        $post = $this->actingAs($this->ayesha)->postJson("/conversations/{$announcement}/messages", ['message' => 'Water off tomorrow 10–12'])->json('id');
+        $poll = $this->actingAs($this->ayesha)->postJson("/conversations/{$announcement}/messages", ['poll' => ['question' => 'Meeting day?', 'options' => ['Sat', 'Sun']]])->json('id');
+        $this->actingAs($this->sara)->postJson("/communities/{$community->id}/leave")->assertOk();
+        $history = $this->actingAs($this->bilal)->getJson("/conversations/{$announcement}/messages")->assertOk();
+        foreach (['Sara', 'Usman', 'joined', 'added', 'left'] as $text) {
+            $this->assertStringNotContainsString($text, json_encode($history->json('data')));
+        }
+
+        // Reactions and poll votes: members only see their own, the admin sees who.
+        $this->actingAs($usman)->putJson("/messages/{$post}/reaction", ['emoji' => '👍'])->assertOk();
+        $this->actingAs($this->bilal)->putJson("/messages/{$post}/reaction", ['emoji' => '👍'])->assertOk()
+            ->assertJsonPath('reactions.0.count', 2)
+            ->assertJsonPath('reactions.0.user_ids', [$this->bilal->id]);
+        $this->actingAs($usman)->putJson("/messages/{$poll}/vote", ['options' => [1]])->assertOk();
+        $this->actingAs($this->bilal)->putJson("/messages/{$poll}/vote", ['options' => [1]])->assertOk()
+            ->assertJsonPath('poll.options.0.count', 2)
+            ->assertJsonPath('poll.options.0.voter_ids', [$this->bilal->id]);
+        $adminHistory = collect($this->actingAs($this->ayesha)->getJson("/conversations/{$announcement}/messages")->json('data'))->keyBy('id');
+        $this->assertEqualsCanonicalizing([$usman->id, $this->bilal->id], $adminHistory[$post]['reactions'][0]['user_ids']);
+        $this->assertEqualsCanonicalizing([$usman->id, $this->bilal->id], $adminHistory[$poll]['poll']['options'][0]['voter_ids']);
+
+        // Removing someone is quiet too; the removed person keeps what they already had.
+        $this->actingAs($this->ayesha)->deleteJson("/communities/{$community->id}/members/{$usman->id}")->assertOk();
+        $this->assertStringNotContainsString('Usman', json_encode($this->actingAs($this->bilal)->getJson("/conversations/{$announcement}/messages")->json('data')));
+        $this->assertSame($poll, Conversation::findOrFail($announcement)->members()->where('user_id', $usman->id)->value('visible_until_message_id'));
+
+        // A group inside the community is a normal group: its members see each other.
+        $parking = $this->actingAs($this->ayesha)->postJson("/communities/{$community->id}/groups", ['name' => 'Parking'])->json('id');
+        $this->actingAs($this->bilal)->postJson("/communities/{$community->id}/groups/{$parking}/join")->assertOk()
+            ->assertJsonPath('group.members_hidden', false)
+            ->assertJsonCount(2, 'group.members');
+    }
+
+    public function test_old_member_notices_are_removed_from_community_announcements(): void
+    {
+        $community = $this->community($this->ayesha, 'Old Students');
+        $announcement = Conversation::findOrFail($community->announcement()->value('id'));
+        $cricket = $this->group($this->ayesha, 'Cricket', [$this->bilal]);
+        $messages = app(MessageService::class);
+        $keep = $this->actingAs($this->ayesha)->postJson("/conversations/{$announcement->id}/messages", ['message' => 'Welcome'])->json('id');
+        $joined = $messages->systemNotice($this->bilal, $announcement, ['event' => 'member_joined_link', 'actor' => ['id' => $this->bilal->id, 'name' => 'Bilal']]);
+        $left = $messages->systemNotice($this->sara, $announcement, ['event' => 'member_left', 'actor' => ['id' => $this->sara->id, 'name' => 'Sara']]);
+        $announcement->forceFill(['last_message_id' => $left->id])->save();
+        $groupNotice = $messages->systemNotice($this->bilal, $cricket, ['event' => 'member_left', 'actor' => ['id' => $this->bilal->id, 'name' => 'Bilal']]);
+
+        (require database_path('migrations/2026_09_24_000001_remove_member_notices_from_community_announcements.php'))->up();
+
+        $this->assertNull(Message::find($joined->id));
+        $this->assertNull(Message::find($left->id));
+        $this->assertNotNull(Message::find($keep));
+        $this->assertSame($keep, $announcement->fresh()->last_message_id);
+        // Ordinary groups keep their notices.
+        $this->assertNotNull(Message::find($groupNotice->id));
     }
 
     private function community(User $owner, string $name): Community

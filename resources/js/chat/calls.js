@@ -239,7 +239,8 @@ export class CallManager {
     updateHeader(conversation) {
         const blocked = Boolean(conversation?.blocked_by_me || conversation?.blocked_me);
         document.querySelectorAll('[data-call-button]').forEach((button) => {
-            button.hidden = !this.config.enabled || Boolean(conversation?.is_self) || ['broadcast', 'channel'].includes(conversation?.type);
+            button.hidden = !this.config.enabled || Boolean(conversation?.is_self) || ['broadcast', 'channel'].includes(conversation?.type)
+                || Boolean(conversation?.group?.community?.is_announcement);
             button.disabled = blocked || this.busy;
             button.title = blocked ? "You can't call this user" : button.dataset.callLabel;
         });

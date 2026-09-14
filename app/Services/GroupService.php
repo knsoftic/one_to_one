@@ -112,7 +112,12 @@ class GroupService
         }
 
         $this->join($group, $people, $by);
-        $this->notice($by, $group, 'members_added', ['users' => $this->names($people)]);
+        // Community announcements (G10) never name members to each other.
+        if ($group->is_announcement) {
+            broadcast(new GroupUpdated($group));
+        } else {
+            $this->notice($by, $group, 'members_added', ['users' => $this->names($people)]);
+        }
 
         return $people;
     }
@@ -255,9 +260,12 @@ class GroupService
     {
         $member = $this->activeMember($group, $user);
 
-        $notice = $this->notice($user, $group, 'member_left', [], broadcast: false);
+        // Community announcements (G10): members leave quietly, nobody else is told who.
+        $until = $group->is_announcement
+            ? (int) $group->messages()->max('id')
+            : $this->notice($user, $group, 'member_left', [], broadcast: false);
         $wasAdmin = $member->isAdmin();
-        $this->markLeft($member, $notice);
+        $this->markLeft($member, $until);
 
         $remaining = $group->activeMembers()->orderBy('joined_at')->orderBy('id')->get();
 
@@ -379,6 +387,7 @@ class GroupService
         $mine = $group->getAttribute('my_membership') ?? $group->memberFor($viewer);
         $active = (bool) $mine?->isActive() && $group->ended_at === null;
         $admin = $active && $mine->role === ConversationMember::ROLE_ADMIN;
+        $hideMembers = (bool) $group->is_announcement && ! $admin;
 
         $payload = [
             'name' => $group->name,
@@ -393,6 +402,8 @@ class GroupService
             'ended' => $group->ended_at !== null,
             'member_count' => (int) ($group->getAttribute('active_members_count') ?? $group->activeMembers()->count()),
             'is_member' => $active,
+            // Community announcements (G10): only admins see everyone; members see the admins.
+            'members_hidden' => $hideMembers,
             'my_role' => $active ? $mine->role : null,
             'can_send' => $active && (! $group->only_admins_send || $admin),
             'can_edit_info' => $active && (! $group->only_admins_edit || $admin),
@@ -408,7 +419,10 @@ class GroupService
         if ($withMembers) {
             $request ??= request();
             $members = $group->members()->with('user')->orderByDesc('role')->orderBy('joined_at')->get()
-                ->filter(fn (ConversationMember $member) => $member->user !== null);
+                ->filter(fn (ConversationMember $member) => $member->user !== null)
+                ->filter(fn (ConversationMember $member) => ! $hideMembers
+                    || (int) $member->user_id === (int) $viewer->getKey()
+                    || ($member->isActive() && $member->role === ConversationMember::ROLE_ADMIN));
             $saved = $this->contacts->savedNames($viewer, $members->pluck('user_id')->all());
 
             $payload['members'] = $members
@@ -487,12 +501,15 @@ class GroupService
         }
     }
 
-    private function markLeft(ConversationMember $member, Message $notice): void
+    /**
+     * @param  Message|int  $until  the notice about it, or the last message they may see
+     */
+    private function markLeft(ConversationMember $member, Message|int $until): void
     {
         $member->forceFill([
             'left_at' => now(),
             'role' => ConversationMember::ROLE_MEMBER,
-            'visible_until_message_id' => $notice->getKey(),
+            'visible_until_message_id' => $until instanceof Message ? $until->getKey() : $until,
         ])->save();
 
         $member->conversation?->unsetRelation('members');

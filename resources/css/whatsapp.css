@@ -434,3 +434,7 @@ a.message-file:hover, .message.is-mine a.message-file:hover { filter: brightness
     .chat-welcome { border-bottom: 0; }
     .topbar { background: var(--c-surface); }
 }
+
+/* G10 — community members can't see each other */
+.group-info-private { display: flex; align-items: flex-start; gap: 0.55rem; margin: 0.25rem 0 0.6rem; padding: 0.65rem 0.8rem; border-radius: 10px; font-size: 0.84rem; line-height: 1.45; color: var(--c-muted); background: var(--c-surface-2); }
+.group-info-private .icon { flex: none; width: 1rem; height: 1rem; margin-top: 0.1rem; color: var(--c-primary-text); }

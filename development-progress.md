@@ -919,3 +919,13 @@ PHPUnit **402 passed**, Vitest **170 passed**, Pint ✅, build ✅, migration ro
 - Tests: new `resources/js/ui/__tests__/settings.test.js` (6: list → section and back with history, Blocked → Privacy, opened directly / Android back / browser back, wide screens, privacy choice label and rollback, theme choice, profile save bar). All existing settings tests pass unchanged except the QR reset redirect.
 - Checked in the browser: list, Profile, Account, Privacy, Security, Chats, QR code on a phone (dark and light) and the two-pane web layout; chat ⋮ menu on a phone.
 - Verification: PHPUnit **402 passed**, Vitest **176 passed**, Pint ✅, build ✅.
+
+## Community members can't see each other (G10 privacy) ✅
+- In a community's announcements, **members only see the community admins and themselves**; admins see everyone. Group info shows the real count ("248 members"), a **Community admins** list with "Community admin" badges and the note "Only community admins can see everyone in the community. Other members can't see you." The chat header shows only the member count (no names). No "Add members" for members.
+- Nobody is told who joined, was added, left or was removed in the announcements (no notices; the leaving / removed person still keeps what they already received). Reactions and poll votes on announcements show members only their own; admins see who reacted / voted. No call buttons in the announcements.
+- Groups inside a community stay normal groups: their members see each other (like WhatsApp).
+- Existing "joined / added / left / removed" notices in announcement groups are deleted by the migration `2026_09_24_000001_remove_member_notices_from_community_announcements` (the chat list points at the newest remaining message).
+- Server: `GroupService::payload` (`members_hidden`, filtered members), `addMembers` / `leaveGroup` / `markLeft`, `CommunityService::removeMember` / `joinWithLink`, `ConversationTypes::isAnnouncement` / `isAdmin` / `hidesMembersFrom`, `MessageResource` (reaction and voter ids). Client: `groups.js` (`memberCount`, group info, header summary), `calls.js` (no calls in announcements), `.group-info-private` style.
+- Tests: `CommunityTest` +2 (members see only admins and themselves, admins see all, no join / add / leave / remove notices, reactions and votes hidden from members, quiet removal keeps visibility, community groups still show members; the migration removes old notices and keeps ordinary group notices). `groups.test.js` +1 (count-only header, private note and admins list, no Add members, admin view, no call buttons).
+- Checked in the browser: community announcements info on a phone (dark).
+- Verification: PHPUnit **404 passed**, Vitest **177 passed**, Pint ✅, build ✅.
