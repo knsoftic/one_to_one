@@ -37,7 +37,7 @@ class ProfileQrController extends Controller
             return response()->json($this->payload($user) + ['message' => 'Your QR code has been reset. Old codes no longer work.']);
         }
 
-        return redirect()->to(route('profile.edit', ['tab' => 'account']).'#qr-code')->with('status', 'Your QR code has been reset. Old codes no longer work.');
+        return redirect()->to(route('profile.edit', ['tab' => 'qr']))->with('status', 'Your QR code has been reset. Old codes no longer work.');
     }
 
     /** A code scanned with the phone's camera: open the app, which asks to start the chat. */

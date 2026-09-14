@@ -35,7 +35,7 @@
                     <x-icon name="settings" />
                 </a>
                 <span class="app-rail-divider" aria-hidden="true"></span>
-                <a href="{{ route('profile.edit') }}" class="app-rail-me" aria-label="Profile" title="Profile">
+                <a href="{{ route('profile.edit', ['tab' => 'profile']) }}" class="app-rail-me" aria-label="Profile" title="Profile">
                     <x-avatar :user="$user" size="sm" data-me-avatar />
                 </a>
             </div>
@@ -82,10 +82,9 @@
                             <button type="button" class="dropdown-item" data-action="new-group" role="menuitem"><x-icon name="users" /> New group</button>
                             <button type="button" class="dropdown-item" data-action="new-community" role="menuitem"><x-icon name="users-round" /> New community</button>
                             <button type="button" class="dropdown-item" data-action="new-broadcast" role="menuitem"><x-icon name="megaphone" /> New broadcast</button>
-                            <button type="button" class="dropdown-item" data-action="open-starred" role="menuitem"><x-icon name="star" /> Starred messages</button>
                             <button type="button" class="dropdown-item" data-action="open-linked-devices" role="menuitem"><x-icon name="monitor" /> Linked devices</button>
+                            <button type="button" class="dropdown-item" data-action="open-starred" role="menuitem"><x-icon name="star" /> Starred messages</button>
                             <button type="button" class="dropdown-item" data-action="open-qr-code" role="menuitem"><x-icon name="qr-code" /> QR code</button>
-                            <button type="button" class="dropdown-item" data-theme-cycle role="menuitem"><x-icon name="moon" /> Theme</button>
                             <a href="{{ route('profile.edit') }}" class="dropdown-item" role="menuitem"><x-icon name="settings" /> Settings</a>
                             @if ($user->isAdmin() && Route::has('admin.dashboard'))
                                 <a href="{{ route('admin.dashboard') }}" class="dropdown-item" role="menuitem"><x-icon name="layout-dashboard" /> Admin panel</a>

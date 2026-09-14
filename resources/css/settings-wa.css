@@ -1,0 +1,295 @@
+/* ==========================================================================
+   Settings, WhatsApp style
+   Phones / the app: a list screen, then one full screen per section (back arrow).
+   Web (768px and up): the list on the left and the open section on the right.
+   ========================================================================== */
+
+.wa-settings {
+    --wa-pad: 1.25rem;
+    --wa-appbar-h: 3.75rem;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    height: 100dvh;
+    padding-top: calc(var(--app-safe-top, 0px) + var(--network-bar-h, 0px));
+    color: var(--c-text);
+    background: var(--c-surface);
+}
+
+.wa-settings-list,
+.wa-settings-detail,
+.wa-section { min-height: 0; display: flex; flex-direction: column; }
+.wa-settings-detail { position: relative; background: var(--c-surface); }
+.wa-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+
+.wa-settings[data-view='list'] .wa-settings-detail,
+.wa-settings[data-view='section'] .wa-settings-list { display: none; }
+
+.wa-section { display: none; flex: 1; }
+.wa-section.is-active { display: flex; }
+
+/* ---------- App bars ---------- */
+.wa-appbar {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    height: var(--wa-appbar-h);
+    padding: 0 0.5rem;
+    background: var(--c-surface);
+}
+.wa-appbar .btn-icon { width: 2.6rem; height: 2.6rem; }
+.wa-appbar-title { flex: 1; min-width: 0; margin: 0 0 0 0.35rem; font-size: 1.3rem; font-weight: 500; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wa-appbar-count { color: var(--c-muted); font-weight: 400; }
+.wa-appbar-title:focus { outline: none; }
+
+/* ---------- The list screen ---------- */
+.wa-me { display: flex; align-items: center; gap: 0.25rem; padding: 0.5rem 0.75rem 0.75rem 0; border-bottom: 1px solid var(--c-border); }
+.wa-me-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.65rem 0.5rem 0.65rem var(--wa-pad);
+    border: 0;
+    border-radius: 0 12px 12px 0;
+    color: inherit;
+    text-align: left;
+    background: transparent;
+    cursor: pointer;
+}
+.wa-me .avatar { --size: 4rem; }
+.wa-me-body { min-width: 0; display: flex; flex-direction: column; gap: 0.15rem; }
+.wa-me-name { font-size: 1.2rem; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wa-me-about { font-size: 0.9rem; color: var(--c-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wa-me-qr.btn-icon { color: var(--c-primary-text); }
+
+.wa-menu { padding: 0.35rem 0; }
+.wa-menu form { margin: 0; }
+.wa-menu-row {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 1.6rem;
+    min-height: 4.5rem;
+    padding: 0.7rem var(--wa-pad) 0.7rem 1.6rem;
+    border: 0;
+    color: inherit;
+    text-align: left;
+    text-decoration: none;
+    background: transparent;
+    cursor: pointer;
+}
+.wa-menu-row > .icon { flex: none; width: 1.45rem; height: 1.45rem; color: var(--c-icon); }
+.wa-menu-body { min-width: 0; display: flex; flex-direction: column; gap: 0.15rem; }
+.wa-menu-title { font-size: 1.02rem; }
+.wa-menu-text { font-size: 0.86rem; color: var(--c-muted); }
+.wa-menu-row.is-danger, .wa-menu-row.is-danger > .icon { color: var(--c-danger); }
+
+.wa-me-main:hover, .wa-menu-row:hover { background: var(--c-surface-2); }
+.wa-me-main:focus-visible, .wa-menu-row:focus-visible { outline: 2px solid var(--c-primary); outline-offset: -2px; }
+
+.wa-settings-footer { margin: 1rem 0 2rem; font-size: 0.8rem; line-height: 1.4; text-align: center; color: var(--c-muted); }
+.wa-settings-footer strong { font-size: 0.95rem; font-weight: 600; letter-spacing: 0.02em; color: var(--c-text); }
+
+/* ---------- A section screen ---------- */
+.wa-section-body { width: 100%; max-width: 46rem; margin: 0 auto; padding-bottom: calc(2.5rem + env(safe-area-inset-bottom, 0px)); }
+.wa-alerts:empty { display: none; }
+.wa-alerts .alert { margin: 0.25rem var(--wa-pad) 0.75rem; }
+
+.wa-group { padding: 0.5rem 0; border-bottom: 1px solid var(--c-border); }
+.wa-group:last-child { border-bottom: 0; }
+.wa-group-title { display: flex; align-items: center; gap: 0.5rem; margin: 0; padding: 0.85rem var(--wa-pad) 0.35rem; font-size: 0.88rem; font-weight: 500; color: var(--c-muted); }
+.wa-group-title.is-danger { color: var(--c-danger); }
+.wa-group-note { margin: 0; padding: 0.45rem var(--wa-pad) 0.75rem; font-size: 0.82rem; line-height: 1.5; color: var(--c-muted); }
+.wa-group-note.is-top { padding-top: 0; }
+
+.wa-row {
+    position: relative;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    min-height: 3.9rem;
+    padding: 0.7rem var(--wa-pad);
+    border: 0;
+    color: inherit;
+    text-align: left;
+    text-decoration: none;
+    background: transparent;
+}
+.wa-row > form { flex: none; margin: 0; }
+.wa-row-icon { flex: none; width: 1.4rem; height: 1.4rem; color: var(--c-icon); }
+.wa-row-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.12rem; }
+.wa-row-title { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; font-size: 1rem; overflow-wrap: anywhere; }
+.wa-row-text { font-size: 0.86rem; line-height: 1.45; color: var(--c-muted); }
+.wa-row-chevron { flex: none; width: 1.2rem; height: 1.2rem; color: var(--c-subtle); }
+.wa-row .session-icon { width: 2.6rem; height: 2.6rem; }
+.wa-row-avatar-icon { flex: none; display: grid; place-items: center; width: 2.75rem; height: 2.75rem; border-radius: 999px; color: var(--c-on-fab, #fff); background: var(--c-fab); }
+.wa-row-avatar-icon .icon { width: 1.25rem; height: 1.25rem; }
+.wa-row.is-link, label.wa-row { cursor: pointer; }
+.wa-row.is-link:hover, label.wa-row:hover, .wa-choice:hover { background: var(--c-surface-2); }
+.wa-row.is-link:focus-visible { outline: 2px solid var(--c-primary); outline-offset: -2px; }
+.wa-row.is-danger, .wa-row.is-danger .wa-row-icon { color: var(--c-danger); }
+.wa-tabular { font-variant-numeric: tabular-nums; }
+.wa-break { overflow-wrap: anywhere; }
+
+/* A choice (privacy, theme): the whole row opens the phone's own picker. */
+.wa-choice-select { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; font-size: 16px; cursor: pointer; appearance: none; }
+.wa-choice:focus-within { outline: 2px solid var(--c-primary); outline-offset: -2px; }
+.wa-choice [data-choice-label] { color: var(--c-muted); }
+
+/* Forms inside sections: underlined fields like the WhatsApp app. */
+.wa-form { display: flex; flex-direction: column; gap: 1.1rem; padding: 0.4rem var(--wa-pad) 1rem; }
+.wa-form-inline { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 0.5rem; padding-top: 0; }
+.wa-form-inline form { margin: 0; }
+.wa-form-title { font-size: 1rem; font-weight: 500; }
+.wa-form-text { margin: 0; font-size: 0.9rem; line-height: 1.5; }
+.wa-form-actions { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.wa-settings .form-label { font-size: 0.8rem; font-weight: 500; color: var(--c-primary-text); }
+.wa-settings .wa-form .form-control:not(.two-step-pin) {
+    height: 2.75rem;
+    border: 0;
+    border-bottom: 2px solid var(--c-border-strong);
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+}
+.wa-settings .wa-form .input-wrap > .icon { left: 0.1rem; }
+.wa-settings .wa-form .input-wrap > .icon ~ .form-control { padding-left: 2.1rem; }
+.wa-settings .wa-form .form-control:not(.two-step-pin):focus { border-bottom-color: var(--c-primary); box-shadow: none; }
+.wa-settings .wa-form .form-control.is-invalid { border-bottom-color: var(--c-danger); }
+.wa-settings .phone-change-code { max-width: 16rem; }
+
+.wa-danger-list { display: flex; flex-direction: column; gap: 0.65rem; margin: 0; padding: 0.35rem var(--wa-pad) 0.75rem; list-style: none; font-size: 0.9rem; line-height: 1.45; }
+.wa-danger-list li { display: flex; align-items: flex-start; gap: 0.85rem; }
+.wa-danger-list .icon { flex: none; width: 1.2rem; height: 1.2rem; margin-top: 0.05rem; color: var(--c-danger); }
+
+/* ---------- Profile screen ---------- */
+.wa-profile { display: flex; flex-direction: column; }
+.wa-profile-photo { position: relative; display: flex; flex-direction: column; align-items: center; gap: 0.35rem; padding: 1.5rem var(--wa-pad) 1.25rem; }
+.wa-profile-avatar {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 10rem;
+    height: 10rem;
+    overflow: hidden;
+    border-radius: 999px;
+    color: var(--c-avatar-text);
+    background: var(--c-avatar-bg);
+    cursor: pointer;
+}
+.wa-profile-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.wa-profile-initials { font-size: 3.4rem; font-weight: 500; letter-spacing: 0.02em; user-select: none; }
+.wa-profile-camera {
+    position: absolute;
+    top: 8.6rem;
+    left: calc(50% + 2.4rem);
+    display: grid;
+    place-items: center;
+    width: 3rem;
+    height: 3rem;
+    border-radius: 999px;
+    color: var(--c-on-fab, #fff);
+    background: var(--c-fab);
+    box-shadow: var(--shadow-sm);
+    cursor: pointer;
+    transition: transform 0.15s ease;
+}
+.wa-profile-camera:hover { transform: scale(1.06); }
+.wa-profile-camera .icon { width: 1.35rem; height: 1.35rem; }
+.wa-profile-avatar:focus-within, .wa-profile-camera:focus-within { outline: 2px solid var(--c-primary); outline-offset: 3px; }
+.wa-profile-photo-actions { display: flex; gap: 1.25rem; margin-top: 0.4rem; }
+.wa-link { padding: 0; border: 0; font: inherit; font-size: 0.95rem; font-weight: 500; color: var(--c-primary-text); background: none; cursor: pointer; }
+.wa-link.is-danger { color: var(--c-danger); }
+.wa-note { font-size: 0.78rem; color: var(--c-subtle); }
+
+.wa-field {
+    width: 100%;
+    display: flex;
+    align-items: flex-start;
+    gap: 1.5rem;
+    padding: 0.85rem var(--wa-pad);
+    border: 0;
+    color: inherit;
+    text-align: left;
+    background: transparent;
+    cursor: text;
+}
+button.wa-field { cursor: pointer; }
+.wa-field:hover { background: var(--c-surface-2); }
+.wa-field-icon { flex: none; width: 1.4rem; height: 1.4rem; margin-top: 0.7rem; color: var(--c-icon); }
+.wa-field-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.1rem; }
+.wa-field-label { font-size: 0.86rem; color: var(--c-muted); }
+.wa-field-input {
+    width: 100%;
+    min-width: 0;
+    padding: 0.15rem 0 0.3rem;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    font: inherit;
+    font-size: 1rem;
+    color: var(--c-text);
+    background: transparent;
+    transition: border-color 0.15s ease;
+}
+.wa-field-input::placeholder { color: var(--c-subtle); }
+.wa-field-input:focus { outline: none; border-bottom-color: var(--c-primary); }
+.wa-field-input.is-invalid { border-bottom-color: var(--c-danger); }
+.wa-field-value { padding: 0.15rem 0 0.3rem; font-size: 1rem; font-variant-numeric: tabular-nums; }
+.wa-field-hint { font-size: 0.8rem; color: var(--c-subtle); }
+.wa-field-edit { flex: none; width: 1.2rem; height: 1.2rem; margin-top: 0.8rem; color: var(--c-primary-text); }
+.wa-field:focus-within .wa-field-edit { visibility: hidden; }
+.wa-field-action { flex: none; margin-top: 0.75rem; font-size: 0.9rem; font-weight: 500; color: var(--c-primary-text); }
+
+.wa-save-bar {
+    position: sticky;
+    bottom: 0;
+    display: flex;
+    justify-content: flex-end;
+    padding: 0.75rem var(--wa-pad) calc(0.75rem + env(safe-area-inset-bottom, 0px));
+    background: linear-gradient(to top, var(--c-surface) 70%, transparent);
+}
+
+/* ---------- QR code screen ---------- */
+.wa-qr { display: flex; flex-direction: column; align-items: center; gap: 1rem; padding: 1.5rem var(--wa-pad) 1rem; }
+.wa-qr-card { position: relative; display: flex; flex-direction: column; align-items: center; width: min(100%, 20rem); padding: 2.6rem 1.5rem 1.5rem; margin-top: 2rem; border-radius: 20px; text-align: center; background: var(--c-surface-2); }
+.wa-qr-avatar.avatar { --size: 4.5rem; position: absolute; top: -2.25rem; box-shadow: 0 0 0 4px var(--c-surface); }
+.wa-qr-name { font-size: 1.15rem; font-weight: 500; }
+.wa-qr-sub { font-size: 0.85rem; color: var(--c-muted); }
+.wa-qr-box { display: grid; place-items: center; width: 100%; max-width: 15rem; aspect-ratio: 1; margin-top: 1rem; padding: 0.6rem; border-radius: 14px; background: #fff; }
+.wa-qr-box svg { display: block; width: 100%; height: 100%; }
+.wa-qr-text { max-width: 24rem; margin: 0; font-size: 0.86rem; line-height: 1.5; text-align: center; color: var(--c-muted); }
+
+/* ---------- Blocked contacts ---------- */
+.wa-block-picker > summary { list-style: none; }
+.wa-block-picker > summary::-webkit-details-marker { display: none; }
+.wa-block-picker-panel { margin: 0.25rem var(--wa-pad) 0.75rem; padding: 0.6rem 0; border: 1px solid var(--c-border); border-radius: 14px; }
+.wa-block-picker-panel .input-wrap { margin: 0 0.75rem 0.4rem; }
+.wa-block-picker-list { max-height: 20rem; overflow-y: auto; }
+.wa-block-picker-list .wa-row { --wa-pad: 0.9rem; }
+
+/* ---------- Web: list and section side by side ---------- */
+@media (min-width: 768px) {
+    .wa-settings { grid-template-columns: clamp(19rem, 34%, 27rem) minmax(0, 1fr); background: var(--c-bg); }
+    .wa-settings[data-view] .wa-settings-list,
+    .wa-settings[data-view] .wa-settings-detail { display: flex; }
+    .wa-settings-list { border-right: 1px solid var(--c-border); background: var(--c-surface); }
+    .wa-settings-detail .wa-appbar { padding-left: 1rem; background: var(--c-panel-header); }
+    .wa-back { display: none; }
+    .wa-section-body { padding-top: 0.5rem; }
+    .wa-menu-row[aria-current='page'], .wa-me-main[aria-current='page'] { background: var(--c-list-active); }
+    .wa-settings { --wa-pad: 1.75rem; }
+}
+
+@media (max-width: 767px) {
+    .wa-settings { --wa-appbar-h: 3.5rem; }
+    .wa-section.is-active { animation: wa-slide-in 0.22s var(--ease-out); }
+}
+
+@keyframes wa-slide-in {
+    from { opacity: 0; transform: translateX(1.5rem); }
+    to { opacity: 1; transform: none; }
+}

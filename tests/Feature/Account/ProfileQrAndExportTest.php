@@ -60,7 +60,7 @@ class ProfileQrAndExportTest extends TestCase
         $this->actingAs($bilal)->postJson('/qr/lookup', ['token' => $new])->assertNotFound();
 
         // Reset from the settings page.
-        $this->actingAs($bilal)->post('/settings/qr/reset')->assertRedirect('/settings?tab=account#qr-code');
+        $this->actingAs($bilal)->post('/settings/qr/reset')->assertRedirect('/settings?tab=qr');
     }
 
     public function test_the_account_report_has_settings_and_memberships_but_no_messages(): void

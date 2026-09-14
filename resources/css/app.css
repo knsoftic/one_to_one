@@ -10,6 +10,7 @@
 @import './message-features.css';
 @import './chat-list.css';
 @import './whatsapp.css';
+@import './settings-wa.css';
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';

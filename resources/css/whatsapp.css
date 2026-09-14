@@ -380,6 +380,10 @@ a.message-file:hover, .message.is-mine a.message-file:hover { filter: brightness
     .sidebar-title-web { display: none; }
     .sidebar-title-app { display: inline; font-size: 1.55rem; font-weight: 700; color: var(--c-brand); letter-spacing: -0.02em; }
     .header-new-chat { display: none; }
+    /* The app's ⋮ menu is plain text, like WhatsApp. */
+    .sidebar-header .dropdown-menu:not(.notifications-menu) { min-width: 13.5rem; }
+    .sidebar-header .dropdown-menu:not(.notifications-menu) .dropdown-item { padding: 0.8rem 1.5rem; font-size: 1rem; }
+    .sidebar-header .dropdown-menu:not(.notifications-menu) .dropdown-item > .icon { display: none; }
     .sidebar-search { padding: 0.1rem 1rem 0.6rem; }
     .search-input { height: 2.75rem; }
     .sidebar-filters { padding: 0 1rem 0.5rem; }
