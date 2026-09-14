@@ -8,6 +8,7 @@ use App\Services\BroadcastService;
 use App\Services\ChannelService;
 use App\Services\ChatLockService;
 use App\Services\GroupService;
+use App\Services\ReadReceiptService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -89,7 +90,7 @@ class ConversationResource extends JsonResource
                     'only_admins_edit' => $latest->attachment_meta['only_admins_edit'] ?? null,
                     'text' => $latest->systemText(),
                 ], fn ($value) => $value !== null) : null,
-                'status' => $latest->status(),
+                'status' => app(ReadReceiptService::class)->statusOf($latest),
                 'created_at' => $latest->created_at?->toIso8601String(),
             ] : null,
             'unread_count' => (int) ($this->unread_count ?? 0),

@@ -5,6 +5,7 @@ namespace App\Notifications;
 use App\Models\Message;
 use App\Models\User;
 use App\Services\ContactService;
+use App\Services\PrivacyService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\BroadcastMessage;
 use Illuminate\Notifications\Notification;
@@ -71,7 +72,7 @@ class NewMessageNotification extends Notification
                 // Name saved in the receiver's phone book (used by phone notifications).
                 'display_name' => $this->displayNameFor($notifiable),
                 'username' => $sender->username,
-                'avatar_url' => $sender->avatar_url,
+                'avatar_url' => app(PrivacyService::class)->canSeePhoto($sender, $notifiable) ? $sender->avatar_url : null,
                 'initials' => $sender->initials,
                 'avatar_hue' => $sender->avatar_hue,
             ],

@@ -6,6 +6,7 @@ use App\Models\ChatSetting;
 use App\Models\Message;
 use App\Models\User;
 use App\Services\ContactService;
+use App\Services\PrivacyService;
 use App\Services\PushService;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Support\Facades\DB;
@@ -72,7 +73,7 @@ class SendMessagePush
                 'message_id' => $message->id,
                 'sender_id' => $locked ? 0 : ($group ? -$group->id : $sender->id),
                 'sender_name' => $group && ! $locked ? (string) $group->name : $name,
-                'avatar_url' => $locked ? null : ($group ? $group->groupAvatarUrl() : $sender->avatar_url),
+                'avatar_url' => $locked ? null : ($group ? $group->groupAvatarUrl() : (app(PrivacyService::class)->canSeePhoto($sender, $receiver) ? $sender->avatar_url : null)),
                 'initials' => $locked ? '' : ($group ? $group->groupInitials() : $sender->initials),
                 'avatar_hue' => $locked ? 0 : ($group ? $group->groupHue() : $sender->avatar_hue),
                 'body' => $body,

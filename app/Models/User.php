@@ -44,6 +44,11 @@ class User extends Authenticatable
         'is_online' => false,
         'notifications_enabled' => true,
         'notification_sound' => true,
+        'last_seen_privacy' => 'everyone',
+        'online_privacy' => 'everyone',
+        'photo_privacy' => 'everyone',
+        'about_privacy' => 'everyone',
+        'read_receipts' => true,
     ];
 
     /**
@@ -61,6 +66,13 @@ class User extends Authenticatable
         'theme',
         'notifications_enabled',
         'notification_sound',
+        // Phase 6: About and privacy.
+        'about',
+        'last_seen_privacy',
+        'online_privacy',
+        'photo_privacy',
+        'about_privacy',
+        'read_receipts',
     ];
 
     /**
@@ -70,6 +82,7 @@ class User extends Authenticatable
         'password',
         'remember_token',
         'chat_lock_pin',
+        'two_step_pin',
     ];
 
     protected static function booted(): void
@@ -91,6 +104,8 @@ class User extends Authenticatable
             'is_online' => 'boolean',
             'notifications_enabled' => 'boolean',
             'notification_sound' => 'boolean',
+            'read_receipts' => 'boolean',
+            'two_step_enabled_at' => 'datetime',
             'password' => 'hashed',
         ];
     }
@@ -126,6 +141,12 @@ class User extends Authenticatable
     public function contacts(): HasMany
     {
         return $this->hasMany(Contact::class, 'user_id');
+    }
+
+    /** Browsers that passed two-step verification (P7). */
+    public function trustedDevices(): HasMany
+    {
+        return $this->hasMany(TrustedDevice::class);
     }
 
     public function stickers(): HasMany

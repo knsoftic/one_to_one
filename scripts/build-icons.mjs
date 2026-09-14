@@ -35,6 +35,8 @@ const ICONS = [
     'gauge', 'link-2', 'maximize-2', 'monitor-up', 'monitor-x', 'picture-in-picture-2', 'signal', 'signal-high', 'signal-medium',
     // Phase 5 — status
     'circle-dashed', 'volume-x',
+    // Phase 6 — privacy and security
+    'smartphone', 'scan-line', 'fingerprint-pattern',
 ];
 
 const pascal = (name) => name.replace(/(^|-)([a-z0-9])/g, (_, __, c) => c.toUpperCase());

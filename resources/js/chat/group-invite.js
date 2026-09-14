@@ -1,7 +1,7 @@
-import qrcode from 'qrcode-generator';
 import { errorMessage, html, raw } from '../lib/dom';
 import { icon } from '../lib/icons';
 import { confirmDialog } from '../lib/modal';
+import { qrSvg } from '../lib/qr';
 import { toast } from '../lib/toast';
 import * as T from './templates';
 
@@ -9,13 +9,7 @@ import * as T from './templates';
  * G3 — Group invite link and QR code: admins share or reset it; opening it offers to join.
  */
 
-/** QR code of a link as an SVG (scales to its box, dark modules on a light ground). */
-export function qrSvg(text) {
-    const qr = qrcode(0, 'M');
-    qr.addData(text);
-    qr.make();
-    return qr.createSvgTag({ cellSize: 4, margin: 2, scalable: true });
-}
+export { qrSvg };
 
 export class GroupInvites {
     constructor(chat) {

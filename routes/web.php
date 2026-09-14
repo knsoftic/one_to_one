@@ -4,6 +4,7 @@ use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AttachmentController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Auth\PasswordResetController;
+use App\Http\Controllers\Auth\TwoStepController;
 use App\Http\Controllers\BlockController;
 use App\Http\Controllers\BroadcastController;
 use App\Http\Controllers\CallController;
@@ -23,6 +24,7 @@ use App\Http\Controllers\DeviceController;
 use App\Http\Controllers\DisappearingMessageController;
 use App\Http\Controllers\GifController;
 use App\Http\Controllers\GroupController;
+use App\Http\Controllers\LinkedDeviceController;
 use App\Http\Controllers\LinkPreviewController;
 use App\Http\Controllers\LiveLocationController;
 use App\Http\Controllers\MessageController;
@@ -34,6 +36,8 @@ use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\PollVoteController;
 use App\Http\Controllers\PresenceController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ReportController;
+use App\Http\Controllers\SessionController;
 use App\Http\Controllers\StarredMessageController;
 use App\Http\Controllers\StatusController;
 use App\Http\Controllers\StickerController;
@@ -62,6 +66,15 @@ Route::middleware('guest')->group(function () {
         ->middleware('throttle:password-reset')
         ->name('password.email');
 
+    // Log in by scanning a QR code with a signed-in phone (P10)
+    Route::post('/login/qr', [LinkedDeviceController::class, 'create'])->middleware('throttle:chat-actions')->name('login.qr');
+    Route::post('/login/qr/{token}/status', [LinkedDeviceController::class, 'status'])->where('token', '[A-Za-z0-9]{40}')->middleware('throttle:chat-sync')->name('login.qr.status');
+
+    // Two-step verification step of signing in (P7)
+    Route::get('/login/verify', [TwoStepController::class, 'show'])->name('two-step.challenge');
+    Route::post('/login/verify', [TwoStepController::class, 'verify'])->middleware('throttle:chat-lock')->name('two-step.verify');
+    Route::post('/login/verify/forgot', [TwoStepController::class, 'forgot'])->middleware('throttle:password-reset')->name('two-step.forgot');
+
     Route::get('/reset-password/{token}', [PasswordResetController::class, 'showReset'])->name('password.reset');
     Route::post('/reset-password', [PasswordResetController::class, 'reset'])
         ->middleware('throttle:password-reset')
@@ -75,6 +88,9 @@ Route::middleware('guest')->group(function () {
 */
 
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->name('logout');
+
+// "Forgot PIN?" email link: turns two-step verification off (P7).
+Route::get('/two-step/reset/{user}', [TwoStepController::class, 'reset'])->whereNumber('user')->middleware('signed')->name('two-step.reset');
 
 Route::middleware(['auth', 'active'])->group(function () {
     Route::redirect('/', '/chat')->name('home');
@@ -388,6 +404,7 @@ Route::middleware(['auth', 'active'])->group(function () {
 
     Route::get('/users/search', [UserController::class, 'search'])->middleware('throttle:chat-search')->name('users.search');
     Route::get('/users/online', [UserController::class, 'online'])->name('users.online');
+    Route::post('/users/{user}/report', [ReportController::class, 'store'])->whereNumber('user')->middleware('throttle:chat-actions')->name('users.report');
 
     // Block / unblock
     Route::post('/users/{user}/block', [BlockController::class, 'store'])
@@ -410,6 +427,10 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('/users/{user}', [AdminController::class, 'showUser'])->whereNumber('user')->name('users.show');
         Route::patch('/users/{user}/status', [AdminController::class, 'updateStatus'])->whereNumber('user')->name('users.status');
         Route::delete('/users/{user}', [AdminController::class, 'destroyUser'])->whereNumber('user')->name('users.destroy');
+        // Reports (Phase 6, P6)
+        Route::get('/reports', [ReportController::class, 'index'])->name('reports');
+        Route::get('/reports/{report}', [ReportController::class, 'show'])->whereNumber('report')->name('reports.show');
+        Route::patch('/reports/{report}', [ReportController::class, 'update'])->whereNumber('report')->name('reports.update');
     });
 
     // In-app notification centre
@@ -423,4 +444,17 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::put('/settings/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::put('/settings/password', [ProfileController::class, 'updatePassword'])->name('profile.password');
     Route::match(['put', 'patch'], '/settings/preferences', [ProfileController::class, 'updatePreferences'])->name('profile.preferences');
+    // Linked devices: approve a computer's QR code / code from this phone (P10)
+    Route::get('/link-device/{token}', [LinkedDeviceController::class, 'page'])->where('token', '[A-Za-z0-9]{40}')->name('devices.link');
+    Route::post('/linked-devices/lookup', [LinkedDeviceController::class, 'lookup'])->middleware('throttle:chat-lock')->name('linked-devices.lookup');
+    Route::post('/linked-devices/approve', [LinkedDeviceController::class, 'approve'])->middleware('throttle:chat-lock')->name('linked-devices.approve');
+
+    // Where you're signed in (P9)
+    Route::get('/settings/sessions', [SessionController::class, 'index'])->name('sessions.index');
+    Route::delete('/settings/sessions/others', [SessionController::class, 'destroyOthers'])->middleware('throttle:chat-actions')->name('sessions.others');
+    Route::delete('/settings/sessions/{key}', [SessionController::class, 'destroy'])->where('key', '[a-f0-9]{40}')->middleware('throttle:chat-actions')->name('sessions.destroy');
+    Route::post('/settings/two-step', [TwoStepController::class, 'enable'])->middleware('throttle:chat-lock')->name('two-step.enable');
+    Route::put('/settings/two-step', [TwoStepController::class, 'change'])->middleware('throttle:chat-lock')->name('two-step.change');
+    Route::delete('/settings/two-step', [TwoStepController::class, 'disable'])->middleware('throttle:chat-lock')->name('two-step.disable');
+    Route::delete('/settings/two-step/devices', [TwoStepController::class, 'forgetDevices'])->name('two-step.devices.forget');
 });

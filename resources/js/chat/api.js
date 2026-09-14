@@ -50,6 +50,12 @@ export function createApi(routes) {
         unstar: (id) => data(axios.delete(url('messageStar', id))),
         // Groups (Phase 4)
         messageReceipts: (id) => data(axios.get(url('messageReceipts', id))),
+        sessions: () => data(axios.get(url('sessions'))),
+        logoutSession: (key) => data(axios.delete(url('sessionDestroy', key))),
+        logoutOtherSessions: () => data(axios.delete(url('sessionsOthers'))),
+        lookupLink: (target) => data(axios.post(url('linkedLookup'), target)),
+        approveLink: (target) => data(axios.post(url('linkedApprove'), target)),
+        reportUser: (userId, payload) => data(axios.post(url('reportUser', userId), payload)),
         statuses: () => data(axios.get(url('statuses'))),
         createStatus: (payload) => data(axios.post(url('statusesStore'), payload)),
         deleteStatus: (id) => data(axios.delete(url('statusDestroy', id))),

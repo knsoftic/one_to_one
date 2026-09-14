@@ -140,3 +140,8 @@
 .mini-stat-label { font-size: 0.75rem; color: var(--c-muted); }
 
 @keyframes grow-bar { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+
+/* P6 — reports */
+.report-details { margin: 0; padding: 0.6rem 0.8rem; border-radius: 10px; font-size: 0.9rem; white-space: pre-wrap; overflow-wrap: anywhere; background: var(--c-surface-2); }
+.report-evidence { margin-bottom: 0.45rem; padding: 0.5rem 0.75rem; border-left: 3px solid var(--c-danger); border-radius: 8px; background: var(--c-surface-2); }
+.report-evidence p { margin: 0 0 0.15rem; font-size: 0.9rem; overflow-wrap: anywhere; }

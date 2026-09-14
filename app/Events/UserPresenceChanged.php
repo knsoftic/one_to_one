@@ -2,33 +2,32 @@
 
 namespace App\Events;
 
-use App\Models\User;
 use Illuminate\Broadcasting\InteractsWithSockets;
-use Illuminate\Broadcasting\PresenceChannel;
+use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Foundation\Events\Dispatchable;
 
 /**
- * A user came online or went offline (with an accurate "last seen").
+ * A user came online or went offline (with an accurate "last seen"), sent only
+ * to the people allowed to see it (Phase 6, P1).
  */
 class UserPresenceChanged implements ShouldBroadcastNow
 {
     use Dispatchable, InteractsWithSockets;
 
+    /**
+     * @param  list<int>  $recipientIds
+     */
     public function __construct(
         public int $userId,
         public bool $isOnline,
         public ?string $lastSeen,
+        public array $recipientIds = [],
     ) {}
-
-    public static function for(User $user): self
-    {
-        return new self($user->id, $user->isOnlineNow(), $user->last_seen?->toIso8601String());
-    }
 
     public function broadcastOn(): array
     {
-        return [new PresenceChannel('online')];
+        return array_map(fn (int $id) => new PrivateChannel('App.Models.User.'.$id), array_values(array_unique($this->recipientIds)));
     }
 
     public function broadcastAs(): string

@@ -51,9 +51,9 @@ export function formatListTime(value) {
     return shortDate.format(date);
 }
 
-/** "last seen today at 10:35 PM" style presence text. */
+/** "last seen today at 10:35 PM" style presence text (nothing when it isn't shared). */
 export function formatLastSeen(value) {
-    if (!value) return 'offline';
+    if (!value) return '';
     const date = toDate(value);
     const seconds = (Date.now() - date.getTime()) / 1000;
     if (seconds < 60) return 'last seen just now';

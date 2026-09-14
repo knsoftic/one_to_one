@@ -8,6 +8,7 @@ use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RegisterRequest;
 use App\Services\AccountService;
 use App\Services\PresenceService;
+use App\Services\TwoStepService;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -19,6 +20,7 @@ class AuthController extends Controller
     public function __construct(
         private readonly AccountService $accounts,
         private readonly PresenceService $presence,
+        private readonly TwoStepService $twoStep,
     ) {}
 
     public function showLogin(): View
@@ -30,6 +32,15 @@ class AuthController extends Controller
     {
         $user = $request->authenticate();
 
+        // Two-step verification (P7): a browser that hasn't passed the PIN is asked for it first.
+        if ($this->twoStep->requiresChallenge($user, $request)) {
+            $request->session()->regenerate();
+            $this->twoStep->startChallenge($request, $user, $request->boolean('remember'));
+
+            return redirect()->route('two-step.challenge');
+        }
+
+        Auth::login($user, $request->boolean('remember'));
         $request->session()->regenerate();
         $this->presence->touch($user, force: true);
 

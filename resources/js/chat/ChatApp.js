@@ -28,6 +28,9 @@ import { Broadcasts, broadcastName } from './broadcasts';
 import { Communities } from './communities';
 import { Channels, channelAvatar, followersLabel, keepMyChoices } from './channels';
 import { Statuses } from './status';
+import { ContactInfo } from './contact-info';
+import { ReportUser } from './report';
+import { LinkedDevices } from './linked-devices';
 import { Groups, groupSummary } from './groups';
 import { InviteFriends } from './invite';
 import { LocationSharing } from './location';
@@ -182,6 +185,9 @@ export class ChatApp {
         this.communities = new Communities(this);
         this.channels = new Channels(this);
         this.statuses = new Statuses(this);
+        this.contactInfo = new ContactInfo(this);
+        this.reports = new ReportUser(this);
+        this.linkedDevices = new LinkedDevices(this);
         this.groupInvites = new GroupInvites(this);
         this.mentions = new Mentions(this);
         this.pins = new PinnedMessages(this);
@@ -873,7 +879,8 @@ export class ChatApp {
             this.el.headerUser.classList.add('is-clickable');
             return;
         }
-        this.el.headerUser.classList.remove('is-clickable');
+        // One-to-one chats open Contact info (Phase 6).
+        this.el.headerUser.classList.toggle('is-clickable', !conversation.is_self);
 
         status.classList.toggle('is-typing', typing);
         status.classList.toggle('is-online', !typing && !hidePresence && Boolean(user?.is_online));

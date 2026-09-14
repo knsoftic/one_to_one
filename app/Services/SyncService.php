@@ -122,14 +122,12 @@ class SyncService
             ->map(fn (Conversation $c) => $c->otherParticipantId($user))
             ->unique();
 
+        $privacy = app(PrivacyService::class);
+
         return User::query()
             ->whereKey($contactIds)
-            ->get(['id', 'is_online', 'last_seen'])
-            ->map(fn (User $u) => [
-                'id' => $u->id,
-                'is_online' => $u->isOnlineNow(),
-                'last_seen' => $u->last_seen?->toIso8601String(),
-            ])
+            ->get()
+            ->map(fn (User $u) => ['id' => $u->id] + $privacy->presenceFor($u, $user))
             ->values()
             ->all();
     }

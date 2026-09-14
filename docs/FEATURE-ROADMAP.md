@@ -105,21 +105,21 @@ light/dark theme · admin panel.
 | S4 | **Status ka jawab aur reaction** | Status par reply chat mein pahunche | 🟢 | [x] |
 | S5 | **Mute status** | Kisi ka status neeche chhupana | 🟢 | [x] |
 
-## Phase 6 — Privacy aur security
+## Phase 6 — Privacy aur security — ✅ mukammal (P11 baad mein)
 
 | # | Feature | Kya milega | Mehnat | Status |
 |---|---------|-----------|--------|--------|
-| P1 | **Last seen / online privacy** | Everyone / My contacts / Nobody | 🟡 | [ ] |
-| P2 | **Profile photo aur About privacy** | Kaun dekh sake | 🟢 | [ ] |
-| P3 | **Read receipts band** | Blue tick off (dono taraf) | 🟢 | [ ] |
-| P4 | **About (profile status text)** | "Busy", "At work" jaisa text | 🟢 | [ ] |
-| P5 | **Blocked contacts list** | Settings mein saare blocked log, wahin se unblock | 🟢 | [ ] |
-| P6 | **Report user** | Spam/abuse report, admin panel mein review | 🟡 | [ ] |
-| P7 | **Two-step verification** | 6 digit PIN, naye device par login ke waqt | 🟡 | [ ] |
-| P8 | **App lock** | Android app kholne par fingerprint/PIN | 🟢 | [ ] |
-| P9 | **Active sessions** | Kin devices par login hai, dusre devices se logout | 🟡 | [ ] |
-| P10 | **Linked devices (QR login)** | Phone se QR scan karke web par login, WhatsApp Web ki tarah | 🟡 | [ ] |
-| P11 | **End-to-end encryption** | Server par bhi messages na padhe ja sakein (bohat bari tabdeeli) | 🔴 | [ ] |
+| P1 | **Last seen / online privacy** | Everyone / My contacts / Nobody | 🟡 | [x] |
+| P2 | **Profile photo aur About privacy** | Kaun dekh sake | 🟢 | [x] |
+| P3 | **Read receipts band** | Blue tick off (dono taraf) | 🟢 | [x] |
+| P4 | **About (profile status text)** | "Busy", "At work" jaisa text | 🟢 | [x] |
+| P5 | **Blocked contacts list** | Settings mein saare blocked log, wahin se unblock | 🟢 | [x] |
+| P6 | **Report user** | Spam/abuse report, admin panel mein review | 🟡 | [x] |
+| P7 | **Two-step verification** | 6 digit PIN, naye device par login ke waqt | 🟡 | [x] |
+| P8 | **App lock** | Android app kholne par fingerprint/PIN | 🟢 | [x] |
+| P9 | **Active sessions** | Kin devices par login hai, dusre devices se logout | 🟡 | [x] |
+| P10 | **Linked devices (QR login)** | Phone se QR scan karke web par login, WhatsApp Web ki tarah | 🟡 | [x] |
+| P11 | **End-to-end encryption** | Server par bhi messages na padhe ja sakein (bohat bari tabdeeli) | 🔴 | [ ] ⏸ baad mein |
 
 ## Phase 7 — Account
 

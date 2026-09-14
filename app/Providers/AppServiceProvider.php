@@ -5,14 +5,18 @@ namespace App\Providers;
 use App\Broadcasting\ResilientBroadcastManager;
 use App\Services\ChatLockService;
 use App\Services\ConversationTypes;
+use App\Services\PrivacyService;
 use App\Services\PushService;
+use App\Services\ReadReceiptService;
 use App\View\Composers\AppConfigComposer;
 use App\View\Composers\ChatConfigComposer;
 use Illuminate\Broadcasting\BroadcastManager;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Foundation\Http\Events\RequestHandled;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\View;
@@ -36,6 +40,10 @@ class AppServiceProvider extends ServiceProvider
 
         // Remembers which conversations are channels for one request (G11).
         $this->app->scoped(ConversationTypes::class);
+
+        // Remember privacy and read receipt checks for one request (Phase 6).
+        $this->app->scoped(PrivacyService::class);
+        $this->app->scoped(ReadReceiptService::class);
     }
 
     /**
@@ -44,6 +52,9 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         JsonResource::withoutWrapping();
+
+        // Per-request memory (scoped services) never outlives its request.
+        Event::listen(RequestHandled::class, fn () => $this->app->forgetScopedInstances());
 
         View::composer('components.layouts.base', AppConfigComposer::class);
         View::composer('chat.index', ChatConfigComposer::class);

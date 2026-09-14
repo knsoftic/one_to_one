@@ -6,7 +6,11 @@ use App\Http\Requests\Profile\UpdatePasswordRequest;
 use App\Http\Requests\Profile\UpdatePreferencesRequest;
 use App\Http\Requests\Profile\UpdateProfileRequest;
 use App\Http\Resources\UserResource;
+use App\Models\Conversation;
+use App\Models\User;
 use App\Services\AccountService;
+use App\Services\ContactService;
+use App\Services\SessionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -18,9 +22,27 @@ class ProfileController extends Controller
 
     public function edit(Request $request): View
     {
+        $user = $request->user();
+        $blocked = $user->blockedUsers()->orderBy('name')->get();
+
+        // People you chat with, to block from here too (P5).
+        $partnerIds = Conversation::query()
+            ->where('type', Conversation::TYPE_DIRECT)
+            ->whereNotNull('last_message_id')
+            ->where(fn ($q) => $q->where('user_one_id', $user->id)->orWhere('user_two_id', $user->id))
+            ->latest('updated_at')
+            ->limit(100)
+            ->get(['user_one_id', 'user_two_id'])
+            ->map(fn (Conversation $c) => $c->otherParticipantId($user))
+            ->reject(fn (int $id) => $id === (int) $user->id || $blocked->contains('id', $id))
+            ->unique();
+
         return view('profile.edit', [
-            'user' => $request->user(),
-            'blockedUsers' => $request->user()->blockedUsers()->orderBy('name')->get(),
+            'user' => $user,
+            'blockedUsers' => $blocked,
+            'blockCandidates' => User::query()->whereKey($partnerIds)->active()->orderBy('name')->get(),
+            'savedNames' => app(ContactService::class)->savedNames($user, $blocked->pluck('id')->merge($partnerIds)->all()),
+            'sessions' => app(SessionService::class)->list($user, $request),
         ]);
     }
 
@@ -28,7 +50,7 @@ class ProfileController extends Controller
     {
         $this->accounts->updateProfile(
             $request->user(),
-            $request->safe()->only(['name', 'username', 'email', 'phone']),
+            $request->safe()->only(['name', 'username', 'email', 'phone', 'about']),
             $request->file('profile_image'),
             $request->boolean('remove_profile_image'),
         );
@@ -49,7 +71,7 @@ class ProfileController extends Controller
     {
         $data = $request->validated();
 
-        foreach (['notifications_enabled', 'notification_sound'] as $flag) {
+        foreach (['notifications_enabled', 'notification_sound', 'read_receipts'] as $flag) {
             if ($request->has($flag)) {
                 $data[$flag] = $request->boolean($flag);
             }
@@ -61,7 +83,7 @@ class ProfileController extends Controller
             return response()->json([
                 'message' => 'Preferences saved.',
                 'user' => new UserResource($user),
-                'preferences' => $user->only(['theme', 'notifications_enabled', 'notification_sound']),
+                'preferences' => $user->only(['theme', 'notifications_enabled', 'notification_sound', 'last_seen_privacy', 'online_privacy', 'photo_privacy', 'about_privacy', 'read_receipts']),
             ]);
         }
 

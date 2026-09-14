@@ -1,5 +1,6 @@
 import axios from '../bootstrap';
 import { confirmDialog } from '../lib/modal';
+import { AppLock } from './app-lock';
 import { requestStartupPermissions } from './permissions';
 import { App, NativeApp, SystemBars, SystemBarsStyle } from './plugins';
 
@@ -42,6 +43,11 @@ export function initNativeApp(config) {
     document.addEventListener('theme:change', syncSystemBars);
 
     bindBackButton();
+
+    // App lock (Phase 6, P8): fingerprint / face / screen lock when the app opens.
+    new AppLock({ NativeApp, App, appName: appConfig.name ?? 'One2One' })
+        .init({ signedIn: Boolean(appConfig.user) })
+        .catch(() => {});
 
     // People expect to stay signed in on their own phone.
     const remember = document.querySelector('form input[type="checkbox"][name="remember"]');

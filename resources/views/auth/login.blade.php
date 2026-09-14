@@ -1,4 +1,6 @@
-<x-layouts.guest title="Sign in">
+<x-layouts.guest title="Sign in" :wide="true" :scripts="['resources/js/auth/qr-login.js']">
+    <div class="login-layout">
+    <div class="login-form">
     <h2 class="auth-title">Welcome back 👋</h2>
     <p class="auth-subtitle">Sign in to continue your conversations.</p>
 
@@ -47,4 +49,18 @@
         Don't have an account?
         <a href="{{ route('register') }}" class="auth-link">Create one</a>
     </p>
+    </div>
+
+    {{-- Log in with your phone (P10) --}}
+    <aside class="qr-login" data-qr-login data-create-url="{{ route('login.qr') }}" data-status-url="{{ route('login.qr.status', ['token' => '__TOKEN__']) }}">
+        <h3 class="qr-login-title">Log in with your phone</h3>
+        <ol class="qr-login-steps">
+            <li>Open {{ config('app.name') }} on your phone</li>
+            <li>Tap <strong>Menu ⋮</strong> → <strong>Linked devices</strong></li>
+            <li>Tap <strong>Link a device</strong> and point it at this code</li>
+        </ol>
+        <div class="qr-login-box" data-qr-box aria-label="QR code to log in with your phone" role="img"><span class="spinner"></span></div>
+        <p class="qr-login-code">Can't scan? Type <strong data-qr-code>—</strong></p>
+    </aside>
+    </div>
 </x-layouts.guest>

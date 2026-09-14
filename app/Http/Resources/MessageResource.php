@@ -4,6 +4,7 @@ namespace App\Http\Resources;
 
 use App\Models\Message;
 use App\Services\ConversationTypes;
+use App\Services\ReadReceiptService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Carbon;
@@ -112,10 +113,11 @@ class MessageResource extends JsonResource
                 'duration' => $this->attachment_meta['duration'] ?? null,
             ]),
             'reply_to' => $this->replyPayload($viewerId),
-            'status' => $this->status(),
+            // P3: no blue ticks when either person turned read receipts off.
+            'status' => app(ReadReceiptService::class)->statusOf($this->resource),
             'sent_at' => ($this->sent_at ?? $this->created_at)?->toIso8601String(),
             'delivered_at' => $this->delivered_at?->toIso8601String(),
-            'seen_at' => $this->seen_at?->toIso8601String(),
+            'seen_at' => app(ReadReceiptService::class)->hiddenFor($this->resource) ? null : $this->seen_at?->toIso8601String(),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];

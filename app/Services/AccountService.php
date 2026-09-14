@@ -50,6 +50,11 @@ class AccountService
             'phone' => $data['phone'],
         ]);
 
+        if (array_key_exists('about', $data)) {
+            $about = trim((string) preg_replace('/\s+/u', ' ', (string) $data['about']));
+            $user->about = $about === '' ? null : mb_substr($about, 0, 139);
+        }
+
         if ($user->isDirty('email')) {
             $user->email_verified_at = null;
         }
@@ -90,7 +95,10 @@ class AccountService
 
     public function updatePreferences(User $user, array $preferences): User
     {
-        $user->fill(array_intersect_key($preferences, array_flip(['theme', 'notifications_enabled', 'notification_sound'])));
+        $user->fill(array_intersect_key($preferences, array_flip([
+            'theme', 'notifications_enabled', 'notification_sound',
+            'last_seen_privacy', 'online_privacy', 'photo_privacy', 'about_privacy', 'read_receipts',
+        ])));
         $user->save();
 
         return $user;

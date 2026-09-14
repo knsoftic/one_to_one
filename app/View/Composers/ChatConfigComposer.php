@@ -94,6 +94,12 @@ class ChatConfigComposer
             'communityInvite' => ['communities.invite', ['community' => $id]],
             'communityInviteReset' => ['communities.invite.reset', ['community' => $id]],
             'communityJoin' => ['communities.join', ['token' => $id]],
+            'reportUser' => ['users.report', ['user' => $id]],
+            'sessions' => ['sessions.index', []],
+            'sessionDestroy' => ['sessions.destroy', ['key' => $id]],
+            'sessionsOthers' => ['sessions.others', []],
+            'linkedLookup' => ['linked-devices.lookup', []],
+            'linkedApprove' => ['linked-devices.approve', []],
             'statuses' => ['statuses.index', []],
             'statusesStore' => ['statuses.store', []],
             'statusDestroy' => ['statuses.destroy', ['status' => $id]],
@@ -183,6 +189,8 @@ class ChatConfigComposer
             'communityInvite' => $view->getData()['communityInvite'] ?? null,
             // Opened from a channel link (G11).
             'channelInvite' => $view->getData()['channelInvite'] ?? null,
+            // Opened from a linked-device QR code (P10).
+            'linkDevice' => $view->getData()['linkDevice'] ?? null,
             // Status (Phase 5).
             'statuses' => [
                 'maxVideoSeconds' => (int) config('chat.statuses.max_video_seconds', 60),

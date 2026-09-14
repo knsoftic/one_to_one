@@ -124,3 +124,22 @@
 .permission-item-icon .icon { width: 1.1rem; height: 1.1rem; }
 .permission-item-title { display: block; font-weight: 600; font-size: 0.9rem; color: var(--c-text); }
 .permission-item-text { display: block; margin-top: 0.15rem; font-size: 0.8rem; line-height: 1.4; color: var(--c-muted); }
+
+/* ---------- App lock (Phase 6, P8) ---------- */
+.app-lock {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: grid;
+    place-items: center;
+    padding: calc(var(--app-safe-top, 0px) + 1.5rem) 1.5rem 2rem;
+    text-align: center;
+    color: var(--c-text);
+    background: var(--c-surface);
+}
+.app-lock-body { display: flex; flex-direction: column; align-items: center; gap: 0.75rem; max-width: 20rem; }
+.app-lock-icon { display: grid; place-items: center; width: 4.5rem; height: 4.5rem; border-radius: 999px; color: var(--c-primary); background: var(--c-primary-soft); }
+.app-lock-icon .icon { width: 2rem; height: 2rem; }
+.app-lock-title { margin: 0; font-size: 1.35rem; font-weight: 600; }
+.app-lock-text { margin: 0 0 0.75rem; color: var(--c-muted); }
+.is-app-locked body { overflow: hidden; }

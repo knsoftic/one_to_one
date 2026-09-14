@@ -17,6 +17,11 @@
                 <a href="{{ route('admin.users', ['status' => 'suspended']) }}" class="admin-nav-link">
                     <x-icon name="user-x" /> Suspended
                 </a>
+                @php($openReports = \App\Models\UserReport::query()->open()->count())
+                <a href="{{ route('admin.reports') }}" @class(['admin-nav-link', 'is-active' => request()->routeIs('admin.reports*')])>
+                    <x-icon name="circle-alert" /> Reports
+                    @if ($openReports)<span class="badge badge-danger ml-auto">{{ $openReports }}</span>@endif
+                </a>
                 <div class="admin-nav-divider"></div>
                 <a href="{{ route('chat.index') }}" class="admin-nav-link"><x-icon name="message-circle" /> Back to chats</a>
                 <a href="{{ route('profile.edit') }}" class="admin-nav-link"><x-icon name="settings" /> Settings</a>
@@ -24,7 +29,7 @@
 
             <div class="admin-privacy-note">
                 <x-icon name="lock" class="icon-sm" />
-                <span>Private conversations are end-user data and are not accessible from the admin panel.</span>
+                <span>Private conversations are end-user data and are not accessible from the admin panel. Reports only include messages the reporter chose to send.</span>
             </div>
         </aside>
 

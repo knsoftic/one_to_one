@@ -41,6 +41,7 @@ class UpdateProfileRequest extends FormRequest
             'email' => $this->emailRules($id),
             'phone' => $this->phoneRules($id),
             'profile_image' => $this->avatarRules(),
+            'about' => ['nullable', 'string', 'max:139'],
             'remove_profile_image' => ['nullable', 'boolean'],
         ];
     }

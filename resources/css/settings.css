@@ -46,3 +46,20 @@
 
 .list-row { display: flex; align-items: center; gap: 0.85rem; padding: 0.8rem 0; border-bottom: 1px solid var(--c-border); }
 .list-row:last-child { border-bottom: 0; }
+
+/* Phase 6 — privacy choices */
+.setting-select { width: auto; min-width: 11.5rem; height: 2.4rem; padding-right: 2rem; cursor: pointer; }
+@media (max-width: 560px) { .setting-select { width: 100%; } }
+.contact-info-presence { margin: 0.1rem 0 0; font-size: 0.85rem; color: var(--c-muted); }
+
+/* P5 — block someone from settings */
+.block-picker { margin-bottom: 1rem; }
+.block-picker > summary { list-style: none; width: fit-content; }
+.block-picker > summary::-webkit-details-marker { display: none; }
+.block-picker-panel { margin-top: 0.75rem; padding: 0.75rem; border: 1px solid var(--c-border); border-radius: 12px; }
+.block-picker-list { max-height: 18rem; margin-top: 0.5rem; overflow-y: auto; }
+.block-picker-list .list-row { padding: 0.55rem 0; }
+
+
+/* Privacy choices look like dropdowns */
+.setting-select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23667781' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 0.7rem center; background-size: 1rem; }

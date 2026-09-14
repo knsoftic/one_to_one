@@ -62,6 +62,8 @@ dependencies {
     implementation project(':capacitor-cordova-android-plugins')
     // HTTP + WebSocket client (push token, notification actions, fallback background connection).
     implementation "com.squareup.okhttp3:okhttp:4.12.0"
+    // App lock: fingerprint / face / screen lock prompt (Phase 6, P8).
+    implementation "androidx.biometric:biometric:1.1.0"
     // Push notifications (Firebase Cloud Messaging).
     implementation platform("com.google.firebase:firebase-bom:34.19.0")
     implementation "com.google.firebase:firebase-messaging"

@@ -1,5 +1,5 @@
-@props(['title' => null, 'wide' => false])
-<x-layouts.base :title="$title">
+@props(['title' => null, 'wide' => false, 'scripts' => []])
+<x-layouts.base :title="$title" :scripts="$scripts">
     <div class="auth-shell">
         <aside class="auth-hero">
             <a href="{{ route('login') }}" class="brand">

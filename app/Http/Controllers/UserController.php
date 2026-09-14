@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Resources\UserResource;
 use App\Models\Conversation;
 use App\Models\User;
+use App\Services\PrivacyService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
@@ -62,8 +63,12 @@ class UserController extends Controller
                 $contactIds->all()
             ))
             ->orderByDesc('last_seen')
-            ->limit(30)
-            ->get();
+            ->limit(60)
+            ->get()
+            // Only people who share their online status with the viewer (P1).
+            ->filter(fn (User $user) => app(PrivacyService::class)->canSeeOnline($user, $viewer))
+            ->take(30)
+            ->values();
 
         return UserResource::collection($users);
     }

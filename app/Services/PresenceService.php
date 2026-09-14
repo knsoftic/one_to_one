@@ -32,7 +32,7 @@ class PresenceService
         $this->write($user, true, now());
 
         if (! $wasOnline) {
-            broadcast(UserPresenceChanged::for($user));
+            $this->announce($user, true);
         }
 
         return ! $wasOnline;
@@ -45,7 +45,7 @@ class PresenceService
     {
         $this->write($user, false, now());
 
-        broadcast(UserPresenceChanged::for($user));
+        $this->announce($user, false);
     }
 
     /**
@@ -60,7 +60,7 @@ class PresenceService
             ->where(fn ($q) => $q->whereNull('last_seen')
                 ->orWhere('last_seen', '<', now()->subSeconds(config('chat.online_threshold_seconds'))))
             ->limit(1000)
-            ->get(['id', 'last_seen']);
+            ->get();
 
         if ($stale->isEmpty()) {
             return 0;
@@ -69,10 +69,27 @@ class PresenceService
         User::query()->whereKey($stale->modelKeys())->toBase()->update(['is_online' => false]);
 
         foreach ($stale as $user) {
-            broadcast(new UserPresenceChanged($user->id, false, $user->last_seen?->toIso8601String()));
+            $this->announce($user, false);
         }
 
         return $stale->count();
+    }
+
+    /**
+     * Tell the people allowed to know (P1): what each may see of online and last seen.
+     */
+    private function announce(User $user, bool $online): void
+    {
+        $audience = app(PrivacyService::class)->presenceAudience($user);
+        $lastSeen = $user->last_seen?->toIso8601String();
+
+        broadcast(new UserPresenceChanged($user->id, $online, $lastSeen, $audience['full']));
+        if ($audience['online_only'] !== []) {
+            broadcast(new UserPresenceChanged($user->id, $online, null, $audience['online_only']));
+        }
+        if ($audience['last_seen_only'] !== []) {
+            broadcast(new UserPresenceChanged($user->id, false, $lastSeen, $audience['last_seen_only']));
+        }
     }
 
     private function write(User $user, bool $online, Carbon $at): void

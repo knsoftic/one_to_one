@@ -798,3 +798,72 @@ The whole app now looks like WhatsApp — WhatsApp Web on computers, the WhatsAp
 - Also restyled: menus, dialogs, toasts, reply/status quotes, link cards, files, voice notes and polls inside the new bubbles, side panels (group/channel info), login/register (green band and white card like WhatsApp Web's login), settings and error pages.
 - Code: `resources/css/whatsapp.css` (loaded last), tokens in `theme.css`, rail/header/tabs/welcome in `chat/index.blade.php`, the rail and tabs open every section (`bindMobileNav`), every unread badge updates.
 - Checked in the browser with the real page rendered (desktop light/dark, phone list and chat, login, settings). Tests: PHPUnit **362 passed**, Vitest **146 passed**, build ✅.
+
+
+## Roadmap Phase 6 — Privacy and security ✅ (P11 postponed)
+Decisions: **P11 end-to-end encryption is postponed** (it would break server search, link previews, notification text, broadcast copies and history on new devices; to be planned as its own project). **P8 app lock** will use the phone's fingerprint / face / screen lock through native code, so it needs a new APK.
+
+### Storage (Phase 6)
+- Migration `2026_09_22_000001_create_privacy_and_security` (rollback checked): users get `about`, `last_seen_privacy`, `online_privacy`, `photo_privacy`, `about_privacy` (default everyone, so nothing changes until someone chooses), `read_receipts` (default on), `two_step_pin`, `two_step_enabled_at`; new tables `user_reports`, `trusted_devices`, `login_links` (used by P7 / P10). `expires_at` uses a default so MySQL strict mode accepts the table.
+- `PrivacyService` and `ReadReceiptService` remember their checks for one request (scoped services, cleared after every request).
+
+### P1 — Last seen / online privacy ✅
+- Settings → **Privacy**: **Last seen** Everyone / My contacts / Nobody and **Online** Everyone / Same as last seen. "My contacts" = people you saved and people you have a one-to-one chat with (same as status). Like WhatsApp, if you share your last seen with nobody you don't see anyone's; blocked people never see it.
+- Applied everywhere a user is sent to someone else (`UserResource`: chat list, search, contacts, groups, calls, status viewers…), in the polling sync and in `/users/online` (people who hide their online status are left out).
+- Live presence no longer uses the global `online` presence channel (which showed every online user to everyone): `UserPresenceChanged` now goes on private channels, only to chat partners and people who saved the user, and each person gets only what they may see (online, last seen, both or nothing). The chat shows nothing instead of "offline" when last seen isn't shared.
+- Tests: `LastSeenPrivacyTest` (4: everyone / contacts / nobody incl. who counts as a contact, online "same as last seen", online list; hiding yours hides others', blocks hide everything; live presence reaches only allowed people with the right fields; saved from settings with validation).
+
+### P2 — Profile photo and About privacy ✅
+- Settings → Privacy: **Profile photo** and **About** Everyone / My contacts / Nobody. People who may not see the photo get initials; the About is left out. Phone notifications and the notification centre also leave out a hidden photo.
+- Note: photos are public storage files, so someone who already has the file address could still open it; the app just never gives it to people who may not see it.
+- Tests: `ProfilePrivacyTest` (3 incl. About) — photo and About hidden by setting, own details still visible, notification without a hidden photo.
+
+### P3 — Read receipts off ✅
+- Settings → Privacy: **Read receipts** switch. In one-to-one chats, if either person turned it off nobody sees blue ticks (read shows as delivered, no "read" live event, no read time in message info). Messages are still marked read on the server, so unread counts keep working. Group chats always keep receipts, like WhatsApp.
+- Tests: `ReadReceiptsTest` (2: delivered instead of read both ways, unread still cleared, back to read when both turn it on; groups unaffected).
+
+### P4 — About (profile status text) ✅
+- Settings → Profile: **About** (up to 139 characters, spaces tidied). Shown in the new **Contact info** panel: tap the header of a one-to-one chat (or ⋮ → Contact info) for the photo, name (with the profile name when you saved a different one), @username, online / last seen, About, and **Block / Unblock** and **Report**.
+- Tests: in `ProfilePrivacyTest`; frontend `contact-info.test.js` (3: panel shows About / presence and hides what isn't shared, only for one-to-one chats, privacy choices save and roll back on error).
+- Bug found by the new frontend test and fixed: an edit script had turned `$$(` into `$(` in `ui/settings.js` (a `$$` in a JavaScript replacement means one `$`); edit scripts now use replacement functions.
+
+### P5 — Blocked contacts list ✅
+- Settings → **Blocked contacts (N)**: everyone you blocked (with the name you saved), **Unblock**, and **Block someone** with a search over people you chat with. The Privacy tab shows how many people you blocked with a link to the list.
+- Tests: `BlockedContactsTest` (list, block from settings, count, unblock; strangers aren't offered).
+
+### P6 — Report user ✅ (server + chat dialog)
+- In a one-to-one chat: ⋮ → **Report** or Contact info → Report. Choose a reason (Spam / Abusive or harassing / Fake account or scam / Something else), add a note, and **Also block** (on by default). The last 5 messages from that person in the chat go with the report (like WhatsApp); they aren't told. Reporting the same person again within a day updates the open report; only the chat between the two can be attached.
+- Admin panel: **Reports** in the menu (with the number of open reports): Open / Reviewed / Dismissed lists; a report page with the reported account (status buttons to suspend), reason, reporter, note, the attached messages, other reports about them, an admin note, and **Mark reviewed / Dismiss / Reopen**. The admin privacy note now says reports only include messages the reporter chose to send.
+- Server: `POST /users/{user}/report`, `GET /admin/reports`, `GET/PATCH /admin/reports/{report}`; `UserReport`, `ReportService`, `ReportController`.
+- Tests: `ReportUserTest` (2: validation, can't report yourself, last 5 messages attached, also block, repeat updates, other chats never attached; only admins see and review reports). Frontend: the report dialog is covered in `security.test.js`.
+
+### P7 — Two-step verification ✅
+- Settings → Password & security → **Two-step verification**: turn on with a 6-digit PIN (typed twice) and your current password; change the PIN; **Forget browsers** (every browser asks again); turn off with your password.
+- Signing in with the password on a browser that hasn't passed the PIN shows **Two-step verification** (enter PIN). The right PIN signs in (with "remember me" if it was ticked) and remembers this browser (encrypted cookie + `trusted_devices` row, 2 years). Wrong PINs: 5 tries, then a wait. **Forgot PIN?** emails a signed link (60 minutes) that turns two-step verification off. A wrong password never reaches the PIN step.
+- Signing in now checks the password first and only signs in afterwards, so asking for the PIN never breaks "remember me" on other devices. The browser that turns two-step on, and a computer linked from the phone (P10), are trusted.
+- Server: `TwoStepService`, `Auth\TwoStepController`, `TwoStepResetNotification`; `GET/POST /login/verify`, `POST /login/verify/forgot`, signed `GET /two-step/reset/{user}`, `POST/PUT/DELETE /settings/two-step`, `DELETE /settings/two-step/devices`.
+- Tests: `TwoStepVerificationTest` (5: turning on needs a matching 6-digit PIN and the password, PIN hashed, browser trusted; a new browser is asked and trusted after, remembered browser isn't asked; tries limited, wrong password never reaches the PIN; forgot PIN email + signed link turns it off; change, forget browsers, turn off). Existing login tests still pass.
+
+### P9 — Active sessions ✅
+- Settings → Password & security → **Where you're signed in**: each browser / phone ("Chrome on Windows", "One2One Chat app on Android"), its network address and when it was last active, **This device**, **Log out** for the others and **Log out of all other devices**. The same list is in the app under ⋮ → **Linked devices**.
+- Session ids are never shown (each session is identified by a hash). Signing a device out deletes its session, stops that phone's notifications (device token) and gives your account a new "remember me" token (this device gets a fresh cookie).
+- Server: `SessionService`, `SessionController`, `App\Support\UserAgent`; `GET /settings/sessions`, `DELETE /settings/sessions/{key}`, `DELETE /settings/sessions/others`.
+- Tests: `ActiveSessionsTest` (listed without ids, old sessions left out, phone signed out with its notifications and remember token, can't touch other people's sessions, log out of all others).
+
+### P10 — Linked devices (QR login) ✅
+- The login page on a computer shows **Log in with your phone**: steps, a QR code and a short code (e.g. `K7P2-M9QX`), valid for 3 minutes with **Get a new code** after. On the phone: ⋮ → **Linked devices** → **Link a device** → scan the QR code (camera; phones without QR scanning type the code), see "Link Chrome on Windows? From …", approve — the computer signs in by itself. Opening the QR link directly on a signed-in phone asks the same.
+- Safety: the QR code carries only a link token; the computer is signed in only by the page that holds the link's secret, so a photo of the QR code can't be used to sign in. Single use, 3-minute expiry, rate limits. A computer linked this way isn't asked for the two-step PIN (it was approved from the phone).
+- Server: `LoginLink`, `LinkedDeviceService`, `LinkedDeviceController`; `POST /login/qr`, `POST /login/qr/{token}/status`, `GET /link-device/{token}`, `POST /linked-devices/lookup`, `POST /linked-devices/approve`. The `login_links.session_id` column was renamed to `secret_hash` before anything was released.
+- Tests: `LinkedDeviceTest` (2: QR alone signs nobody in, lookup shows the device, code approves, computer signs in once; guests can't approve, two-step accounts aren't asked for the PIN and the computer is trusted, expired codes). Frontend `security.test.js` (6: report dialog; QR and code reading; sessions list, sign out, link after confirming; link opened from the QR URL; login page shows the QR code and signs in when approved; expired code → new code).
+
+### P8 — App lock ✅ (needs the new APK)
+- In the Android app: Settings → Privacy → **App lock** (only shown inside the app): turn on (asks for the fingerprint / face / phone screen lock first) and choose **Immediately / After 1 minute / After 30 minutes**. The app shows a lock screen when it opens or comes back after that time; **Unlock** uses the phone's fingerprint, face or its own PIN / pattern. Phones without a screen lock are told to set one; older app versions say to update.
+- Native: `NativeAppPlugin` gets `getAppLockStatus` and `unlockApp` (AndroidX `BiometricPrompt`, fingerprint/face with the device credential as fallback), dependency `androidx.biometric:biometric:1.1.0`. Web: `resources/js/native/app-lock.js` (settings stay on the phone).
+- New debug APK built: `mobile/android/app/build/outputs/apk/debug/app-debug.apk` (6.8 MB). Note: Capacitor 8 needs Java 21+; the default `C:\Android\jdk` is 17, so the build used Android Studio's JBR (`JAVA_HOME=C:\Program Files\Android\Android Studio\jbr`).
+- Tests: `app-lock.test.js` (4: settings and when to lock; locks on open and on return, unlocks; off / signed out / unsupported; turning on asks for the fingerprint first). The fingerprint prompt itself needs a real phone to try.
+
+### Checked in the browser (Phase 6)
+Rendered pages: Settings → Privacy (with the app lock row) and Password & security (sessions, two-step), the login page with the QR panel, the PIN page, an admin report; in the chat: Contact info, the Report dialog, Linked devices and the scanner's type-the-code mode. Fixed: privacy dropdowns had no arrow.
+
+### Verification (Phase 6 complete)
+PHPUnit **382 passed**, Vitest **159 passed**, Pint ✅, build ✅, debug APK ✅. Deploy: `php artisan migrate` and `npm run build` (deploy script does both); install the new APK for app lock (everything else works with the old APK). Also Laravel's mailer must be set up on the server for "Forgot PIN?" emails.

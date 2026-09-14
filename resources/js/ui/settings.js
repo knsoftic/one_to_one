@@ -25,14 +25,21 @@ function initTabs() {
 
 function initPreferenceSwitches(config) {
     $$('[data-preference]').forEach((input) => {
+        // Selects (privacy choices) send their value; switches send on/off.
+        const isSwitch = input.type === 'checkbox';
+        let saved = isSwitch ? input.checked : input.value;
+
         input.addEventListener('change', async () => {
             const key = input.dataset.preference;
+            const value = isSwitch ? input.checked : input.value;
             try {
-                await axios.patch(config.routes.preferences, { [key]: input.checked });
-                if (config.user) config.user[key] = input.checked;
+                await axios.patch(config.routes.preferences, { [key]: value });
+                saved = value;
+                if (config.user) config.user[key] = value;
                 toast.success('Preference saved.', { timeout: 2000 });
             } catch (error) {
-                input.checked = !input.checked;
+                if (isSwitch) input.checked = saved;
+                else input.value = saved;
                 toast.error(errorMessage(error));
             }
         });
@@ -70,9 +77,22 @@ function initBrowserNotificationButton() {
     });
 }
 
+/** "Block someone": filter the people you chat with (P5). */
+function initBlockPicker() {
+    const search = $('[data-block-search]');
+    if (!search) return;
+    search.addEventListener('input', () => {
+        const term = search.value.trim().toLowerCase();
+        $$('[data-block-candidate]').forEach((row) => {
+            row.hidden = Boolean(term) && !row.dataset.name.includes(term);
+        });
+    });
+}
+
 export function initSettings(config) {
     if (!$('[data-settings-tabs]')) return;
     initTabs();
+    initBlockPicker();
     initPreferenceSwitches(config);
     initBrowserNotificationButton();
 }

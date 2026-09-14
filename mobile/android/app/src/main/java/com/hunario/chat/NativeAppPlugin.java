@@ -12,7 +12,12 @@ import android.os.Build;
 import android.os.PowerManager;
 import android.provider.ContactsContract.CommonDataKinds.Phone;
 import android.provider.Settings;
+import androidx.annotation.NonNull;
+import androidx.biometric.BiometricManager;
+import androidx.biometric.BiometricPrompt;
 import androidx.core.app.NotificationManagerCompat;
+import androidx.core.content.ContextCompat;
+import androidx.fragment.app.FragmentActivity;
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.PermissionState;
@@ -37,6 +42,7 @@ import org.json.JSONObject;
  *  - getContacts(): read-only phone book (names + numbers) for matching registered users
  *  - message notifications (Firebase push or the fallback connection)
  *  - calls: ringtone, ongoing-call service, speaker, Hang up from the notification
+ *  - app lock: unlock with the fingerprint, face or the phone's own PIN / pattern
  */
 @CapacitorPlugin(
     name = "One2OneNative",
@@ -428,6 +434,85 @@ public class NativeAppPlugin extends Plugin {
         result.put("granted", false);
         result.put("requested", true);
         call.resolve(result);
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* App lock (Phase 6, P8)                                              */
+    /* ------------------------------------------------------------------ */
+
+    /** Fingerprint or face, with the phone's own PIN / pattern / password as the fallback. */
+    private static final int LOCK_AUTHENTICATORS =
+        BiometricManager.Authenticators.BIOMETRIC_WEAK | BiometricManager.Authenticators.DEVICE_CREDENTIAL;
+
+    /**
+     * { available, biometric, reason }: whether the app can be locked on this phone
+     * (a screen lock is set), and whether a fingerprint or face is enrolled.
+     */
+    @PluginMethod
+    public void getAppLockStatus(PluginCall call) {
+        BiometricManager manager = BiometricManager.from(getContext());
+        int status = manager.canAuthenticate(LOCK_AUTHENTICATORS);
+
+        JSObject result = new JSObject();
+        result.put("available", status == BiometricManager.BIOMETRIC_SUCCESS);
+        result.put("biometric", manager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK) == BiometricManager.BIOMETRIC_SUCCESS);
+        result.put("reason", switch (status) {
+            case BiometricManager.BIOMETRIC_SUCCESS -> "ready";
+            case BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> "no_screen_lock";
+            case BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE, BiometricManager.BIOMETRIC_ERROR_UNSUPPORTED -> "unsupported";
+            default -> "unavailable";
+        });
+        call.resolve(result);
+    }
+
+    /**
+     * Show the system unlock prompt ({ title, subtitle }). Resolves { unlocked: true } on
+     * success, or { unlocked: false, error, code } when it was cancelled or failed.
+     */
+    @PluginMethod
+    public void unlockApp(PluginCall call) {
+        FragmentActivity activity = getActivity();
+        if (activity == null) {
+            call.reject("The app isn't on screen.");
+            return;
+        }
+
+        String title = call.getString("title", "Unlock");
+        String subtitle = call.getString("subtitle", "");
+
+        activity.runOnUiThread(() -> {
+            BiometricPrompt prompt = new BiometricPrompt(activity, ContextCompat.getMainExecutor(activity), new BiometricPrompt.AuthenticationCallback() {
+                @Override
+                public void onAuthenticationSucceeded(@NonNull BiometricPrompt.AuthenticationResult authResult) {
+                    JSObject result = new JSObject();
+                    result.put("unlocked", true);
+                    call.resolve(result);
+                }
+
+                @Override
+                public void onAuthenticationError(int errorCode, @NonNull CharSequence errString) {
+                    JSObject result = new JSObject();
+                    result.put("unlocked", false);
+                    result.put("code", errorCode);
+                    result.put("error", errString.toString());
+                    call.resolve(result);
+                }
+                // onAuthenticationFailed: one wrong finger; the prompt stays open for another try.
+            });
+
+            BiometricPrompt.PromptInfo.Builder info = new BiometricPrompt.PromptInfo.Builder()
+                .setTitle(title)
+                .setAllowedAuthenticators(LOCK_AUTHENTICATORS);
+            if (!subtitle.isEmpty()) {
+                info.setSubtitle(subtitle);
+            }
+
+            try {
+                prompt.authenticate(info.build());
+            } catch (RuntimeException exception) {
+                call.reject(exception.getMessage());
+            }
+        });
     }
 
     private void resolvePermission(PluginCall call) {

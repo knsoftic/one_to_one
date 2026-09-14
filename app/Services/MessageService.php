@@ -747,13 +747,16 @@ class MessageService
         });
         app(BroadcastService::class)->settle($ids);
 
-        broadcast(new MessagesStatusUpdated(
-            $conversation->getKey(),
-            $conversation->otherParticipantId($reader),
-            $ids,
-            Message::STATUS_SEEN,
-            $now->toIso8601String(),
-        ));
+        // P3: the sender only hears "read" when both people share read receipts.
+        if (! app(ReadReceiptService::class)->hiddenBetween((int) $reader->getKey(), $conversation->otherParticipantId($reader))) {
+            broadcast(new MessagesStatusUpdated(
+                $conversation->getKey(),
+                $conversation->otherParticipantId($reader),
+                $ids,
+                Message::STATUS_SEEN,
+                $now->toIso8601String(),
+            ));
+        }
 
         // Remove the chat's notification from the reader's phones.
         if (app(PushService::class)->enabled()) {

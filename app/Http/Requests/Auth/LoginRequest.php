@@ -36,7 +36,7 @@ class LoginRequest extends FormRequest
     }
 
     /**
-     * Attempt to authenticate using email, username or mobile number.
+     * Check the email / username / mobile number and password (does not sign in).
      *
      * @throws ValidationException
      */
@@ -49,18 +49,16 @@ class LoginRequest extends FormRequest
             'password' => $this->string('password')->toString(),
         ];
 
-        if (! Auth::attempt($credentials, $this->boolean('remember'))) {
+        if (! Auth::validate($credentials)) {
             RateLimiter::hit($this->throttleKey(), 60);
 
             throw ValidationException::withMessages(['login' => trans('auth.failed')]);
         }
 
         /** @var User $user */
-        $user = Auth::user();
+        $user = Auth::getLastAttempted();
 
         if (! $user->isActive()) {
-            Auth::guard('web')->logout();
-
             throw ValidationException::withMessages([
                 'login' => $user->status === User::STATUS_SUSPENDED
                     ? 'Your account has been suspended. Please contact support.'

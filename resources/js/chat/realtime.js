@@ -101,14 +101,9 @@ export class Realtime {
             .listen('.call.updated', (e) => this.chat.calls?.onCallUpdated(e.call))
             .listen('.call.signal', (e) => this.chat.calls?.onSignal(e.signal))
             .listen('.call.room', (e) => this.chat.calls?.group?.onRoomUpdated(e.room))
+            // Online / last seen of people who share it with me (Phase 6).
+            .listen('.user.presence', (e) => this.chat.onPresenceUpdate(e.user))
             .notification((notification) => this.chat.onNotification?.(notification));
-
-        this.echo
-            .join('online')
-            .here((users) => this.chat.onPresenceHere(users))
-            .joining((user) => this.chat.onPresenceJoin(user))
-            .leaving((user) => this.chat.onPresenceLeave(user))
-            .listen('.user.presence', (e) => this.chat.onPresenceUpdate(e.user));
     }
 
     onSocketState(state) {
