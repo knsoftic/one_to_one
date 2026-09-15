@@ -54,14 +54,22 @@
 
 <div class="wa-group">
     <h3 class="wa-group-title">This browser</h3>
+    <button type="button" class="wa-row is-link" data-install-app hidden>
+        <x-icon name="app-window" class="wa-row-icon" />
+        <span class="wa-row-body">
+            <span class="wa-row-title">Install {{ config('app.name') }}</span>
+            <span class="wa-row-text">Open it like an app, in its own window, from your desktop or home screen.</span>
+        </span>
+        <x-icon name="chevron-right" class="wa-row-chevron" />
+    </button>
     <div class="wa-row">
         <x-icon name="monitor" class="wa-row-icon" />
         <span class="wa-row-body">
-            <span class="wa-row-title">Desktop notifications</span>
-            <span class="wa-row-text" data-browser-permission-text>Allow your browser to show notifications while the app is in the background.</span>
+            <span class="wa-row-title">Notifications on this browser</span>
+            <span class="wa-row-text" data-browser-permission-text>Get notified of messages and calls even when this site is closed.</span>
         </span>
-        <button type="button" class="btn btn-secondary btn-sm" data-request-browser-notifications>
-            <x-icon name="bell" /> Enable
+        <button type="button" class="btn btn-primary btn-sm" data-request-browser-notifications>
+            <x-icon name="bell" /> <span data-browser-notifications-label>Turn on</span>
         </button>
     </div>
 </div>

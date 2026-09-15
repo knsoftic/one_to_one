@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\ForgotPasswordRequest;
 use App\Http\Requests\Auth\ResetPasswordRequest;
 use App\Models\User;
+use App\Services\WebPushService;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -53,6 +54,7 @@ class PasswordResetController extends Controller
 
                 // Sign out the mobile app and every browser.
                 $user->deviceTokens()->delete();
+                app(WebPushService::class)->forgetUser($user);
                 DB::table('sessions')->where('user_id', $user->getKey())->delete();
 
                 event(new PasswordReset($user));

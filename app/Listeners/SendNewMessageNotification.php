@@ -150,7 +150,7 @@ class SendNewMessageNotification
         }
 
         // Firebase push runs after the response is sent (no queue worker needed).
-        if ($receiver->notifications_enabled && $this->push->enabled()) {
+        if ($receiver->notifications_enabled && $this->push->reachable($receiver)) {
             SendMessagePush::dispatchAfterResponse($message->id, $notification->id, (int) $receiver->getKey());
         }
     }

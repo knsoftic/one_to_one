@@ -2,6 +2,7 @@ import axios from '../bootstrap';
 import { debounce, html, raw } from '../lib/dom';
 import { toast } from '../lib/toast';
 import { playTone, vibrate } from '../lib/tones';
+import { enablePush, pushActive } from '../lib/web-push';
 import { formatListTime } from './format';
 import * as T from './templates';
 
@@ -31,6 +32,9 @@ export class Notifier {
         };
 
         this.refreshCount = debounce(() => this.load(), 800);
+        // X3: with push on, the service worker shows notifications while the tab is hidden.
+        this.pushOn = false;
+        pushActive().then((on) => { this.pushOn = on; });
 
         this.bind();
         this.load();
@@ -120,8 +124,15 @@ export class Notifier {
                 this.renderBanner();
             }
             if (event.target.closest('[data-notify-enable]')) {
-                const result = await Notification.requestPermission();
-                if (result === 'granted') toast.success('Desktop notifications enabled.');
+                try {
+                    await enablePush(window.App?.config);
+                    this.pushOn = true;
+                    toast.success('Notifications are on for this browser.');
+                } catch {
+                    // Push not available: plain notifications while a tab is open.
+                    const result = await Notification.requestPermission();
+                    if (result === 'granted') toast.success('Desktop notifications enabled.');
+                }
                 this.renderBanner();
             }
         });
@@ -160,6 +171,8 @@ export class Notifier {
 
         const visible = document.visibilityState === 'visible';
         if (visible && this.chat.active?.id === conversationId) return;
+        // The service worker already shows it (with sound) while the tab is hidden.
+        if (!visible && this.pushOn) return;
 
         const { tone, vibrate: pattern } = alert ?? this.alertFor(conversationId);
         this.play(tone);

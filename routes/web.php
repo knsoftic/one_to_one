@@ -58,6 +58,7 @@ use App\Http\Controllers\StorageController;
 use App\Http\Controllers\SyncController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\ViewOnceController;
+use App\Http\Controllers\WebPushController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -65,6 +66,32 @@ use Illuminate\Support\Facades\Route;
 | Guest routes
 |--------------------------------------------------------------------------
 */
+
+// Installable app (X3): name, icons and colours for "Install app".
+Route::get('/manifest.webmanifest', function () {
+    return response()->json([
+        'name' => config('app.name'),
+        'short_name' => config('app.name'),
+        'description' => 'Chat, call and share with the people you know.',
+        'id' => '/chat',
+        'start_url' => '/chat?source=pwa',
+        'scope' => '/',
+        'display' => 'standalone',
+        'orientation' => 'any',
+        'background_color' => '#f4f3fb',
+        'theme_color' => '#4338ca',
+        'categories' => ['social', 'communication'],
+        'icons' => [
+            ['src' => '/icons/icon-192.png', 'sizes' => '192x192', 'type' => 'image/png'],
+            ['src' => '/icons/icon-512.png', 'sizes' => '512x512', 'type' => 'image/png'],
+            ['src' => '/icons/maskable-512.png', 'sizes' => '512x512', 'type' => 'image/png', 'purpose' => 'maskable'],
+        ],
+        'shortcuts' => [
+            ['name' => 'Chats', 'url' => '/chat', 'icons' => [['src' => '/icons/icon-192.png', 'sizes' => '192x192']]],
+            ['name' => 'Settings', 'url' => '/settings', 'icons' => [['src' => '/icons/icon-192.png', 'sizes' => '192x192']]],
+        ],
+    ], 200, ['Content-Type' => 'application/manifest+json', 'Cache-Control' => 'public, max-age=86400'], JSON_UNESCAPED_SLASHES);
+})->name('manifest');
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
@@ -131,6 +158,10 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::delete('/contacts/{contact}', [ContactController::class, 'destroy'])
         ->whereNumber('contact')
         ->name('contacts.destroy');
+
+    // Browser push notifications (X3)
+    Route::post('/push/subscriptions', [WebPushController::class, 'store'])->middleware('throttle:chat-actions')->name('web-push.store');
+    Route::delete('/push/subscriptions', [WebPushController::class, 'destroy'])->middleware('throttle:chat-actions')->name('web-push.destroy');
 
     // Mobile app push notification tokens
     Route::post('/devices', [DeviceController::class, 'store'])

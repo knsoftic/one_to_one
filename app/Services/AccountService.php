@@ -139,6 +139,7 @@ class AccountService
 
         // Phones and browsers signed in with the old password must sign in again.
         $user->deviceTokens()->delete();
+        app(WebPushService::class)->forgetUser($user, $keepSessionId);
         DB::table('sessions')->where('user_id', $user->getKey())
             ->when($keepSessionId, fn ($q) => $q->where('id', '!=', $keepSessionId))
             ->delete();

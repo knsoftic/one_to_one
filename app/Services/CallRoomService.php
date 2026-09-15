@@ -290,7 +290,7 @@ class CallRoomService
         broadcast(new CallStarted($call));
         broadcast(new CallRoomUpdated($room));
 
-        if ($this->push->enabled()) {
+        if ($this->push->reachable($call->callee_id)) {
             SendCallPush::dispatchAfterResponse($call->getKey(), SendCallPush::KIND_INCOMING);
         }
 

@@ -62,6 +62,7 @@ class SessionService
         }
 
         $this->revokeDevice($user, $row->payload);
+        app(WebPushService::class)->forgetSession($row->id);
         DB::table('sessions')->where('id', $row->id)->delete();
         $this->rotateRememberToken($user, $request);
     }
@@ -81,6 +82,7 @@ class SessionService
         // Phones whose app sessions already ended keep no notifications either.
         $keep = $request->session()->get(DeviceController::SESSION_KEY);
         $user->deviceTokens()->when(is_string($keep), fn ($q) => $q->where('token_hash', '!=', $keep))->delete();
+        app(WebPushService::class)->forgetUser($user, $current);
 
         DB::table('sessions')->whereIn('id', $others->pluck('id'))->delete();
         $this->rotateRememberToken($user, $request);

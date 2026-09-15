@@ -13,6 +13,7 @@ use App\Models\Status;
 use App\Models\User;
 use App\Models\UserLogin;
 use App\Models\UserReport;
+use App\Models\WebPushSubscription;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -105,6 +106,7 @@ class AdminInsightsService
                 'laravel' => app()->version(),
                 'zip' => class_exists(\ZipArchive::class),
                 'push' => app(PushService::class)->enabled(),
+                'web_push' => WebPushSubscription::query()->count(),
                 'realtime' => (string) config('broadcasting.default') === 'reverb',
                 'queue_driver' => (string) config('queue.default'),
             ];

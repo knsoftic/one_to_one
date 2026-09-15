@@ -4,6 +4,7 @@ import { setTheme } from '../lib/theme';
 import { toast } from '../lib/toast';
 import { previewTone } from '../chat/chat-tone';
 import { vibrate } from '../lib/tones';
+import { disablePush, enablePush, pushStatus } from '../lib/web-push';
 import { initChatBackup } from './backup';
 import { applyWallpaper, openWallpaperPicker, wallpaperLabel } from './wallpaper';
 
@@ -229,35 +230,47 @@ export function initProfileForm(form = $('[data-profile-form]')) {
     }
 }
 
-function initBrowserNotificationButton() {
-    const button = $('[data-request-browser-notifications]');
-    const text = $('[data-browser-permission-text]');
-    if (!button) return;
+/** Notifications → This browser (X3): push notifications even when the site is closed. */
+export function initBrowserNotificationButton(config, button = $('[data-request-browser-notifications]'), text = $('[data-browser-permission-text]')) {
+    if (!button) return null;
+    const label = button.querySelector('[data-browser-notifications-label]') ?? button;
+    let state = 'off';
 
-    const render = () => {
-        if (!('Notification' in window)) {
-            button.disabled = true;
-            text.textContent = 'Your browser does not support desktop notifications.';
-            return;
-        }
-        if (Notification.permission === 'granted') {
-            button.disabled = true;
-            button.lastChild.textContent = ' Enabled';
-            text.textContent = 'Desktop notifications are enabled for this browser.';
-        } else if (Notification.permission === 'denied') {
-            button.disabled = true;
-            text.textContent = 'Notifications are blocked. Allow them in your browser site settings.';
-        }
+    const messages = {
+        unsupported: 'This browser can\'t show notifications from this site.',
+        unavailable: 'Notifications while the site is closed are not set up on this server.',
+        denied: 'Notifications are blocked. Allow them in your browser\'s site settings, then come back.',
+        on: 'On: you get notified of messages and calls even when this site is closed.',
+        off: 'Get notified of messages and calls even when this site is closed.',
     };
 
-    render();
+    const render = async () => {
+        state = await pushStatus(config);
+        text.textContent = messages[state];
+        button.disabled = ['unsupported', 'unavailable', 'denied'].includes(state);
+        label.textContent = state === 'on' ? 'Turn off' : 'Turn on';
+        button.classList.toggle('btn-primary', state !== 'on');
+        button.classList.toggle('btn-secondary', state === 'on');
+    };
 
     button.addEventListener('click', async () => {
-        if (!('Notification' in window)) return;
-        const result = await Notification.requestPermission();
-        if (result === 'granted') toast.success('Desktop notifications enabled.');
-        render();
+        button.disabled = true;
+        try {
+            if (state === 'on') {
+                await disablePush(config);
+                toast.success('Notifications are off for this browser.');
+            } else {
+                await enablePush(config);
+                toast.success('Notifications are on for this browser.');
+            }
+        } catch (error) {
+            toast.error(errorMessage(error, 'Could not change notifications.'));
+        }
+        await render();
     });
+
+    render();
+    return { render };
 }
 
 /** "Block someone": filter the people you chat with (P5). */
@@ -321,7 +334,7 @@ export function initSettings(config) {
     // Manage storage (D6) loads its own code when the page has it.
     if ($('[data-storage-manager]')) import('./storage-manager').then(({ initStorageManager }) => initStorageManager(config));
     initProfileForm();
-    initBrowserNotificationButton();
+    initBrowserNotificationButton(config);
     initCopyButtons(container);
     initProfileQr();
 }

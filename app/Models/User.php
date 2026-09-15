@@ -184,6 +184,12 @@ class User extends Authenticatable
     }
 
     /** Mobile app installs that receive push notifications for this user. */
+    /** X3 — browsers that receive push notifications. */
+    public function webPushSubscriptions(): HasMany
+    {
+        return $this->hasMany(WebPushSubscription::class);
+    }
+
     public function deviceTokens(): HasMany
     {
         return $this->hasMany(DeviceToken::class);

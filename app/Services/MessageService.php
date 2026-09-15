@@ -780,7 +780,7 @@ class MessageService
 
         // Group receipts were written above; phones still drop the chat's notification.
         if ($conversation->isGroup()) {
-            if (app(PushService::class)->enabled()) {
+            if (app(PushService::class)->reachable($reader)) {
                 SendReadPush::dispatchAfterResponse($reader->getKey(), $conversation->getKey());
             }
 
@@ -805,7 +805,7 @@ class MessageService
         }
 
         // Remove the chat's notification from the reader's phones.
-        if (app(PushService::class)->enabled()) {
+        if (app(PushService::class)->reachable($reader)) {
             SendReadPush::dispatchAfterResponse($reader->getKey(), $conversation->getKey());
         }
 

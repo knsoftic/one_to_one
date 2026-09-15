@@ -88,7 +88,7 @@ class CallService
         $call->load(['caller', 'callee']);
         broadcast(new CallStarted($call));
 
-        if ($this->push->enabled()) {
+        if ($this->push->reachable($call->callee_id)) {
             SendCallPush::dispatchAfterResponse($call->getKey(), SendCallPush::KIND_INCOMING);
         }
 
@@ -151,7 +151,7 @@ class CallService
         $call->load(['caller', 'callee']);
         broadcast(new CallUpdated($call));
 
-        if ($this->push->enabled()) {
+        if ($this->push->reachable($call->callee_id)) {
             SendCallPush::dispatchAfterResponse($call->getKey(), SendCallPush::KIND_STATE);
         }
 
@@ -376,7 +376,7 @@ class CallService
         }
 
         // Stop the ringing screen on the callee's phones.
-        if ($wasRinging && $this->push->enabled()) {
+        if ($wasRinging && $this->push->reachable($ended->callee_id)) {
             SendCallPush::dispatchAfterResponse($ended->getKey(), SendCallPush::KIND_STATE);
         }
 

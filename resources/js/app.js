@@ -10,6 +10,7 @@ import { initForms } from './ui/forms';
 import { initNetworkStatus } from './ui/network';
 import { initAdminBulk } from './ui/admin-bulk';
 import { initSettings } from './ui/settings';
+import { initInstallPrompt, listenForNotificationClicks, registerServiceWorker, syncPush } from './lib/web-push';
 
 const config = readJsonScript('app-config');
 window.App = { config, toast };
@@ -20,6 +21,18 @@ initForms();
 initSettings(config);
 initNetworkStatus(config);
 initAdminBulk();
+
+// X3: installable app, offline page and push notifications (browsers only).
+if (!isNativeApp()) {
+    initInstallPrompt();
+    registerServiceWorker().then(() => syncPush(config));
+    listenForNotificationClicks((url) => {
+        const match = url.pathname.match(/^\/chat\/(\d+)$/);
+        if (!match || !window.Chat) return false;
+        window.Chat.openConversation(Number(match[1]));
+        return true;
+    });
+}
 
 // Mobile app only: back button, status bar and push notifications (separate chunk).
 if (isNativeApp()) {

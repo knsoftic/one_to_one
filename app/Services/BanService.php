@@ -106,6 +106,7 @@ class BanService
         DB::table('sessions')->where('user_id', $user->getKey())->delete();
         $user->forceFill(['remember_token' => Str::random(60)])->save();
         $user->deviceTokens()->delete();
+        app(WebPushService::class)->forgetUser($user);
         $this->presence->markOffline($user);
     }
 }

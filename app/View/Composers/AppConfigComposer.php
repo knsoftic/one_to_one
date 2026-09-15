@@ -5,6 +5,7 @@ namespace App\View\Composers;
 use App\Models\User;
 use App\Services\DeviceService;
 use App\Services\WallpaperService;
+use App\Services\WebPushService;
 use App\Support\ChatPreferences;
 use Illuminate\Support\Facades\Route;
 use Illuminate\View\View;
@@ -28,6 +29,8 @@ class AppConfigComposer
             'storageDelete' => 'storage.delete',
             'backupShow' => 'backups.show',
             'backupStore' => 'backups.store',
+            'webPushStore' => 'web-push.store',
+            'webPushDestroy' => 'web-push.destroy',
             'logout' => 'logout',
             'settings' => 'profile.edit',
             'chat' => 'chat.index',
@@ -59,6 +62,8 @@ class AppConfigComposer
             'routes' => $routes,
             // The Android app registers again when this changes (see resources/js/native/app.js).
             'mobile' => $user && Route::has('devices.store') ? ['configVersion' => app(DeviceService::class)->configVersion()] : null,
+            // Browser push (X3): the key browsers subscribe with.
+            'webPush' => $user ? ['publicKey' => app(WebPushService::class)->publicKey()] : null,
             'flash' => array_filter([
                 'status' => session('toast'),
                 'error' => session('toast_error'),

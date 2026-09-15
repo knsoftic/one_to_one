@@ -86,6 +86,7 @@
                             <button type="button" class="dropdown-item" data-action="open-starred" role="menuitem"><x-icon name="star" /> Starred messages</button>
                             <button type="button" class="dropdown-item" data-action="open-qr-code" role="menuitem"><x-icon name="qr-code" /> QR code</button>
                             <button type="button" class="dropdown-item desktop-only" data-action="shortcuts" role="menuitem"><x-icon name="keyboard" /> Keyboard shortcuts</button>
+                            <button type="button" class="dropdown-item" data-install-app role="menuitem" hidden><x-icon name="app-window" /> Install app</button>
                             <a href="{{ route('profile.edit') }}" class="dropdown-item" role="menuitem"><x-icon name="settings" /> Settings</a>
                             @if ($user->isAdmin() && Route::has('admin.dashboard'))
                                 <a href="{{ route('admin.dashboard') }}" class="dropdown-item" role="menuitem"><x-icon name="layout-dashboard" /> Admin panel</a>

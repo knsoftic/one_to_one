@@ -150,7 +150,7 @@ light/dark theme · admin panel.
 |---|---------|-----------|--------|--------|
 | X1 | **Urdu zabaan** | Poora app Urdu mein (right-to-left), English/Urdu option | 🟠 | [ ] |
 | X2 | **Share into app** | Doosri app se photo/file/link "Share → One2One Chat" | 🟡 | [ ] |
-| X3 | **Browser push (PWA)** | Computer par tab band ho tab bhi notification; install as app | 🟡 | [ ] |
+| X3 | **Browser push (PWA)** | Computer par tab band ho tab bhi notification; install as app | 🟡 | [x] |
 | X4 | **App update prompt** | Nayi APK aane par "Update available" | 🟢 | [ ] |
 | X5 | **Play Store release** | Signed release, store listing, privacy policy page | 🟡 | [ ] |
 | X6 | **Desktop keyboard shortcuts** | Ctrl+K search, Esc, Alt+↑/↓ chat badalna | 🟢 | [x] |

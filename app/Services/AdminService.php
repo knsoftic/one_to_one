@@ -265,6 +265,7 @@ class AdminService
     {
         $this->signOutEverywhere($user);
         $user->deviceTokens()->delete();
+        app(WebPushService::class)->forgetUser($user);
     }
 
     public function removePhoto(User $user): void

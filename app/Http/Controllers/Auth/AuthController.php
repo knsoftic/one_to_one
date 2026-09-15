@@ -11,6 +11,7 @@ use App\Services\AccountService;
 use App\Services\BanService;
 use App\Services\PresenceService;
 use App\Services\TwoStepService;
+use App\Services\WebPushService;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -103,6 +104,8 @@ class AuthController extends Controller
             if (is_string($deviceHash)) {
                 $user->deviceTokens()->where('token_hash', $deviceHash)->delete();
             }
+            // ...and on this browser (X3).
+            app(WebPushService::class)->forgetSession($request->session()->getId());
         }
 
         Auth::guard('web')->logout();

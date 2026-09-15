@@ -33,6 +33,12 @@ class PushService
     /** @var array<string, mixed>|false|null */
     private array|false|null $credentials = null;
 
+    /** Is there any way to reach this person outside the open app (Android app or browser)? */
+    public function reachable(User|int $user): bool
+    {
+        return $this->enabled() || app(WebPushService::class)->hasSubscriptions($user);
+    }
+
     public function enabled(): bool
     {
         return $this->credentials() !== null && $this->projectId() !== null;
@@ -88,11 +94,12 @@ class PushService
      */
     public function sendToUser(User $user, array $data, string $priority = self::PRIORITY_HIGH, ?int $ttlSeconds = null): int
     {
-        if (! $this->enabled()) {
-            return 0;
-        }
+        // X3: browsers that allowed notifications get the same news.
+        $sent = app(WebPushService::class)->sendToUser($user, $data, $ttlSeconds);
 
-        $sent = 0;
+        if (! $this->enabled()) {
+            return $sent;
+        }
 
         foreach ($user->deviceTokens()->whereNotNull('fcm_token')->get() as $device) {
             if ($this->sendToDevice($device, $data, $priority, $ttlSeconds)) {

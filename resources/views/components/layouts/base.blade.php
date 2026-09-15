@@ -14,6 +14,11 @@
     <title>{{ $title ? $title.' · ' : '' }}{{ config('app.name') }}</title>
 
     <link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml">
+    {{-- Installable app (X3) --}}
+    <link rel="manifest" href="{{ route('manifest') }}">
+    <link rel="apple-touch-icon" href="{{ asset('icons/apple-touch-icon.png') }}">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="{{ config('app.name') }}">
 
     {{-- Apply the theme before first paint to avoid a flash of the wrong theme. --}}
     <script nonce="{{ \Illuminate\Support\Facades\Vite::cspNonce() }}">
