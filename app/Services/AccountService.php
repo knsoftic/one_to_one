@@ -148,6 +148,7 @@ class AccountService
     {
         $user->fill(array_intersect_key($preferences, array_flip([
             'theme', 'notifications_enabled', 'notification_sound',
+            'font_size', 'notification_tone', 'notification_vibrate', 'auto_download',
             'last_seen_privacy', 'online_privacy', 'photo_privacy', 'about_privacy', 'read_receipts',
         ])));
         $user->save();

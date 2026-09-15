@@ -11,6 +11,7 @@ use App\Models\Message;
 use App\Models\User;
 use App\Notifications\NewMessageNotification;
 use App\Services\PushService;
+use App\Support\ChatPreferences;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -49,7 +50,7 @@ class SendNewMessageNotification
         $setting = ChatSetting::query()
             ->where('user_id', $receiver->getKey())
             ->where('conversation_id', $message->conversation_id)
-            ->first(['muted_until', 'locked_at']);
+            ->first(['muted_until', 'locked_at', 'notification_tone', 'notification_vibrate']);
 
         // Muted chats (C2) still count as unread, but make no notification or push.
         if ($setting?->isMuted()) {
@@ -62,7 +63,7 @@ class SendNewMessageNotification
             return;
         }
 
-        $this->deliver($message, $receiver, $setting?->locked_at !== null);
+        $this->deliver($message, $receiver, $setting?->locked_at !== null, alert: ChatPreferences::alertFor($receiver, $setting));
     }
 
     /**
@@ -108,7 +109,7 @@ class SendNewMessageNotification
         $settings = ChatSetting::query()
             ->where('conversation_id', $message->conversation_id)
             ->whereIn('user_id', $users->modelKeys())
-            ->get(['user_id', 'muted_until', 'locked_at'])
+            ->get(['user_id', 'muted_until', 'locked_at', 'notification_tone', 'notification_vibrate'])
             ->keyBy('user_id');
 
         $mentioned = collect($message->attachment_meta['mention_ids'] ?? [])->map(fn ($id) => (int) $id)->all();
@@ -129,16 +130,16 @@ class SendNewMessageNotification
                 continue;
             }
 
-            $this->deliver($message, $user, $setting?->locked_at !== null, $isMentioned);
+            $this->deliver($message, $user, $setting?->locked_at !== null, $isMentioned, ChatPreferences::alertFor($user, $setting));
         }
     }
 
-    private function deliver(Message $message, User $receiver, bool $locked, bool $mentioned = false): void
+    private function deliver(Message $message, User $receiver, bool $locked, bool $mentioned = false, ?array $alert = null): void
     {
         // One id for the notification centre, the realtime event and the push,
         // so the phone never shows the same message twice.
         // Locked chats (C9) notify without saying who wrote or what.
-        $notification = new NewMessageNotification($message, private: $locked, mentioned: $mentioned);
+        $notification = new NewMessageNotification($message, private: $locked, mentioned: $mentioned, alert: $alert);
         $notification->id = (string) Str::uuid();
 
         try {

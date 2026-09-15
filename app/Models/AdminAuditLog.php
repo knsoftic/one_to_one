@@ -29,6 +29,9 @@ class AdminAuditLog extends Model
         'status.deleted' => 'Deleted a status update',
         'report.updated' => 'Reviewed a report',
         'settings.updated' => 'Changed app settings',
+        'backup.created' => 'Made a server backup',
+        'backup.downloaded' => 'Downloaded a server backup',
+        'backup.deleted' => 'Deleted a server backup',
     ];
 
     protected $guarded = ['id'];

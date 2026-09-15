@@ -6,6 +6,7 @@ use App\Models\Message;
 use App\Models\User;
 use App\Services\ContactService;
 use App\Services\PrivacyService;
+use App\Support\ChatPreferences;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\BroadcastMessage;
 use Illuminate\Notifications\Notification;
@@ -22,8 +23,9 @@ class NewMessageNotification extends Notification
 
     /**
      * @param  bool  $private  the chat is locked (C9): no sender, no text
+     * @param  array{tone: string, vibrate: string}|null  $alert  sound and vibration (D4)
      */
-    public function __construct(public Message $message, public bool $private = false, public bool $mentioned = false) {}
+    public function __construct(public Message $message, public bool $private = false, public bool $mentioned = false, public ?array $alert = null) {}
 
     /**
      * @return list<string>
@@ -34,6 +36,11 @@ class NewMessageNotification extends Notification
     }
 
     public function toArray(User $notifiable): array
+    {
+        return $this->payload($notifiable) + ($this->alert ?? ChatPreferences::alertFor($notifiable));
+    }
+
+    private function payload(User $notifiable): array
     {
         if ($this->private) {
             return [

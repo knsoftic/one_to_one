@@ -111,6 +111,9 @@ class AppServiceProvider extends ServiceProvider
 
         RateLimiter::for('chat-search', fn (Request $request) => Limit::perMinute(60)->by('search:'.($request->user()?->id ?? $request->ip())));
 
+        // Export chat (D7) and backups (D8) build files on the server.
+        RateLimiter::for('chat-export', fn (Request $request) => Limit::perMinute(6)->by('export:'.($request->user()?->id ?? $request->ip())));
+
         // Each preview may contact an outside website: keep it modest.
         RateLimiter::for('link-preview', fn (Request $request) => Limit::perMinute(30)->by('link-preview:'.($request->user()?->id ?? $request->ip())));
 

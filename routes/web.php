@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AccountController;
+use App\Http\Controllers\Admin\BackupController as AdminBackupController;
 use App\Http\Controllers\Admin\ChatController as AdminChatController;
 use App\Http\Controllers\Admin\SpaceController;
 use App\Http\Controllers\Admin\SystemController;
@@ -11,6 +12,7 @@ use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\Auth\PhoneLoginController;
 use App\Http\Controllers\Auth\TwoStepController;
+use App\Http\Controllers\BackupController;
 use App\Http\Controllers\BlockController;
 use App\Http\Controllers\BroadcastController;
 use App\Http\Controllers\CallController;
@@ -19,8 +21,10 @@ use App\Http\Controllers\CallLogController;
 use App\Http\Controllers\CallRoomController;
 use App\Http\Controllers\ChannelController;
 use App\Http\Controllers\ChatController;
+use App\Http\Controllers\ChatExportController;
 use App\Http\Controllers\ChatListController;
 use App\Http\Controllers\ChatLockController;
+use App\Http\Controllers\ChatPreferencesController;
 use App\Http\Controllers\ChatSettingsController;
 use App\Http\Controllers\CommunityController;
 use App\Http\Controllers\ContactCardController;
@@ -49,6 +53,7 @@ use App\Http\Controllers\SessionController;
 use App\Http\Controllers\StarredMessageController;
 use App\Http\Controllers\StatusController;
 use App\Http\Controllers\StickerController;
+use App\Http\Controllers\StorageController;
 use App\Http\Controllers\SyncController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\ViewOnceController;
@@ -163,6 +168,19 @@ Route::middleware(['auth', 'active'])->group(function () {
         ->whereNumber('conversation')
         ->middleware('throttle:chat-actions')
         ->name('conversations.settings');
+    // Export chat (D7)
+    Route::get('/conversations/{conversation}/export', [ChatExportController::class, 'download'])
+        ->whereNumber('conversation')
+        ->middleware('throttle:chat-export')
+        ->name('conversations.export');
+    // Wallpaper of one chat (D2)
+    Route::post('/conversations/{conversation}/wallpaper', [ChatPreferencesController::class, 'updateChatWallpaper'])
+        ->whereNumber('conversation')
+        ->middleware('throttle:chat-actions')
+        ->name('conversations.wallpaper.update');
+    Route::get('/conversations/{conversation}/wallpaper', [ChatPreferencesController::class, 'showChatWallpaper'])
+        ->whereNumber('conversation')
+        ->name('conversations.wallpaper');
     Route::post('/conversations/{conversation}/clear', [ChatSettingsController::class, 'clear'])
         ->whereNumber('conversation')
         ->middleware('throttle:chat-actions')
@@ -190,6 +208,11 @@ Route::middleware(['auth', 'active'])->group(function () {
         ->whereNumber('message')
         ->middleware('throttle:chat-actions')
         ->name('messages.destroy');
+    // Media, links and docs of a chat (D1)
+    Route::get('/conversations/{conversation}/gallery', [MessageController::class, 'gallery'])
+        ->whereNumber('conversation')
+        ->middleware('throttle:chat-search')
+        ->name('conversations.gallery');
     Route::get('/conversations/{conversation}/messages/search', [MessageController::class, 'search'])
         ->whereNumber('conversation')
         ->middleware('throttle:chat-search')
@@ -478,6 +501,11 @@ Route::middleware(['auth', 'active'])->group(function () {
 
         // Audit log and app settings
         Route::get('/audit', [SystemController::class, 'audit'])->name('audit');
+        // Server backups (D8)
+        Route::get('/backups', [AdminBackupController::class, 'index'])->name('backups');
+        Route::post('/backups', [AdminBackupController::class, 'store'])->middleware('throttle:chat-export')->name('backups.store');
+        Route::get('/backups/{backup}/download', [AdminBackupController::class, 'download'])->whereNumber('backup')->name('backups.download');
+        Route::delete('/backups/{backup}', [AdminBackupController::class, 'destroy'])->whereNumber('backup')->name('backups.destroy');
         Route::get('/settings', [SystemController::class, 'settings'])->name('settings');
         Route::put('/settings', [SystemController::class, 'updateSettings'])->name('settings.update');
         Route::post('/settings/test-sms', [SystemController::class, 'testSms'])->middleware('throttle:chat-lock')->name('settings.test-sms');
@@ -499,6 +527,18 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::put('/settings/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::put('/settings/password', [ProfileController::class, 'updatePassword'])->name('profile.password');
     Route::match(['put', 'patch'], '/settings/preferences', [ProfileController::class, 'updatePreferences'])->name('profile.preferences');
+    // Wallpaper for all chats (D2)
+    Route::post('/settings/wallpaper', [ChatPreferencesController::class, 'updateWallpaper'])->middleware('throttle:chat-actions')->name('settings.wallpaper.update');
+    Route::get('/settings/wallpaper', [ChatPreferencesController::class, 'showWallpaper'])->name('settings.wallpaper.show');
+    // Manage storage (D6)
+    Route::get('/settings/storage', [StorageController::class, 'summary'])->middleware('throttle:chat-search')->name('storage.summary');
+    Route::get('/settings/storage/files', [StorageController::class, 'files'])->middleware('throttle:chat-search')->name('storage.files');
+    Route::post('/settings/storage/delete', [StorageController::class, 'destroy'])->middleware('throttle:chat-actions')->name('storage.delete');
+    // Chat backup (D8)
+    Route::get('/settings/backups', [BackupController::class, 'show'])->name('backups.show');
+    Route::post('/settings/backups', [BackupController::class, 'store'])->middleware('throttle:chat-export')->name('backups.store');
+    Route::get('/settings/backups/{backup}/download', [BackupController::class, 'download'])->whereNumber('backup')->name('backups.download');
+    Route::delete('/settings/backups/{backup}', [BackupController::class, 'destroy'])->whereNumber('backup')->name('backups.destroy');
     // Account (Phase 7): change number, profile QR code, download my data, delete my account
     Route::post('/settings/phone', [PhoneChangeController::class, 'start'])->middleware('throttle:otp')->name('phone.change');
     Route::post('/settings/phone/code', [PhoneChangeController::class, 'verify'])->middleware('throttle:chat-lock')->name('phone.change.verify');

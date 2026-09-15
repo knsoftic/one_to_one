@@ -8,6 +8,7 @@ use App\Models\Conversation;
 use App\Services\ChatLockService;
 use App\Services\ChatSettingsService;
 use App\Services\ConversationService;
+use App\Support\ChatPreferences;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -35,6 +36,9 @@ class ChatSettingsController extends Controller
             'unread' => ['sometimes', 'boolean'],
             'favorite' => ['sometimes', 'boolean'],
             'locked' => ['sometimes', 'boolean'],
+            // D4 — this chat's sound and vibration (null = the default from Settings).
+            'notification_tone' => ['sometimes', 'nullable', Rule::in([...ChatPreferences::TONES, ChatPreferences::TONE_NONE])],
+            'notification_vibrate' => ['sometimes', 'nullable', Rule::in(ChatPreferences::VIBRATIONS)],
         ]);
 
         abort_if($changes === [], 422, 'Nothing to change.');

@@ -282,6 +282,11 @@ export class Groups {
                     ${raw(this.chat.api.has('groupInvite') ? html`<button type="button" class="group-info-action" data-info-invite>${raw(icon('link-2'))} Invite via link or QR code</button>` : '')}
                 </section>` : '')}
 
+                ${raw(this.chat.media && group.is_member ? html`
+                <section class="group-info-section">
+                    <button type="button" class="group-info-action" data-info-media>${raw(icon('images'))} Media, links and docs</button>
+                </section>` : '')}
+
                 <section class="group-info-section">
                     <div class="group-info-row">
                         <span class="group-info-label">${hidden ? (members.some((m) => m.role === 'admin') ? 'Community admins' : 'You') : memberCount(total)}</span>
@@ -315,6 +320,10 @@ export class Groups {
         if (target.closest('[data-info-exit]')) return this.leave(conversation);
         if (target.closest('[data-info-delete]')) return this.endGroup(conversation);
         if (target.closest('[data-info-invite]')) return this.chat.groupInvites?.open(conversation);
+        if (target.closest('[data-info-media]')) {
+            this.closeInfo();
+            return this.chat.media?.open(conversation.id);
+        }
         const community = target.closest('[data-info-community]');
         if (community) {
             this.closeInfo();

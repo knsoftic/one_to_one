@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Services\ContactService;
 use App\Services\PrivacyService;
 use App\Services\PushService;
+use App\Support\ChatPreferences;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -50,11 +51,13 @@ class SendMessagePush
         }
 
         // Locked chats (C9): the phone shows only that a message arrived.
-        $locked = ChatSetting::query()
+        $setting = ChatSetting::query()
             ->where('user_id', $receiver->getKey())
             ->where('conversation_id', $message->conversation_id)
-            ->whereNotNull('locked_at')
-            ->exists();
+            ->first();
+        $locked = $setting?->locked_at !== null;
+        // D4: the chat's own tone and vibration, or the defaults from Settings.
+        $alert = ChatPreferences::alertFor($receiver, $setting);
 
         // The name saved in the receiver's phone book, like WhatsApp.
         $name = $locked ? (string) config('app.name') : ($contacts->savedNames($receiver, [$sender->id])[$sender->id] ?? $sender->name);
@@ -78,6 +81,8 @@ class SendMessagePush
                 'avatar_hue' => $locked ? 0 : ($group ? $group->groupHue() : $sender->avatar_hue),
                 'body' => $body,
                 'sent_at' => ($message->sent_at ?? $message->created_at)?->getTimestampMs(),
+                'tone' => $alert['tone'],
+                'vibrate' => $alert['vibrate'],
             ], PushService::PRIORITY_HIGH);
         } catch (Throwable $e) {
             Log::warning('Message push failed: '.$e->getMessage(), ['message_id' => $message->id]);

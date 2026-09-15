@@ -24,6 +24,7 @@ export function createApi(routes) {
         messages: (conversationId, before = null, limit = null) =>
             data(axios.get(url('messages', conversationId), { params: { ...(before ? { before } : {}), ...(limit ? { limit } : {}) } })),
         searchMessages: (conversationId, q, signal) => data(axios.get(url('messagesSearch', conversationId), { params: { q }, signal })),
+        gallery: (conversationId, kind, before = null) => data(axios.get(url('conversationGallery', conversationId), { params: { kind, ...(before ? { before } : {}) } })),
 
         sendMessage: (conversationId, payload, config = {}) =>
             data(axios.post(url('messagesStore', conversationId), payload, config)),

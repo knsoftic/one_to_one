@@ -3,6 +3,7 @@
 use App\Console\Commands\ChatDoctor;
 use App\Models\LinkPreview;
 use App\Models\User;
+use App\Services\BackupService;
 use App\Services\BanService;
 use App\Services\CallRoomService;
 use App\Services\CallService;
@@ -67,6 +68,12 @@ Artisan::command('chat:expire-calls', function (CallService $calls, CallRoomServ
     $this->info("Closed {$count} unanswered or abandoned call(s).");
 })->purpose('End calls nobody answered and calls whose devices disconnected');
 
+Artisan::command('chat:backups', function (BackupService $backups) {
+    $made = $backups->runPending();
+    $removed = $backups->prune();
+    $this->info("Made {$made} waiting backup(s); removed {$removed} expired backup file(s).");
+})->purpose('Make chat backups no queue worker picked up and remove expired ones');
+
 /*
 |--------------------------------------------------------------------------
 | Scheduled tasks (run `php artisan schedule:work` or a cron entry)
@@ -83,6 +90,8 @@ Schedule::command('chat:expire-messages')->everyMinute()->withoutOverlapping();
 Schedule::command('chat:purge-view-once')->everyMinute()->withoutOverlapping();
 Schedule::command('chat:expire-statuses')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('chat:lift-bans')->everyFiveMinutes()->withoutOverlapping();
+// Chat backups (D8): waiting ones when no queue worker runs, and expired files.
+Schedule::command('chat:backups')->everyMinute()->withoutOverlapping(120)->runInBackground();
 // SMS codes that expired more than a day ago (Phase 7).
 Schedule::call(fn () => app(OtpService::class)->prune())->daily()->name('prune-otp-codes');
 // Link previews no message uses anymore (and their images).

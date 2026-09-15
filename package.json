@@ -5,7 +5,8 @@
         "build": "vite build",
         "dev": "vite",
         "icons": "node scripts/build-icons.mjs",
-        "test": "vitest run"
+        "test": "vitest run",
+        "tones": "node scripts/build-tones.mjs"
     },
     "devDependencies": {
         "@tailwindcss/vite": "^4.0.0",

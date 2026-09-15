@@ -100,6 +100,10 @@ export class ContactInfo {
                         <span class="group-info-label">About</span>
                         <p class="group-info-description">${profile.about}</p>
                     </section>` : '')}
+                ${raw(this.chat.media ? html`
+                    <section class="group-info-section">
+                        <button type="button" class="group-info-action" data-contact-action="open-media">${raw(icon('images'))} Media, links and docs</button>
+                    </section>` : '')}
                 <section class="group-info-section group-info-danger">
                     ${raw(conversation.blocked_by_me
                         ? html`<button type="button" class="group-info-action" data-contact-action="unblock">${raw(icon('undo-2'))} Unblock ${person.name}</button>`

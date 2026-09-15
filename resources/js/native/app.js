@@ -5,7 +5,7 @@ import { requestStartupPermissions } from './permissions';
 import { App, NativeApp, SystemBars, SystemBarsStyle } from './plugins';
 
 /** Open overlays that the Android back button should close first. */
-const OVERLAYS = '.modal, .lightbox:not(.is-closing), .dropdown-menu:not([hidden]), .emoji-panel';
+const OVERLAYS = '.modal, .lightbox:not(.is-closing), .dropdown-menu:not([hidden]), .emoji-panel, .group-info';
 
 /** Pages where "back" leaves the app instead of navigating. */
 const ROOT_PATHS = ['', '/chat', '/login', '/register'];

@@ -1,6 +1,7 @@
 import axios from '../bootstrap';
 import { debounce, html, raw } from '../lib/dom';
 import { toast } from '../lib/toast';
+import { playTone, vibrate } from '../lib/tones';
 import { formatListTime } from './format';
 import * as T from './templates';
 
@@ -10,7 +11,7 @@ const BANNER_KEY = 'chat:notify-banner-dismissed';
  * New-message notifications:
  *  - in-app toast (click to open the chat) when the tab is visible,
  *  - desktop notification when the tab is in the background,
- *  - optional sound,
+ *  - the chat's own sound and vibration, or the defaults from Settings (D4),
  *  - notification centre (bell) backed by Laravel database notifications,
  *  - unread counters in the tab title and app badge.
  */
@@ -83,6 +84,7 @@ export class Notifier {
                     : notification.title,
                 body: notification.body,
                 sender: notification.sender ?? {},
+                alert: notification.tone ? { tone: notification.tone, vibrate: notification.vibrate } : null,
             });
         };
 
@@ -146,7 +148,7 @@ export class Notifier {
     /* Presentation                                                        */
     /* ------------------------------------------------------------------ */
 
-    present({ messageId, conversationId, title, body, sender }) {
+    present({ messageId, conversationId, title, body, sender, alert = null }) {
         if (!messageId || this.presented.has(messageId)) return;
         this.presented.add(messageId);
         if (this.presented.size > 300) this.presented.delete(this.presented.values().next().value);
@@ -159,7 +161,9 @@ export class Notifier {
         const visible = document.visibilityState === 'visible';
         if (visible && this.chat.active?.id === conversationId) return;
 
-        if (this.prefs.notification_sound !== false) this.chime();
+        const { tone, vibrate: pattern } = alert ?? this.alertFor(conversationId);
+        this.play(tone);
+        vibrate(pattern);
 
         const open = () => this.chat.openConversation(conversationId);
 
@@ -198,27 +202,20 @@ export class Notifier {
         return this.audioContext;
     }
 
-    /** Short two-tone chime generated with Web Audio (no asset needed). */
-    chime() {
-        const ctx = this.audio();
-        if (!ctx || ctx.state === 'suspended') return;
+    /** The chat's own tone and vibration win; otherwise the defaults from Settings (D4). */
+    alertFor(conversationId) {
+        const settings = this.chat.conversations.get(Number(conversationId))?.settings ?? {};
+        const prefs = this.prefs;
+        return {
+            tone: settings.notification_tone || (prefs.notification_sound === false ? 'none' : prefs.notification_tone || 'default'),
+            vibrate: settings.notification_vibrate || prefs.notification_vibrate || 'default',
+        };
+    }
 
-        const now = ctx.currentTime;
-        [
-            [880, 0],
-            [1320, 0.11],
-        ].forEach(([frequency, offset]) => {
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.type = 'sine';
-            osc.frequency.value = frequency;
-            gain.gain.setValueAtTime(0.0001, now + offset);
-            gain.gain.exponentialRampToValueAtTime(0.12, now + offset + 0.02);
-            gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.22);
-            osc.connect(gain).connect(ctx.destination);
-            osc.start(now + offset);
-            osc.stop(now + offset + 0.25);
-        });
+    /** A short tone generated with Web Audio (no sound files needed). */
+    play(tone) {
+        if (!tone || tone === 'none') return false;
+        return playTone(this.audio(), tone);
     }
 
     /* ------------------------------------------------------------------ */

@@ -4,6 +4,7 @@ namespace App\Http\Resources;
 
 use App\Models\User;
 use App\Services\PrivacyService;
+use App\Support\ChatPreferences;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -40,6 +41,11 @@ class UserResource extends JsonResource
                 'theme' => $this->theme,
                 'notifications_enabled' => $this->notifications_enabled,
                 'notification_sound' => $this->notification_sound,
+                // Phase 8.
+                'font_size' => $this->font_size,
+                'notification_tone' => $this->notification_tone,
+                'notification_vibrate' => $this->notification_vibrate,
+                'auto_download' => ChatPreferences::autoDownload($this->auto_download),
                 'last_seen_privacy' => $this->last_seen_privacy,
                 'online_privacy' => $this->online_privacy,
                 'photo_privacy' => $this->photo_privacy,

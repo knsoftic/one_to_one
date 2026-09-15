@@ -10,10 +10,12 @@ use App\Http\Resources\MessageResource;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\Sticker;
+use App\Services\LinkPreviewService;
 use App\Services\MessageService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\Rule;
 use RuntimeException;
 
 class MessageController extends Controller
@@ -42,6 +44,36 @@ class MessageController extends Controller
         return response()->json([
             'data' => MessageResource::collection($page['messages'])->resolve($request),
             'has_more' => $page['has_more'],
+        ]);
+    }
+
+    /**
+     * D1 — Media, links and docs of a chat (?kind=media|docs|links, ?before={id} for older).
+     */
+    public function gallery(Request $request, Conversation $conversation, LinkPreviewService $links): JsonResponse
+    {
+        Gate::authorize('view', $conversation);
+
+        $validated = $request->validate([
+            'kind' => ['required', Rule::in(MessageService::GALLERY_KINDS)],
+            'before' => ['nullable', 'integer', 'min:1'],
+        ]);
+
+        $user = $request->user();
+        $page = $this->messages->gallery($conversation, $user, $validated['kind'], isset($validated['before']) ? (int) $validated['before'] : null);
+        $items = MessageResource::collection($page['messages'])->resolve($request);
+
+        if ($validated['kind'] === 'links') {
+            foreach ($page['messages']->values() as $index => $message) {
+                $items[$index]['links'] = $links->urls($message->message);
+            }
+        }
+
+        return response()->json([
+            'data' => $items,
+            'has_more' => $page['has_more'],
+            // Tab counts come with the first page.
+            'counts' => isset($validated['before']) ? null : $this->messages->galleryCounts($conversation, $user),
         ]);
     }
 

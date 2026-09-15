@@ -42,6 +42,8 @@ const ICONS = [
     // Admin panel
     'message-square-warning', 'calendar', 'gavel', 'shield-ban', 'history', 'sliders-horizontal', 'user-pen', 'image-off', 'crown',
     'scroll-text', 'message-square-off', 'layers', 'clipboard-list', 'file-search', 'inbox',
+    // Phase 8 — media, storage and chat settings
+    'images', 'hard-drive', 'database', 'vibrate', 'music', 'a-large-small', 'wallpaper', 'rotate-ccw', 'cloud-download', 'server', 'folder-archive', 'square-play', 'wifi-high',
 ];
 
 const pascal = (name) => name.replace(/(^|-)([a-z0-9])/g, (_, __, c) => c.toUpperCase());

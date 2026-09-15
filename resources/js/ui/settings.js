@@ -2,6 +2,10 @@ import axios from '../bootstrap';
 import { $, $$, errorMessage } from '../lib/dom';
 import { setTheme } from '../lib/theme';
 import { toast } from '../lib/toast';
+import { previewTone } from '../chat/chat-tone';
+import { vibrate } from '../lib/tones';
+import { initChatBackup } from './backup';
+import { applyWallpaper, openWallpaperPicker, wallpaperLabel } from './wallpaper';
 
 const WIDE = '(min-width: 768px)';
 
@@ -45,6 +49,7 @@ export function initSettingsNav(root = $('[data-settings]')) {
         setUrl(name, pushed);
         if (pushed) root.dataset.pushed = '1';
         section.querySelector('.wa-appbar-title')?.focus?.({ preventScroll: true });
+        document.dispatchEvent(new CustomEvent('settings:section', { detail: { name } }));
     };
 
     const showList = () => {
@@ -108,6 +113,11 @@ function initPreferenceSwitches(config) {
             const key = input.dataset.preference;
             const value = isSwitch ? input.checked : input.value;
             if (!isSwitch) syncChoiceLabel(input);
+            // Font size (D3) changes on screen right away.
+            if (key === 'font_size') document.documentElement.dataset.fontSize = value;
+            // Hear or feel the new tone / vibration (D4).
+            if (key === 'notification_tone') previewTone(value);
+            if (key === 'notification_vibrate') vibrate(value);
             try {
                 await axios.patch(config.routes.preferences, { [key]: value });
                 saved = value;
@@ -118,6 +128,7 @@ function initPreferenceSwitches(config) {
                 else {
                     input.value = saved;
                     syncChoiceLabel(input);
+                    if (key === 'font_size') document.documentElement.dataset.fontSize = saved;
                 }
                 toast.error(errorMessage(error));
             }
@@ -137,6 +148,60 @@ function initThemeChoice() {
         if (select.value === event.detail.preference) return;
         select.value = event.detail.preference;
         syncChoiceLabel(select);
+    });
+}
+
+/** Chats → Wallpaper (D2): the default for every chat, with dimming for the dark theme. */
+export function initWallpaperChoice(config, button = $('[data-wallpaper-open]')) {
+    if (!button) return;
+    let current = JSON.parse(button.dataset.wallpaperCurrent || 'null') ?? config.user?.wallpaper ?? { key: 'default', url: null, dim: 0 };
+
+    const show = () => {
+        applyWallpaper(button.querySelector('[data-wallpaper-thumb]'), current, current.dim);
+        const label = button.querySelector('[data-wallpaper-label]');
+        if (label) label.textContent = wallpaperLabel(current);
+    };
+    show();
+
+    button.addEventListener('click', () => openWallpaperPicker({
+        title: 'Wallpaper for all chats',
+        current,
+        dim: current.dim ?? 0,
+        onSave: async (form) => {
+            try {
+                const { data } = await axios.post(config.routes.wallpaper, form);
+                current = data.wallpaper;
+                if (config.user) config.user.wallpaper = current;
+                show();
+                toast.success('Wallpaper saved.', { timeout: 2000 });
+            } catch (error) {
+                toast.error(errorMessage(error, 'Could not save the wallpaper.'));
+                throw error;
+            }
+        },
+    }));
+}
+
+/** Storage and data → Media auto-download (D5): each network saves its ticked kinds. */
+function initAutoDownload(config) {
+    $$('[data-auto-download-group]').forEach((group) => {
+        const network = group.dataset.autoDownloadGroup;
+        const boxes = [...group.querySelectorAll('[data-auto-download]')];
+        const ticked = () => boxes.filter((box) => box.checked).map((box) => box.value);
+        let saved = ticked();
+
+        group.addEventListener('change', async () => {
+            const kinds = ticked();
+            try {
+                const { data } = await axios.patch(config.routes.preferences, { auto_download: { [network]: kinds } });
+                saved = kinds;
+                if (config.user) config.user.auto_download = data?.preferences?.auto_download ?? { ...config.user.auto_download, [network]: kinds };
+                toast.success('Preference saved.', { timeout: 2000 });
+            } catch (error) {
+                boxes.forEach((box) => { box.checked = saved.includes(box.value); });
+                toast.error(errorMessage(error));
+            }
+        });
     });
 }
 
@@ -250,6 +315,11 @@ export function initSettings(config) {
     initBlockPicker();
     initPreferenceSwitches(config);
     initThemeChoice();
+    initWallpaperChoice(config);
+    initAutoDownload(config);
+    initChatBackup(config);
+    // Manage storage (D6) loads its own code when the page has it.
+    if ($('[data-storage-manager]')) import('./storage-manager').then(({ initStorageManager }) => initStorageManager(config));
     initProfileForm();
     initBrowserNotificationButton();
     initCopyButtons(container);

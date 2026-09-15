@@ -30,6 +30,7 @@ class AccountDeletionService
         private readonly BroadcastService $broadcasts,
         private readonly ImageService $images,
         private readonly PresenceService $presence,
+        private readonly WallpaperService $wallpapers,
     ) {}
 
     public function delete(User $user): void
@@ -87,6 +88,7 @@ class AccountDeletionService
             Storage::disk(config('chat.uploads.disk'))->delete($files);
         }
         $this->images->deleteAvatar($avatar);
+        $this->wallpapers->deleteAllFor($user);
     }
 
     /**

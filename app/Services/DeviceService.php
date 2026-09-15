@@ -220,6 +220,9 @@ class DeviceService
             'body' => $data['body'] ?? '',
             'sender' => $data['sender'] ?? [],
             'created_at' => $createdAt?->toIso8601String(),
+            // D4: sound and vibration chosen when the message arrived.
+            'tone' => $data['tone'] ?? 'default',
+            'vibrate' => $data['vibrate'] ?? 'default',
         ];
     }
 }

@@ -7,6 +7,9 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.media.AudioAttributes;
+import android.media.RingtoneManager;
+import android.net.Uri;
 import android.os.Build;
 import android.service.notification.StatusBarNotification;
 import androidx.core.app.NotificationCompat;
@@ -34,6 +37,8 @@ import java.util.Set;
 final class MessageNotifier {
 
     static final String CHANNEL_MESSAGES = "messages";
+    /** D4: channels for chats with their own tone or vibration ("messages_bell_short"). */
+    private static final String CHANNEL_CUSTOM_PREFIX = "messages_";
     static final String CHANNEL_CONNECTION = "background_connection";
     static final int CONNECTION_NOTIFICATION_ID = 1001;
     static final String KEY_REPLY_TEXT = "reply_text";
@@ -115,7 +120,8 @@ final class MessageNotifier {
             style.addMessage(new NotificationCompat.MessagingStyle.Message(body, message.timestamp, sender));
 
             String shortcutId = publishShortcut(context, settings, message.conversationId, sender, icon);
-            post(context, settings, message.conversationId, name, style, avatar, shortcutId, false);
+            String channel = channelFor(context, message.tone, message.vibrate);
+            post(context, settings, message.conversationId, name, style, avatar, shortcutId, false, channel, message.tone, message.vibrate);
             updateSummary(context);
         }
     }
@@ -143,7 +149,7 @@ final class MessageNotifier {
                 }
             }
 
-            post(context, settings, conversationId, title, style, null, "conversation-" + conversationId, true);
+            post(context, settings, conversationId, title, style, null, "conversation-" + conversationId, true, CHANNEL_MESSAGES, "default", "default");
         }
     }
 
@@ -183,7 +189,10 @@ final class MessageNotifier {
         NotificationCompat.MessagingStyle style,
         Bitmap largeIcon,
         String shortcutId,
-        boolean silent
+        boolean silent,
+        String channel,
+        String tone,
+        String vibrate
     ) {
         int unread = 0;
         String lastText = "";
@@ -204,7 +213,7 @@ final class MessageNotifier {
             .setContentText(context.getResources().getQuantityString(R.plurals.new_messages, Math.max(1, unread), Math.max(1, unread)))
             .build();
 
-        NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_MESSAGES)
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(context, channel)
             .setSmallIcon(R.drawable.ic_stat_chat)
             .setColor(ContextCompat.getColor(context, R.color.brand))
             .setContentTitle(title)
@@ -228,6 +237,24 @@ final class MessageNotifier {
             builder.setLargeIcon(largeIcon);
         }
 
+        // Android 7 has no channels: the sound and vibration go on the notification itself.
+        if (!silent && Build.VERSION.SDK_INT < Build.VERSION_CODES.O && !CHANNEL_MESSAGES.equals(channel)) {
+            String safeTone = tone(tone);
+            String safeVibrate = vibration(vibrate);
+            int defaults = NotificationCompat.DEFAULT_LIGHTS;
+            if ("default".equals(safeTone)) {
+                defaults |= NotificationCompat.DEFAULT_SOUND;
+            } else {
+                builder.setSound(soundUri(context, safeTone));
+            }
+            if ("default".equals(safeVibrate)) {
+                defaults |= NotificationCompat.DEFAULT_VIBRATE;
+            } else {
+                builder.setVibrate(vibrationPattern(safeVibrate));
+            }
+            builder.setDefaults(defaults);
+        }
+
         if (!settings.replyUrl.isEmpty()) {
             builder.addAction(replyAction(context, conversationId));
         }
@@ -236,6 +263,139 @@ final class MessageNotifier {
         }
 
         notify(context, TAG_CONVERSATION, (int) conversationId, builder.build());
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Tones and vibration (D4)                                            */
+    /* ------------------------------------------------------------------ */
+
+    /**
+     * The channel to post on. Android fixes a channel's sound and vibration when it is created,
+     * so every combination a person picks gets its own channel (made the first time it is needed).
+     */
+    static String channelFor(Context context, String tone, String vibrate) {
+        String safeTone = tone(tone);
+        String safeVibrate = vibration(vibrate);
+        if ("default".equals(safeTone) && "default".equals(safeVibrate)) {
+            return CHANNEL_MESSAGES;
+        }
+
+        String id = CHANNEL_CUSTOM_PREFIX + safeTone + "_" + safeVibrate;
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            return id;
+        }
+
+        NotificationManager manager = context.getSystemService(NotificationManager.class);
+        if (manager == null || manager.getNotificationChannel(id) != null) {
+            return id;
+        }
+
+        NotificationChannel channel = new NotificationChannel(
+            id,
+            context.getString(R.string.channel_messages_custom, label(safeTone), label(safeVibrate)),
+            NotificationManager.IMPORTANCE_HIGH
+        );
+        channel.setDescription(context.getString(R.string.channel_messages_custom_description));
+        channel.enableLights(true);
+        channel.setLightColor(0xFF6366F1);
+        channel.setLockscreenVisibility(Notification.VISIBILITY_PRIVATE);
+
+        Uri sound = soundUri(context, safeTone);
+        AudioAttributes attributes = new AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_NOTIFICATION_COMMUNICATION_INSTANT)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .build();
+        channel.setSound(sound, sound == null ? null : attributes);
+
+        if ("off".equals(safeVibrate)) {
+            channel.enableVibration(false);
+        } else {
+            channel.enableVibration(true);
+            long[] pattern = vibrationPattern(safeVibrate);
+            if (pattern != null) {
+                channel.setVibrationPattern(pattern);
+            }
+        }
+
+        manager.createNotificationChannel(channel);
+        return id;
+    }
+
+    /** Only the app's own tones (unknown names fall back to the phone's sound). */
+    static String tone(String tone) {
+        if (tone == null) {
+            return "default";
+        }
+        switch (tone) {
+            case "none":
+            case "chime":
+            case "bell":
+            case "pop":
+            case "chirp":
+            case "marimba":
+            case "pulse":
+            case "glass":
+                return tone;
+            default:
+                return "default";
+        }
+    }
+
+    static String vibration(String vibrate) {
+        if ("short".equals(vibrate) || "long".equals(vibrate) || "off".equals(vibrate)) {
+            return vibrate;
+        }
+        return "default";
+    }
+
+    static Uri soundUri(Context context, String tone) {
+        int sound;
+        switch (tone) {
+            case "none":
+                return null;
+            case "chime":
+                sound = R.raw.tone_chime;
+                break;
+            case "bell":
+                sound = R.raw.tone_bell;
+                break;
+            case "pop":
+                sound = R.raw.tone_pop;
+                break;
+            case "chirp":
+                sound = R.raw.tone_chirp;
+                break;
+            case "marimba":
+                sound = R.raw.tone_marimba;
+                break;
+            case "pulse":
+                sound = R.raw.tone_pulse;
+                break;
+            case "glass":
+                sound = R.raw.tone_glass;
+                break;
+            default:
+                return RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+        }
+        return Uri.parse("android.resource://" + context.getPackageName() + "/" + sound);
+    }
+
+    /** Same patterns as the web app (resources/js/lib/tones.js); null = the phone's own. */
+    static long[] vibrationPattern(String vibrate) {
+        switch (vibrate) {
+            case "short":
+                return new long[] { 0, 70 };
+            case "long":
+                return new long[] { 0, 400, 150, 400 };
+            case "off":
+                return new long[] { 0 };
+            default:
+                return null;
+        }
+    }
+
+    private static String label(String key) {
+        return key.isEmpty() ? key : Character.toUpperCase(key.charAt(0)) + key.substring(1);
     }
 
     private static NotificationCompat.MessagingStyle existingStyle(Context context, long conversationId) {

@@ -23,6 +23,9 @@ final class ChatNotification {
     final String initials;
     final int avatarHue;
     final long timestamp;
+    /** D4: sound ("default", "none" or one of the app's tones) and vibration of this chat. */
+    final String tone;
+    final String vibrate;
 
     private ChatNotification(
         String id,
@@ -34,7 +37,9 @@ final class ChatNotification {
         String avatarUrl,
         String initials,
         int avatarHue,
-        long timestamp
+        long timestamp,
+        String tone,
+        String vibrate
     ) {
         this.id = id;
         this.conversationId = conversationId;
@@ -46,6 +51,8 @@ final class ChatNotification {
         this.initials = initials;
         this.avatarHue = avatarHue;
         this.timestamp = timestamp > 0 ? timestamp : System.currentTimeMillis();
+        this.tone = tone == null || tone.isEmpty() ? "default" : tone;
+        this.vibrate = vibrate == null || vibrate.isEmpty() ? "default" : vibrate;
     }
 
     /** Firebase data message (all values are strings). */
@@ -60,7 +67,9 @@ final class ChatNotification {
             value(data, "avatar_url"),
             value(data, "initials"),
             (int) number(value(data, "avatar_hue")),
-            number(value(data, "sent_at"))
+            number(value(data, "sent_at")),
+            value(data, "tone"),
+            value(data, "vibrate")
         );
     }
 
@@ -82,7 +91,9 @@ final class ChatNotification {
             NotificationFeed.text(sender, "avatar_url"),
             NotificationFeed.text(sender, "initials"),
             sender == null ? 0 : sender.optInt("avatar_hue", 0),
-            parseIso(NotificationFeed.text(item, "created_at"))
+            parseIso(NotificationFeed.text(item, "created_at")),
+            NotificationFeed.text(item, "tone"),
+            NotificationFeed.text(item, "vibrate")
         );
     }
 

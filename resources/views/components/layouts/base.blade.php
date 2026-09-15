@@ -2,7 +2,7 @@
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}"
       class="no-transitions"
-      @auth data-theme-pref="{{ auth()->user()->theme }}" @endauth>
+      @auth data-theme-pref="{{ auth()->user()->theme }}" data-font-size="{{ auth()->user()->font_size ?? 'medium' }}" @endauth>
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">

@@ -68,7 +68,7 @@ export function videoDetails(file, { maxWidth = 640, timeoutMs = 8000 } = {}) {
 /**
  * Full-screen video player (tap a video in the chat).
  */
-export function openVideoPlayer({ src, name = '', download = '', poster = '', protect = false }) {
+export function openVideoPlayer({ src, name = '', download = '', poster = '', protect = false, onShowInChat = null }) {
     const previouslyFocused = document.activeElement;
     const overlay = document.createElement('div');
     overlay.className = 'lightbox is-loaded is-video';
@@ -80,6 +80,7 @@ export function openVideoPlayer({ src, name = '', download = '', poster = '', pr
         <div class="lightbox-bar">
             <span class="lightbox-name">${name}</span>
             <span class="flex items-center gap-1">
+                ${raw(onShowInChat ? html`<button type="button" class="btn-icon lightbox-btn" data-lightbox-jump aria-label="Show in chat" title="Show in chat">${raw(icon('message-square'))}</button>` : '')}
                 ${raw(download ? html`<a class="btn-icon lightbox-btn" href="${download}" download="${name}" aria-label="Download">${raw(icon('download'))}</a>` : '')}
                 <button type="button" class="btn-icon lightbox-btn" data-lightbox-close aria-label="Close">${raw(icon('x'))}</button>
             </span>
@@ -108,6 +109,11 @@ export function openVideoPlayer({ src, name = '', download = '', poster = '', pr
     };
 
     overlay.addEventListener('click', (event) => {
+        if (event.target.closest('[data-lightbox-jump]')) {
+            close();
+            onShowInChat?.();
+            return;
+        }
         if (event.target.closest('[data-lightbox-close]') && !event.target.closest('video')) close();
     });
 

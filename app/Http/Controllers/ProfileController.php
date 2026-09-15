@@ -12,6 +12,7 @@ use App\Services\AccountService;
 use App\Services\ContactService;
 use App\Services\OtpService;
 use App\Services\SessionService;
+use App\Support\ChatPreferences;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -76,6 +77,11 @@ class ProfileController extends Controller
     {
         $data = $request->validated();
 
+        if (isset($data['auto_download'])) {
+            // A network left out keeps its saved choice; an empty list means "nothing".
+            $data['auto_download'] = ChatPreferences::autoDownload(array_merge(ChatPreferences::autoDownload($request->user()->auto_download), $data['auto_download']));
+        }
+
         foreach (['notifications_enabled', 'notification_sound', 'read_receipts'] as $flag) {
             if ($request->has($flag)) {
                 $data[$flag] = $request->boolean($flag);
@@ -88,7 +94,8 @@ class ProfileController extends Controller
             return response()->json([
                 'message' => 'Preferences saved.',
                 'user' => new UserResource($user),
-                'preferences' => $user->only(['theme', 'notifications_enabled', 'notification_sound', 'last_seen_privacy', 'online_privacy', 'photo_privacy', 'about_privacy', 'read_receipts']),
+                'preferences' => $user->only(['theme', 'notifications_enabled', 'notification_sound', 'font_size', 'notification_tone', 'notification_vibrate', 'last_seen_privacy', 'online_privacy', 'photo_privacy', 'about_privacy', 'read_receipts'])
+                    + ['auto_download' => ChatPreferences::autoDownload($user->auto_download)],
             ]);
         }
 

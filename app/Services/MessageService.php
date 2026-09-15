@@ -16,6 +16,7 @@ use App\Models\Sticker;
 use App\Models\User;
 use App\Support\Phone;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpKernel\Exception\HttpException;
@@ -55,6 +56,50 @@ class MessageService
             'messages' => $messages->take($limit)->reverse()->values(),
             'has_more' => $hasMore,
         ];
+    }
+
+    /** D1 — the kinds of things in a chat's media gallery. */
+    public const GALLERY_KINDS = ['media', 'docs', 'links'];
+
+    /**
+     * D1 — photos and videos, documents, or messages with links that the user can see, newest first.
+     *
+     * @return array{messages: Collection<int, Message>, has_more: bool}
+     */
+    public function gallery(Conversation $conversation, User $user, string $kind, ?int $beforeId = null, int $limit = 60): array
+    {
+        $messages = $this->galleryQuery($conversation, $user, $kind)
+            ->when($beforeId, fn ($q) => $q->where('id', '<', $beforeId))
+            ->with(Message::DISPLAY_RELATIONS)
+            ->when($conversation->isGroup(), fn ($q) => $q->with('sender:id,name'))
+            ->withViewerState($user)
+            ->orderByDesc('id')
+            ->limit($limit + 1)
+            ->get();
+
+        return ['messages' => $messages->take($limit)->values(), 'has_more' => $messages->count() > $limit];
+    }
+
+    /**
+     * @return array{media: int, docs: int, links: int}
+     */
+    public function galleryCounts(Conversation $conversation, User $user): array
+    {
+        return collect(self::GALLERY_KINDS)->mapWithKeys(fn (string $kind) => [$kind => $this->galleryQuery($conversation, $user, $kind)->count()])->all();
+    }
+
+    private function galleryQuery(Conversation $conversation, User $user, string $kind): HasMany
+    {
+        $query = $conversation->messages()->visibleTo($user)->where('deleted_for_everyone', false);
+
+        return match ($kind) {
+            // View once media never shows up again (M22).
+            'media' => $query->whereIn('message_type', [Message::TYPE_IMAGE, Message::TYPE_VIDEO])->whereNotNull('attachment')
+                ->where(fn ($q) => $q->whereNull('attachment_meta->view_once')->orWhere('attachment_meta->view_once', false)),
+            'docs' => $query->where('message_type', Message::TYPE_DOCUMENT)->whereNotNull('attachment'),
+            default => $query->where('message_type', Message::TYPE_TEXT)
+                ->where(fn ($q) => $q->whereNotNull('link_preview_id')->orWhere('message', 'like', '%http://%')->orWhere('message', 'like', '%https://%')),
+        };
     }
 
     /**

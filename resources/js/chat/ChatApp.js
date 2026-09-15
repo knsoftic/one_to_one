@@ -43,6 +43,11 @@ import { ViewOnce } from './view-once';
 import { DraftStore } from './drafts';
 import { dayKey, formatLastSeen } from './format';
 import { openLightbox } from './lightbox';
+import { MediaGallery } from './media-gallery';
+import { AutoDownload } from './auto-download';
+import { ChatWallpaper } from './chat-wallpaper';
+import { ChatTone } from './chat-tone';
+import { ChatExport } from './chat-export';
 import { openVideoPlayer } from './video';
 import { Realtime } from './realtime';
 import * as T from './templates';
@@ -150,9 +155,11 @@ export class ChatApp {
             ],
         });
 
+        this.autoDownload = new AutoDownload(() => this.me.auto_download);
         T.setTemplateContext({
             meId: this.me.id,
             nameOf: (userId) => this.displayName(userId, this.users.get(Number(userId))?.name ?? ''),
+            autoDownload: (message) => this.autoDownload.allows(message),
         });
     }
 
@@ -187,6 +194,10 @@ export class ChatApp {
         this.channels = new Channels(this);
         this.statuses = new Statuses(this);
         this.contactInfo = new ContactInfo(this);
+        this.media = new MediaGallery(this);
+        this.wallpaper = new ChatWallpaper(this);
+        this.tone = new ChatTone(this);
+        this.exports = new ChatExport(this);
         this.reports = new ReportUser(this);
         this.linkedDevices = new LinkedDevices(this);
         this.profileQr = new ProfileQr(this);
@@ -992,6 +1003,14 @@ export class ChatApp {
                 return;
             }
 
+            // D5: download a photo, GIF or sticker that waited for a tap.
+            const held = event.target.closest('[data-media-load]');
+            if (held) {
+                this.autoDownload.markLoaded(held.dataset.mediaLoad);
+                this.updateMessage({ id: this.active?.byId.get(String(held.dataset.mediaLoad))?.id ?? held.dataset.mediaLoad, media_loaded: true });
+                return;
+            }
+
             const image = event.target.closest('[data-lightbox]');
             if (image) {
                 openLightbox({
@@ -1003,6 +1022,8 @@ export class ChatApp {
 
             const video = event.target.closest('[data-video]');
             if (video) {
+                const messageId = video.closest('[data-message-id]')?.dataset.messageId;
+                if (messageId) this.autoDownload.markLoaded(messageId);
                 openVideoPlayer({
                     src: video.dataset.video,
                     name: video.dataset.videoName,

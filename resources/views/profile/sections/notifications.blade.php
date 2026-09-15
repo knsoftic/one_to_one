@@ -23,6 +23,33 @@
             <span class="switch-track"></span>
         </span>
     </label>
+    @php($tones = ['default' => 'Default', 'chime' => 'Chime', 'bell' => 'Bell', 'pop' => 'Pop', 'chirp' => 'Chirp', 'marimba' => 'Marimba', 'pulse' => 'Pulse', 'glass' => 'Glass'])
+    @php($vibrations = ['default' => 'Default', 'short' => 'Short', 'long' => 'Long', 'off' => 'Off'])
+    <label class="wa-row wa-choice">
+        <x-icon name="music" class="wa-row-icon" />
+        <span class="wa-row-body">
+            <span class="wa-row-title">Notification tone</span>
+            <span class="wa-row-text" data-choice-label>{{ $tones[$user->notification_tone] ?? 'Default' }}</span>
+        </span>
+        <select class="wa-choice-select" data-preference="notification_tone" aria-label="Notification tone">
+            @foreach ($tones as $value => $label)
+                <option value="{{ $value }}" @selected(($user->notification_tone ?? 'default') === $value)>{{ $label }}</option>
+            @endforeach
+        </select>
+    </label>
+    <label class="wa-row wa-choice">
+        <x-icon name="vibrate" class="wa-row-icon" />
+        <span class="wa-row-body">
+            <span class="wa-row-title">Vibration</span>
+            <span class="wa-row-text" data-choice-label>{{ $vibrations[$user->notification_vibrate] ?? 'Default' }}</span>
+        </span>
+        <select class="wa-choice-select" data-preference="notification_vibrate" aria-label="Vibration">
+            @foreach ($vibrations as $value => $label)
+                <option value="{{ $value }}" @selected(($user->notification_vibrate ?? 'default') === $value)>{{ $label }}</option>
+            @endforeach
+        </select>
+    </label>
+    <p class="wa-group-note">"Default" is the app's chime in the browser and your phone's notification sound in the Android app. A chat can have its own tone: open the chat menu → Notification tone.</p>
 </div>
 
 <div class="wa-group">

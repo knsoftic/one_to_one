@@ -18,6 +18,8 @@
     <!-- Message notifications (no Firebase) -->
     <string name="channel_messages">Messages</string>
     <string name="channel_messages_description">New chat messages</string>
+    <string name="channel_messages_custom">Messages: %1$s tone, %2$s vibration</string>
+    <string name="channel_messages_custom_description">Chats you gave their own notification tone in One2One Chat</string>
     <string name="channel_connection">Background connection</string>
     <string name="channel_connection_description">Keeps One2One Chat connected so new messages arrive instantly. You can turn this notification off; messages will still arrive.</string>
     <string name="connection_connected">Connected · new messages will appear here</string>

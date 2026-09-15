@@ -135,14 +135,14 @@ light/dark theme · admin panel.
 
 | # | Feature | Kya milega | Mehnat | Status |
 |---|---------|-----------|--------|--------|
-| D1 | **Media, Links, Docs gallery** | Har chat ki saari photos, links aur files ek jagah | 🟡 | [ ] |
-| D2 | **Chat wallpaper** | Rang ya tasveer, har chat ka alag | 🟢 | [ ] |
-| D3 | **Font size** | Chhota / darmiyana / bara | 🟢 | [ ] |
-| D4 | **Har chat ki notification tone** | Alag awaaz, vibration | 🟢 | [ ] |
-| D5 | **Auto-download settings** | Wi-Fi / mobile data par kya khud download ho | 🟡 | [ ] |
-| D6 | **Storage manage** | Bari files dekhna aur hatana | 🟡 | [ ] |
-| D7 | **Export chat** | Chat text/zip file mein | 🟢 | [ ] |
-| D8 | **Chat backup / restore** | Google Drive ya server backup, naye phone par wapas | 🟠 | [ ] |
+| D1 | **Media, Links, Docs gallery** | Har chat ki saari photos, links aur files ek jagah | 🟡 | [x] |
+| D2 | **Chat wallpaper** | Rang ya tasveer, har chat ka alag | 🟢 | [x] |
+| D3 | **Font size** | Chhota / darmiyana / bara | 🟢 | [x] |
+| D4 | **Har chat ki notification tone** | Alag awaaz, vibration | 🟢 | [x] |
+| D5 | **Auto-download settings** | Wi-Fi / mobile data par kya khud download ho | 🟡 | [x] |
+| D6 | **Storage manage** | Bari files dekhna aur hatana | 🟡 | [x] |
+| D7 | **Export chat** | Chat text/zip file mein | 🟢 | [x] |
+| D8 | **Chat backup / restore** | Google Drive ya server backup, naye phone par wapas | 🟠 | [x] |
 
 ## Phase 9 — Apps aur platform (mazeed)
 

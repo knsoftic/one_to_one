@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\WallpaperService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
@@ -87,6 +88,12 @@ class ChatSetting extends Model
             'favorite' => $setting?->favorite_at !== null,
             'cleared_at' => $setting?->cleared_at?->toIso8601String(),
             'locked' => $setting?->locked_at !== null,
+            // Phase 8: this chat's own wallpaper and notification tone (null = the default from Settings).
+            'wallpaper' => $setting?->wallpaper
+                ? WallpaperService::payload($setting->wallpaper, $setting->wallpaper_path, 'conversations.wallpaper', ['conversation' => $setting->conversation_id])
+                : null,
+            'notification_tone' => $setting?->notification_tone,
+            'notification_vibrate' => $setting?->notification_vibrate,
         ];
     }
 }

@@ -42,6 +42,23 @@ class LinkPreviewService
     /**
      * The first link of a text, ignoring links inside `code`.
      */
+    /**
+     * Every web link in a text, in order, without repeats (D1 — Links in the media gallery).
+     *
+     * @return list<string>
+     */
+    public function urls(?string $text): array
+    {
+        if (! $text) {
+            return [];
+        }
+
+        $text = preg_replace(['/```[\s\S]*?```/u', '/`[^`\n]*`/u'], ' ', $text) ?? $text;
+        preg_match_all(self::URL_PATTERN, $text, $matches);
+
+        return array_values(array_unique($matches[0]));
+    }
+
     public function firstUrl(?string $text): ?string
     {
         if (! $text) {

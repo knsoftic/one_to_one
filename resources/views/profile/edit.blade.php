@@ -5,8 +5,9 @@
         'account' => ['title' => 'Account', 'text' => 'Change number, my data, delete account', 'icon' => 'key-round'],
         'privacy' => ['title' => 'Privacy', 'text' => 'Last seen, profile photo, blocked contacts', 'icon' => 'lock'],
         'security' => ['title' => 'Security', 'text' => 'Password, two-step verification, devices', 'icon' => 'shield-check'],
-        'chats' => ['title' => 'Chats', 'text' => 'Theme', 'icon' => 'message-square-text'],
-        'notifications' => ['title' => 'Notifications', 'text' => 'Message alerts and sounds', 'icon' => 'bell'],
+        'chats' => ['title' => 'Chats', 'text' => 'Theme, wallpaper, font size', 'icon' => 'message-square-text'],
+        'notifications' => ['title' => 'Notifications', 'text' => 'Message alerts, tones and vibration', 'icon' => 'bell'],
+        'storage' => ['title' => 'Storage and data', 'text' => 'Manage storage, auto-download, chat backup', 'icon' => 'hard-drive'],
         'qr' => ['title' => 'QR code', 'icon' => 'qr-code', 'menu' => false],
         'blocked' => ['title' => 'Blocked contacts', 'icon' => 'ban', 'menu' => false, 'parent' => 'privacy'],
     ];

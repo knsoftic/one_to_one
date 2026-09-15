@@ -4,7 +4,7 @@ import { icon } from '../lib/icons';
 /**
  * Full-screen image preview (click an image in the chat).
  */
-export function openLightbox({ src, name = '', download = '', protect = false }) {
+export function openLightbox({ src, name = '', download = '', protect = false, onShowInChat = null }) {
     const previouslyFocused = document.activeElement;
     const overlay = document.createElement('div');
     overlay.className = 'lightbox';
@@ -16,6 +16,7 @@ export function openLightbox({ src, name = '', download = '', protect = false })
         <div class="lightbox-bar">
             <span class="lightbox-name">${name}</span>
             <span class="flex items-center gap-1">
+                ${raw(onShowInChat ? html`<button type="button" class="btn-icon lightbox-btn" data-lightbox-jump aria-label="Show in chat" title="Show in chat">${raw(icon('message-square'))}</button>` : '')}
                 ${raw(download ? html`<a class="btn-icon lightbox-btn" href="${download}" download="${name}" aria-label="Download">${raw(icon('download'))}</a>` : '')}
                 <button type="button" class="btn-icon lightbox-btn" data-lightbox-close aria-label="Close">${raw(icon('x'))}</button>
             </span>
@@ -53,6 +54,12 @@ export function openLightbox({ src, name = '', download = '', protect = false })
     };
 
     overlay.addEventListener('click', (event) => {
+        // Media, links and docs (D1): close and jump to the message.
+        if (event.target.closest('[data-lightbox-jump]')) {
+            close();
+            onShowInChat?.();
+            return;
+        }
         if (event.target.closest('[data-lightbox-close]') && !event.target.closest('.lightbox-image')) close();
     });
 

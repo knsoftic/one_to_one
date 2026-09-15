@@ -4,6 +4,8 @@ namespace App\View\Composers;
 
 use App\Models\User;
 use App\Services\DeviceService;
+use App\Services\WallpaperService;
+use App\Support\ChatPreferences;
 use Illuminate\Support\Facades\Route;
 use Illuminate\View\View;
 
@@ -20,6 +22,12 @@ class AppConfigComposer
 
         $routes = collect([
             'preferences' => 'profile.preferences',
+            'wallpaper' => 'settings.wallpaper.update',
+            'storageSummary' => 'storage.summary',
+            'storageFiles' => 'storage.files',
+            'storageDelete' => 'storage.delete',
+            'backupShow' => 'backups.show',
+            'backupStore' => 'backups.store',
             'logout' => 'logout',
             'settings' => 'profile.edit',
             'chat' => 'chat.index',
@@ -40,6 +48,12 @@ class AppConfigComposer
                 'theme' => $user->theme,
                 'notifications_enabled' => $user->notifications_enabled,
                 'notification_sound' => $user->notification_sound,
+                // Phase 8 — how chats look and alert.
+                'wallpaper' => WallpaperService::payload($user->wallpaper, $user->wallpaper_path, 'settings.wallpaper.show') + ['dim' => (int) $user->wallpaper_dim],
+                'font_size' => $user->font_size,
+                'notification_tone' => $user->notification_tone,
+                'notification_vibrate' => $user->notification_vibrate,
+                'auto_download' => ChatPreferences::autoDownload($user->auto_download),
                 'is_admin' => $user->isAdmin(),
             ] : null,
             'routes' => $routes,

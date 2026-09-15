@@ -99,6 +99,13 @@ class ChatSettingsService
             }
         }
 
+        foreach (['notification_tone', 'notification_vibrate'] as $key) {
+            if (array_key_exists($key, $changes)) {
+                // "default" is the same as no choice for this chat.
+                $setting->{$key} = in_array($changes[$key], [null, 'default'], true) ? null : $changes[$key];
+            }
+        }
+
         $setting->save();
         broadcast(new ChatSettingsUpdated($user->getKey(), $conversation->getKey()))->toOthers();
 

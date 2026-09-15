@@ -59,6 +59,10 @@ class AccountExportService
                 'theme' => $user->theme,
                 'notifications' => (bool) $user->notifications_enabled,
                 'notification_sound' => (bool) $user->notification_sound,
+                'notification_tone' => $user->notification_tone,
+                'notification_vibrate' => $user->notification_vibrate,
+                'font_size' => $user->font_size,
+                'wallpaper' => $user->wallpaper ?? 'default',
                 'privacy' => [
                     'last_seen' => $user->last_seen_privacy,
                     'online' => $user->online_privacy,

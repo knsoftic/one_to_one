@@ -44,6 +44,7 @@ class ChatConfigComposer
             'messageDestroy' => ['messages.destroy', ['message' => $id]],
             'messageForward' => ['messages.forward', ['message' => $id]],
             'messagesSearch' => ['messages.search', ['conversation' => $id]],
+            'conversationGallery' => ['conversations.gallery', ['conversation' => $id]],
             'messageStar' => ['messages.star', ['message' => $id]],
             'messagePin' => ['messages.pin', ['message' => $id]],
             'starred' => ['starred.index', []],
@@ -52,6 +53,8 @@ class ChatConfigComposer
             'messageVote' => ['messages.vote', ['message' => $id]],
             'disappearing' => ['conversations.disappearing', ['conversation' => $id]],
             'conversationSettings' => ['conversations.settings', ['conversation' => $id]],
+            'conversationWallpaper' => ['conversations.wallpaper.update', ['conversation' => $id]],
+            'conversationExport' => ['conversations.export', ['conversation' => $id]],
             'chatLockPin' => ['chat-lock.pin.store', []],
             'chatLockPinDestroy' => ['chat-lock.pin.destroy', []],
             'chatLockUnlock' => ['chat-lock.unlock', []],
@@ -196,6 +199,8 @@ class ChatConfigComposer
             'linkDevice' => $view->getData()['linkDevice'] ?? null,
             // Opened from someone's profile QR code (A4).
             'profileQr' => $view->getData()['profileQr'] ?? null,
+            // Export chat (D7): a ZIP with media needs PHP's zip extension.
+            'export' => ['media' => class_exists(\ZipArchive::class)],
             // Status (Phase 5).
             'statuses' => [
                 'maxVideoSeconds' => (int) config('chat.statuses.max_video_seconds', 60),

@@ -416,11 +416,30 @@ export function previewOf(message) {
 }
 
 /* Context supplied by the chat app (current user & participant names). */
-const context = { meId: null, nameOf: () => '' };
+const context = { meId: null, nameOf: () => '', autoDownload: null };
 
-export function setTemplateContext({ meId, nameOf }) {
+export function setTemplateContext({ meId, nameOf, autoDownload = null }) {
     context.meId = meId;
     context.nameOf = nameOf;
+    context.autoDownload = autoDownload;
+}
+
+/** D5: media that is not downloaded by itself on this network. */
+function isHeld(message) {
+    return Boolean(context.autoDownload) && !context.autoDownload(message);
+}
+
+/** A tile with the size and a download button instead of the picture (D5). */
+function heldMedia(message, { className, ratio, label, iconName }) {
+    const a = message.attachment;
+    return html`
+        <button type="button" class="${className} is-held" data-media-load="${message.id}" style="aspect-ratio: ${ratio}" aria-label="Download ${label.toLowerCase()}${a.size ? `, ${formatBytes(a.size)}` : ''}">
+            <span class="media-held">
+                <span class="media-held-icon">${raw(icon('download'))}</span>
+                <span class="media-held-text">${raw(icon(iconName))}${a.size ? formatBytes(a.size) : label}</span>
+            </span>
+        </button>
+    `;
 }
 
 const EXTENSION_LABELS = {
@@ -478,6 +497,7 @@ function uploadOverlay(message) {
 function imageAttachment(message) {
     const a = message.attachment;
     const ratio = a.width && a.height ? `${a.width} / ${a.height}` : '4 / 3';
+    if (isHeld(message)) return heldMedia(message, { className: 'message-image', ratio, label: isGif(a) ? 'GIF' : 'Photo', iconName: isGif(a) ? 'image-play' : 'image' });
     const src = a.local_url || a.thumbnail_url || a.url;
 
     return html`
@@ -614,13 +634,15 @@ function viewOnceBubble(message) {
 
 function stickerAttachment(message) {
     const a = message.attachment;
+    if (isHeld(message)) return heldMedia(message, { className: 'message-sticker-held', ratio: '1 / 1', label: 'Sticker', iconName: 'sticker' });
     return html`<span class="message-sticker"><img src="${a.local_url || a.url}" alt="Sticker" width="512" height="512" loading="lazy" decoding="async"></span>`;
 }
 
 function videoAttachment(message) {
     const a = message.attachment;
     const ratio = a.width && a.height ? `${Number(a.width)} / ${Number(a.height)}` : '16 / 9';
-    const poster = a.local_thumbnail_url || a.thumbnail_url;
+    // D5: without auto-download the preview picture waits; playing still works (and downloads).
+    const poster = isHeld(message) ? null : a.local_thumbnail_url || a.thumbnail_url;
     const canPlay = !message.uploading && Boolean(a.local_url || a.url);
 
     return html`
@@ -629,7 +651,7 @@ function videoAttachment(message) {
                 aria-label="Play video${a.duration ? `, ${formatDuration(a.duration)}` : ''}">
             ${raw(poster ? html`<img src="${poster}" alt="" loading="lazy" decoding="async">` : `<span class="message-video-placeholder">${icon('film')}</span>`)}
             ${raw(message.uploading ? '' : `<span class="message-video-play">${icon('play')}</span>`)}
-            <span class="message-video-info">${raw(icon('video'))}${a.duration ? formatDuration(a.duration) : ''}</span>
+            <span class="message-video-info">${raw(icon('video'))}${a.duration ? formatDuration(a.duration) : ''}${!poster && isHeld(message) && a.size ? ` · ${formatBytes(a.size)}` : ''}</span>
             ${raw(uploadOverlay(message))}
         </button>
     `;

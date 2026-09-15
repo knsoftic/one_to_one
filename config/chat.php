@@ -262,4 +262,17 @@ return [
         'password' => env('ADMIN_PASSWORD'),
     ],
 
+    // Phase 8 — export chat (D7) and chat backups (D8).
+    'export' => [
+        // Media in one chat export or one personal backup; the rest is listed as left out.
+        'max_media_mb' => (int) env('CHAT_EXPORT_MAX_MEDIA_MB', 512),
+    ],
+
+    'backups' => [
+        // Personal backups can be downloaded for this long, then they are deleted.
+        'keep_days' => (int) env('CHAT_BACKUP_KEEP_DAYS', 7),
+        // Full server backups made from the admin panel: how many to keep.
+        'server_keep' => (int) env('CHAT_SERVER_BACKUPS_KEEP', 5),
+    ],
+
 ];

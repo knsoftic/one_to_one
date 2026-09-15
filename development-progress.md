@@ -980,3 +980,52 @@ Chosen style: **Indigo Night**, everywhere (chats, calls, status, groups, settin
 - Files: `resources/css/skin.css` (replaces `whatsapp.css`), `settings-wa.css` renamed `settings-screens.css`, `theme.css`, `admin.css`, `native.css`, `resources/js/native/app.js`, `public/favicon.svg`, chat welcome art in `chat/index.blade.php`.
 - Checked in the browser: chat list and chat with text, replies, polls, files, voice notes and contact cards (phone, light and dark), web layout with the rail and welcome screen, settings (phone), sign in (phone), admin dashboard.
 - Verification: PHPUnit **432 passed**, Vitest **179 passed**, build ✅.
+
+## Phase 8 — Media, storage and chat settings ✅
+Decisions: **D8 = server backup file** (no Google Drive): a person downloads a ZIP of their chats from Settings, admins make a full server backup; moving to a new phone = sign in again (chats live on the server). **D4 = web and phone**, with a new APK.
+
+### D1 — Media, links and docs ✅
+- Chat menu → **Media, links and docs** (also in contact info and group info): tabs **Media / Docs / Links** with counts, newest first, loads older items while scrolling.
+- Media: photos and videos by month ("This month", "August"…), video length and GIF badges; tap opens the photo viewer or video player, both now with **Show in chat**. Docs: file type colour, size, date, download. Links: every link of a message (code excluded), the link card picture and title when there is one.
+- Only what I can see: messages deleted for me or for everyone, view once media and other chats never show up. Locked chats need the secret code (same rule as the chat).
+- Server: `GET /conversations/{id}/gallery?kind=media|docs|links&before=` (`MessageService::gallery`, `LinkPreviewService::urls`). Client: `resources/js/chat/media-gallery.js`. The Android back button now closes info panels (`.group-info`) before leaving the chat.
+
+### D2 — Chat wallpaper ✅
+- **Settings → Chats → Wallpaper** (all chats) and **chat menu → Wallpaper** (one chat, only for me): Default, Plain, 7 colours with a light dot pattern, 5 gradients (Aurora, Sunset, Ocean, Forest, Midnight) — each has a light and a dark version — or **your own photo** with a live preview. Photos can be **dimmed in the dark theme**.
+- Photos are re-encoded (max 1920 px JPEG, no EXIF/GPS), kept private (`chat` disk `wallpapers/{user}/`), served only to their owner, removed when replaced or when the account is deleted.
+- Files: `WallpaperService`, `ChatPreferencesController`, `resources/js/ui/wallpaper.js` (picker), `resources/js/chat/chat-wallpaper.js`.
+
+### D3 — Font size ✅
+- **Settings → Chats → Font size**: Small / Medium / Large for message text and the typing box (phones keep 16 px or more in the typing box so they don't zoom). Changes on screen right away; stored per account (`data-font-size` on every page).
+
+### D4 — Notification tone and vibration ✅ (new APK)
+- **Settings → Notifications → Notification tone** (Default, Chime, Bell, Pop, Chirp, Marimba, Pulse, Glass; plays when chosen) and **Vibration** (Default, Short, Long, Off). **Chat menu → Notification tone** gives a chat its own sound (or None) and vibration.
+- The server works out each person's sound per chat (chat choice → Settings; "notification sound" off = none) and sends it with the realtime notification, the phone's polling feed and the Firebase push (`tone`, `vibrate`).
+- Web: tones are drawn with Web Audio from `resources/js/lib/tones.js`; phones' browsers vibrate. **Android**: the same notes are written to `res/raw/tone_*.wav` by `npm run tones`; each tone + vibration gets its own notification channel ("Messages: Bell tone, Short vibration"), made the first time it is needed; "Default" keeps the phone's own sound. Android 7 sets sound/vibration on the notification.
+- **New debug APK**: `mobile/android/app/build/outputs/apk/debug/app-debug.apk` (built with Android Studio's JBR). Without the new APK, phones keep their usual sound.
+
+### D5 — Media auto-download ✅
+- **Settings → Storage and data → Media auto-download**: for **Wi-Fi** and for **mobile data**, tick Photos / GIFs and stickers / Video previews (default: all on Wi-Fi, photos and GIFs on mobile data).
+- Anything not ticked shows a tile with the **file size and a download button**; videos show their size and still play on tap. The browser's Network Information (`connection.type`, Data Saver) decides the network; my own media is always shown. Voice messages and documents only ever download when opened.
+- Files: `resources/js/chat/auto-download.js`, templates (held media), `ChatPreferences::autoDownload`.
+
+### D6 — Manage storage ✅
+- **Settings → Storage and data → Manage storage**: total space and files, a bar by kind (photos, videos, documents, voice, GIFs and stickers), **Larger than 5 MB**, and chats sorted by size.
+- A chat (or the large files) opens a list sorted by **Largest / Newest** with thumbnails, select / select all and **Delete for me** (confirm shows the space). Other people keep their copy; a file nobody can see anymore is removed from the server.
+- Loads only when the section is opened. Server: `StorageUsageService`, `StorageController` (`/settings/storage`, `/settings/storage/files`, `/settings/storage/delete`), `ChatCardService` (chat names as the person saved them). Client: `resources/js/ui/storage-manager.js`.
+
+### D7 — Export chat ✅
+- **Chat menu → Export chat**: **Without media** (.txt) or **Include media** (.zip with `chat.txt` and a `media/` folder). Lines look like `14/09/2026, 09:05 - Ayesha Baji: message`; deleted messages, view once media, locations (map link), contact cards, polls and calls are written as text; saved contact names are used.
+- Only messages I can see; locked chats need the secret code; 6 exports a minute; media in one export capped by `CHAT_EXPORT_MAX_MEDIA_MB` (512). Needs PHP `zip` for media (the button says so otherwise).
+- Files: `ChatExportService`, `ChatExportController`, `resources/js/chat/chat-export.js`.
+
+### D8 — Chat backup ✅
+- **Settings → Storage and data → Chat backup**: **Back up now** (optionally with photos and videos) makes a ZIP of **every chat** (`chats/<name>/chat.txt` + media, and a README) in the background; the row shows progress, then **Download** for `CHAT_BACKUP_KEEP_DAYS` (7) days. A new backup replaces the old one. The README and the settings text explain that a new phone gets everything back by signing in.
+- **Admin panel → Backups**: **Back up now** (database, and optionally all uploaded files) → `database.sql` (made with PHP, no shell needed), `files/chat/`, `files/public/` and `RESTORE.txt`; list with status, size, download and delete; the newest `CHAT_SERVER_BACKUPS_KEEP` (5) are kept; making, downloading and deleting are in the audit log. The page has step-by-step restore instructions (same `APP_KEY`, import SQL, copy files, migrate).
+- Backups run on the queue worker; when no worker runs, the scheduler (`chat:backups`, every minute) makes waiting backups, removes expired files, fails stuck ones and clears old export files.
+- Files: migration `2026_09_27_000002_create_chat_backups_table`, `ChatBackup`, `BackupService`, `DatabaseDumpService`, `CreateBackup` job, `BackupController`, `Admin\BackupController`, `admin/backups/index.blade.php`, `resources/js/ui/backup.js`.
+
+**Tests**: `tests/Feature/Chat/{MediaGalleryTest,ChatAppearanceTest,NotificationToneTest,ChatExportTest}`, `tests/Feature/Account/{StorageAndDataTest,ChatBackupTest}`; Vitest `media-gallery`, `wallpaper`, `tones`, `auto-download`, `storage-manager`, `backup`.
+**Checked in the browser**: media gallery (phone and desktop, dark), wallpaper presets in the chat (light and dark) and the picker, font sizes, tone and export dialogs, held photos/videos/stickers, Storage and data (usage, large files with selection, auto-download, backup), admin Backups page.
+**Verification**: PHPUnit **458 passed**, Vitest **203 passed**, Pint ✅, build ✅, debug APK ✅.
+**Deploy**: `php artisan migrate` (new user / chat settings columns and `chat_backups`) and `npm run build` — the deploy script does both. The queue worker (or the scheduler cron) must run for backups. PHP `zip` extension is needed for ZIP exports and backups. Install the new APK for per-chat tones on Android.
