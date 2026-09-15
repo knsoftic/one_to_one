@@ -1050,3 +1050,9 @@ Ctrl/⌘+K search chats · Alt+↑/↓ previous/next chat · Ctrl+Shift+F search
 - Files: `WebPushService`, `WebPushController`, `WebPushSubscription` (migration `2026_09_28_000002`), `PushService::reachable()` (Firebase or browser), `public/sw.js`, `public/offline.html`, `public/icons/*`, `resources/js/lib/web-push.js`. Admin → Server health shows how many browsers signed up.
 - Tests: `tests/Feature/Chat/WebPushTest` (decrypts the payload and verifies the VAPID signature like a browser), `resources/js/ui/__tests__/web-push.test.js`.
 - Deploy note: the site must be on **HTTPS** (it is) for service workers and push.
+
+### X4 — App update prompt ✅
+- **Android**: Admin → App settings → **Android app**: latest version code and name, oldest allowed version code, what's new, and the **APK upload** (or a store link once on Google Play). The app compares its own version: older phones see **"Update available"** (Later is remembered per version), phones older than the oldest allowed see **"Update required"** that can't be closed. "Update" opens the download in the phone's browser (new `openExternal` native method; older apps fall back to the in-app download).
+- **Public download link** `/download/android` (the uploaded APK with the right file type, or a redirect to the store) — share it to install the app.
+- **Web**: every response carries `X-App-Version` (hash of the build manifest); a tab that was open during a deploy shows "A new version of One2One Chat is ready — Reload".
+- Files: `AppUpdateService`, `Admin\AppReleaseController`, `AppShellController` (manifest + download), `resources/js/ui/app-update.js`, `NativeAppPlugin.openExternal`. Tests: `tests/Feature/Admin/AppReleaseTest`, `resources/js/ui/__tests__/app-update.test.js`.

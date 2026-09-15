@@ -1,5 +1,6 @@
 import axios from '../bootstrap';
 import { confirmDialog } from '../lib/modal';
+import { checkAndroidUpdate } from '../ui/app-update';
 import { AppLock } from './app-lock';
 import { requestStartupPermissions } from './permissions';
 import { App, NativeApp, SystemBars, SystemBarsStyle } from './plugins';
@@ -43,6 +44,9 @@ export function initNativeApp(config) {
     document.addEventListener('theme:change', syncSystemBars);
 
     bindBackButton();
+
+    // X4: a newer app version was published in the admin panel.
+    checkAndroidUpdate(appConfig, NativeApp).catch(() => {});
 
     // App lock (Phase 6, P8): fingerprint / face / screen lock when the app opens.
     new AppLock({ NativeApp, App, appName: appConfig.name ?? 'One2One' })

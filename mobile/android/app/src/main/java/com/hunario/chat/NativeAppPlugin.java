@@ -156,6 +156,23 @@ public class NativeAppPlugin extends Plugin {
         call.resolve();
     }
 
+    /** X4: open a web link (e.g. the new APK or the store page) in the phone's browser. */
+    @PluginMethod
+    public void openExternal(PluginCall call) {
+        Uri uri = Uri.parse(call.getString("url", ""));
+        String scheme = uri.getScheme();
+        if (!"https".equalsIgnoreCase(scheme) && !"http".equalsIgnoreCase(scheme)) {
+            call.reject("Only web links can be opened.");
+            return;
+        }
+        try {
+            getContext().startActivity(new Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            call.resolve();
+        } catch (ActivityNotFoundException exception) {
+            call.reject("No app on this phone can open the link.");
+        }
+    }
+
     @PluginMethod
     public void getInfo(PluginCall call) {
         Context context = getContext();

@@ -9,6 +9,7 @@ use App\Models\AppSetting;
 use App\Models\User;
 use App\Services\AdminAuditService;
 use App\Services\AppConfigService;
+use App\Services\AppUpdateService;
 use App\Services\SmsService;
 use App\Support\Phone;
 use Illuminate\Http\RedirectResponse;
@@ -61,6 +62,15 @@ class SystemController extends Controller
             'values' => $this->config->formValues(),
             'smsReady' => $sms->available(),
             'mailer' => (string) config('mail.default'),
+            'android' => [
+                'latest_code' => AppSetting::get('android_latest_code'),
+                'latest_name' => AppSetting::get('android_latest_name'),
+                'min_code' => AppSetting::get('android_min_code'),
+                'notes' => AppSetting::get('android_notes'),
+                'download_url' => AppSetting::get('android_download_url'),
+                'apk_size' => app(AppUpdateService::class)->apkSize(),
+                'apk_url' => app(AppUpdateService::class)->apkPath() ? route('app.download.android') : null,
+            ],
         ]);
     }
 

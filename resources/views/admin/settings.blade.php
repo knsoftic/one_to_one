@@ -7,6 +7,7 @@
         <a href="#sms" class="admin-tab">SMS</a>
         <a href="#email" class="admin-tab">Email</a>
         <a href="#extras" class="admin-tab">GIFs, calls &amp; invite</a>
+        <a href="#android" class="admin-tab">Android app</a>
         <a href="#tests" class="admin-tab">Test</a>
     </nav>
 
@@ -129,6 +130,59 @@
         <div class="admin-settings-save"><button type="submit" class="btn btn-primary btn-lg"><x-icon name="check" /> Save settings</button></div>
         <p class="admin-muted">Passwords and keys are encrypted with the app key and never shown again. The database, APP_KEY, APP_URL and Reverb still come from .env.</p>
     </form>
+
+    {{-- Android app releases (X4) --}}
+    <section class="card admin-tool" id="android">
+        <div class="card-body">
+            <h3 class="admin-section-title"><x-icon name="smartphone" /> Android app</h3>
+            <p class="admin-muted">When you publish a newer version, the app shows "Update available" with what's new. Phones older than the oldest allowed version can't continue until they update.</p>
+            <form method="POST" action="{{ route('admin.app-release.update') }}" enctype="multipart/form-data" class="admin-form mt-3" data-loading-form novalidate>
+                @csrf
+                @method('PUT')
+                <div class="admin-settings-grid">
+                    <div class="form-group">
+                        <label for="release-code" class="form-label">Latest version code</label>
+                        <input id="release-code" type="number" name="latest_code" min="1" class="form-control @error('latest_code', 'release') is-invalid @enderror" value="{{ old('latest_code', $android['latest_code']) }}" placeholder="e.g. 3">
+                        <p class="form-hint"><code>versionCode</code> in <code>mobile/android/app/build.gradle</code>. Empty = no update prompt.</p>
+                        @error('latest_code', 'release')<p class="form-error"><x-icon name="circle-alert" />{{ $message }}</p>@enderror
+                    </div>
+                    <div class="form-group">
+                        <label for="release-name" class="form-label">Version name</label>
+                        <input id="release-name" type="text" name="latest_name" maxlength="20" class="form-control @error('latest_name', 'release') is-invalid @enderror" value="{{ old('latest_name', $android['latest_name']) }}" placeholder="e.g. 1.2">
+                        @error('latest_name', 'release')<p class="form-error"><x-icon name="circle-alert" />{{ $message }}</p>@enderror
+                    </div>
+                    <div class="form-group">
+                        <label for="release-min" class="form-label">Oldest allowed version code <span class="optional">(optional)</span></label>
+                        <input id="release-min" type="number" name="min_code" min="1" class="form-control @error('min_code', 'release') is-invalid @enderror" value="{{ old('min_code', $android['min_code']) }}" placeholder="e.g. 2">
+                        <p class="form-hint">Older phones must update. Use it only when old versions stop working.</p>
+                        @error('min_code', 'release')<p class="form-error"><x-icon name="circle-alert" />{{ $message }}</p>@enderror
+                    </div>
+                    <div class="form-group">
+                        <label for="release-url" class="form-label">Store link <span class="optional">(optional)</span></label>
+                        <input id="release-url" type="url" name="download_url" maxlength="500" class="form-control @error('download_url', 'release') is-invalid @enderror" value="{{ old('download_url', $android['download_url']) }}" placeholder="https://play.google.com/store/apps/details?id=…">
+                        <p class="form-hint">Used instead of the APK below once the app is on Google Play.</p>
+                        @error('download_url', 'release')<p class="form-error"><x-icon name="circle-alert" />{{ $message }}</p>@enderror
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="release-notes" class="form-label">What's new <span class="optional">(optional)</span></label>
+                    <textarea id="release-notes" name="notes" rows="3" maxlength="1000" class="form-control" placeholder="e.g. Your own notification tone for each chat, faster photos.">{{ old('notes', $android['notes']) }}</textarea>
+                </div>
+                <div class="form-group">
+                    <label for="release-apk" class="form-label">APK file <span class="optional">(optional)</span></label>
+                    <input id="release-apk" type="file" name="apk" accept=".apk,application/vnd.android.package-archive" class="form-control @error('apk', 'release') is-invalid @enderror">
+                    @if ($android['apk_url'])
+                        <p class="form-hint">Uploaded: <a class="admin-link" href="{{ $android['apk_url'] }}">{{ $android['apk_url'] }}</a> ({{ number_format(($android['apk_size'] ?? 0) / 1048576, 1) }} MB). Share this link so people can install the app.</p>
+                        <label class="checkbox mt-2"><input type="checkbox" name="remove_apk" value="1"> Remove the uploaded APK</label>
+                    @else
+                        <p class="form-hint">Build it with <code>gradlew assembleRelease</code> (or the debug APK for testing). The link will be <code>{{ route('app.download.android') }}</code>.</p>
+                    @endif
+                    @error('apk', 'release')<p class="form-error"><x-icon name="circle-alert" />{{ $message }}</p>@enderror
+                </div>
+                <div><button type="submit" class="btn btn-primary"><x-icon name="check" /> Save Android app</button></div>
+            </form>
+        </div>
+    </section>
 
     {{-- Tests --}}
     <section class="card admin-tool" id="tests">

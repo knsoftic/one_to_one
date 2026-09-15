@@ -9,6 +9,7 @@ import { toast } from './lib/toast';
 import { initForms } from './ui/forms';
 import { initNetworkStatus } from './ui/network';
 import { initAdminBulk } from './ui/admin-bulk';
+import { initWebUpdateNotice } from './ui/app-update';
 import { initSettings } from './ui/settings';
 import { initInstallPrompt, listenForNotificationClicks, registerServiceWorker, syncPush } from './lib/web-push';
 
@@ -21,6 +22,8 @@ initForms();
 initSettings(config);
 initNetworkStatus(config);
 initAdminBulk();
+// X4: offer a reload when a new version was deployed while this tab was open.
+initWebUpdateNotice(config);
 
 // X3: installable app, offline page and push notifications (browsers only).
 if (!isNativeApp()) {

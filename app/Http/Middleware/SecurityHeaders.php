@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\AppUpdateService;
 use App\Services\GifService;
 use Closure;
 use Illuminate\Http\Request;
@@ -32,6 +33,9 @@ class SecurityHeaders
             'Permissions-Policy' => 'microphone=(self), camera=(self), geolocation=(self), payment=()',
             'Cross-Origin-Opener-Policy' => 'same-origin',
         ];
+
+        // X4: open tabs compare this with their own version and offer a reload after a deploy.
+        $headers['X-App-Version'] = app(AppUpdateService::class)->webVersion();
 
         foreach ($headers as $name => $value) {
             if (! $response->headers->has($name)) {

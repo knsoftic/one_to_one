@@ -3,6 +3,7 @@
 namespace App\View\Composers;
 
 use App\Models\User;
+use App\Services\AppUpdateService;
 use App\Services\DeviceService;
 use App\Services\WallpaperService;
 use App\Services\WebPushService;
@@ -62,6 +63,9 @@ class AppConfigComposer
             'routes' => $routes,
             // The Android app registers again when this changes (see resources/js/native/app.js).
             'mobile' => $user && Route::has('devices.store') ? ['configVersion' => app(DeviceService::class)->configVersion()] : null,
+            // X4: the web app's build (open tabs offer a reload after a deploy) and the newest Android app.
+            'version' => app(AppUpdateService::class)->webVersion(),
+            'appUpdate' => ['android' => app(AppUpdateService::class)->android()],
             // Browser push (X3): the key browsers subscribe with.
             'webPush' => $user ? ['publicKey' => app(WebPushService::class)->publicKey()] : null,
             'flash' => array_filter([

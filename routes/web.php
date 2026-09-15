@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AccountController;
+use App\Http\Controllers\Admin\AppReleaseController;
 use App\Http\Controllers\Admin\BackupController as AdminBackupController;
 use App\Http\Controllers\Admin\ChatController as AdminChatController;
 use App\Http\Controllers\Admin\SpaceController;
@@ -8,6 +9,7 @@ use App\Http\Controllers\Admin\SystemController;
 use App\Http\Controllers\Admin\UserDataController;
 use App\Http\Controllers\Admin\UserModerationController;
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\AppShellController;
 use App\Http\Controllers\AttachmentController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Auth\PasswordResetController;
@@ -67,31 +69,9 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 */
 
-// Installable app (X3): name, icons and colours for "Install app".
-Route::get('/manifest.webmanifest', function () {
-    return response()->json([
-        'name' => config('app.name'),
-        'short_name' => config('app.name'),
-        'description' => 'Chat, call and share with the people you know.',
-        'id' => '/chat',
-        'start_url' => '/chat?source=pwa',
-        'scope' => '/',
-        'display' => 'standalone',
-        'orientation' => 'any',
-        'background_color' => '#f4f3fb',
-        'theme_color' => '#4338ca',
-        'categories' => ['social', 'communication'],
-        'icons' => [
-            ['src' => '/icons/icon-192.png', 'sizes' => '192x192', 'type' => 'image/png'],
-            ['src' => '/icons/icon-512.png', 'sizes' => '512x512', 'type' => 'image/png'],
-            ['src' => '/icons/maskable-512.png', 'sizes' => '512x512', 'type' => 'image/png', 'purpose' => 'maskable'],
-        ],
-        'shortcuts' => [
-            ['name' => 'Chats', 'url' => '/chat', 'icons' => [['src' => '/icons/icon-192.png', 'sizes' => '192x192']]],
-            ['name' => 'Settings', 'url' => '/settings', 'icons' => [['src' => '/icons/icon-192.png', 'sizes' => '192x192']]],
-        ],
-    ], 200, ['Content-Type' => 'application/manifest+json', 'Cache-Control' => 'public, max-age=86400'], JSON_UNESCAPED_SLASHES);
-})->name('manifest');
+// Installable app (X3) and the Android app download (X4).
+Route::get('/manifest.webmanifest', [AppShellController::class, 'manifest'])->name('manifest');
+Route::get('/download/android', [AppShellController::class, 'downloadAndroid'])->middleware('throttle:60,1')->name('app.download.android');
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
@@ -544,6 +524,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::delete('/backups/{backup}', [AdminBackupController::class, 'destroy'])->whereNumber('backup')->name('backups.destroy');
         Route::get('/settings', [SystemController::class, 'settings'])->name('settings');
         Route::put('/settings', [SystemController::class, 'updateSettings'])->name('settings.update');
+        Route::put('/app-release', [AppReleaseController::class, 'update'])->name('app-release.update');
         Route::post('/settings/test-sms', [SystemController::class, 'testSms'])->middleware('throttle:chat-lock')->name('settings.test-sms');
         Route::post('/settings/test-mail', [SystemController::class, 'testMail'])->middleware('throttle:chat-lock')->name('settings.test-mail');
         // Reports (Phase 6, P6)
