@@ -10,10 +10,14 @@ use App\Models\Message;
 use App\Models\Status;
 use App\Models\User;
 use App\Models\UserReport;
+use App\Support\Phone;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 /**
  * Administrative operations on accounts: statistics, status, roles, profile edits,
@@ -26,10 +30,54 @@ class AdminService
         private readonly AccountDeletionService $deletion,
     ) {}
 
+    /** Sort choices of the users list. */
+    public const USER_SORTS = ['newest' => 'Newest first', 'oldest' => 'Oldest first', 'last_seen' => 'Recently active', 'name' => 'Name A–Z'];
+
+    public const PER_PAGE = [15, 50, 100];
+
+    /**
+     * Filters of the users list (also used by CSV export).
+     *
+     * @return array<string, list<mixed>>
+     */
+    public static function filterRules(): array
+    {
+        return [
+            'q' => ['nullable', 'string', 'max:100'],
+            'contains' => ['nullable', 'in:1'],
+            'status' => ['nullable', Rule::in(User::STATUSES)],
+            'role' => ['nullable', Rule::in([User::ROLE_USER, User::ROLE_ADMIN])],
+            'online' => ['nullable', 'in:1'],
+            'joined' => ['nullable', Rule::in(['1', '7', '30', '90'])],
+            'inactive' => ['nullable', Rule::in(['30', '90', '180'])],
+            'app' => ['nullable', 'in:1'],
+            'two_step' => ['nullable', 'in:1'],
+            'sort' => ['nullable', Rule::in(array_keys(self::USER_SORTS))],
+            'per_page' => ['nullable', Rule::in(array_map('strval', self::PER_PAGE))],
+        ];
+    }
+
+    /** Above this many accounts, search matches the start of names (fast) unless "contains" is ticked. */
+    public const LARGE_USER_TABLE = 50000;
+
+    /**
+     * Headline numbers (cached for a minute so the dashboard stays quick with many rows).
+     *
+     * @return array<string, int>
+     */
+    public function stats(bool $fresh = false): array
+    {
+        if ($fresh) {
+            Cache::forget('admin:stats');
+        }
+
+        return Cache::remember('admin:stats', 60, fn () => $this->freshStats());
+    }
+
     /**
      * @return array<string, int>
      */
-    public function stats(): array
+    private function freshStats(): array
     {
         return [
             'total_users' => User::query()->count(),
@@ -78,17 +126,72 @@ class AdminService
         })->all();
     }
 
-    public function users(array $filters, int $perPage = 15): LengthAwarePaginator
+    public function users(array $filters, ?int $perPage = null): LengthAwarePaginator
     {
+        $size = (int) ($filters['per_page'] ?? $perPage ?? self::PER_PAGE[0]);
+
+        return $this->userQuery($filters)
+            ->withCount(['sentMessages', 'blockedByRecords'])
+            ->paginate(in_array($size, self::PER_PAGE, true) ? $size : self::PER_PAGE[0])
+            ->withQueryString();
+    }
+
+    /**
+     * The filtered, sorted users query (list, CSV export and bulk "select all").
+     */
+    public function userQuery(array $filters): Builder
+    {
+        $sort = $filters['sort'] ?? 'newest';
+
         return User::query()
-            ->when($filters['q'] ?? null, fn ($q, $term) => $q->search($term, partialContact: true))
+            ->when($filters['q'] ?? null, fn ($q, $term) => $this->searchUsers($q, $term, (bool) ($filters['contains'] ?? false)))
             ->when($filters['status'] ?? null, fn ($q, $status) => $q->where('status', $status))
             ->when($filters['role'] ?? null, fn ($q, $role) => $q->where('role', $role))
             ->when(($filters['online'] ?? null) === '1', fn ($q) => $q->online())
-            ->withCount(['sentMessages', 'blockedByRecords'])
-            ->orderByDesc('created_at')
-            ->paginate($perPage)
-            ->withQueryString();
+            ->when($filters['joined'] ?? null, fn ($q, $days) => $q->where('created_at', '>=', now()->subDays((int) $days)))
+            ->when(($filters['app'] ?? null) === '1', fn ($q) => $q->whereHas('deviceTokens'))
+            ->when(($filters['two_step'] ?? null) === '1', fn ($q) => $q->whereNotNull('two_step_pin'))
+            ->when($filters['inactive'] ?? null, fn ($q, $days) => $q->where(fn ($w) => $w->whereNull('last_seen')->orWhere('last_seen', '<', now()->subDays((int) $days))))
+            ->when($sort === 'oldest', fn ($q) => $q->orderBy('created_at')->orderBy('id'))
+            ->when($sort === 'last_seen', fn ($q) => $q->orderByRaw('last_seen IS NULL')->orderByDesc('last_seen')->orderByDesc('id'))
+            ->when($sort === 'name', fn ($q) => $q->orderBy('name')->orderBy('id'))
+            ->when(! in_array($sort, ['oldest', 'last_seen', 'name'], true), fn ($q) => $q->orderByDesc('created_at')->orderByDesc('id'));
+    }
+
+    /** True when searches should match the start of names only (many accounts). */
+    public function largeUserTable(): bool
+    {
+        return Cache::remember('admin:users:large', 600, function () {
+            try {
+                $estimate = (int) (DB::selectOne('SELECT table_rows AS n FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?', [(new User)->getTable()])->n ?? 0);
+            } catch (\Throwable) {
+                $estimate = 0;
+            }
+
+            return $estimate > self::LARGE_USER_TABLE;
+        });
+    }
+
+    private function searchUsers(Builder $query, string $term, bool $contains): Builder
+    {
+        if ($contains || ! $this->largeUserTable()) {
+            return $query->search($term, partialContact: true);
+        }
+
+        // Index friendly: names, usernames and emails starting with the text, the exact number or id.
+        $term = trim($term);
+        $prefix = addcslashes($term, '%_\\').'%';
+        $isNumber = preg_match('/^[\d\s()+\-]+$/', $term) === 1;
+
+        return $query->where(function (Builder $q) use ($prefix, $term, $isNumber) {
+            $q->where('name', 'like', $prefix)->orWhere('username', 'like', $prefix)->orWhere('email', 'like', mb_strtolower($prefix));
+            if ($isNumber && ($suffix = Phone::suffix($term)) !== null) {
+                $q->orWhere('phone_suffix', $suffix);
+            }
+            if (ctype_digit($term)) {
+                $q->orWhere('id', (int) $term);
+            }
+        });
     }
 
     /**

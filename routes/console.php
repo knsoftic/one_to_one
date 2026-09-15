@@ -3,6 +3,7 @@
 use App\Console\Commands\ChatDoctor;
 use App\Models\LinkPreview;
 use App\Models\User;
+use App\Models\UserLogin;
 use App\Services\BackupService;
 use App\Services\BanService;
 use App\Services\CallRoomService;
@@ -94,5 +95,7 @@ Schedule::command('chat:lift-bans')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('chat:backups')->everyMinute()->withoutOverlapping(120)->runInBackground();
 // SMS codes that expired more than a day ago (Phase 7).
 Schedule::call(fn () => app(OtpService::class)->prune())->daily()->name('prune-otp-codes');
+// Sign-in history older than it is kept for (admin panel → user → Devices).
+Schedule::call(fn () => UserLogin::query()->where('created_at', '<', now()->subDays(UserLogin::KEEP_DAYS))->delete())->daily()->name('prune-user-logins');
 // Link previews no message uses anymore (and their images).
 Schedule::command('model:prune', ['--model' => [LinkPreview::class]])->daily();

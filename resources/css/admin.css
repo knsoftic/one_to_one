@@ -403,3 +403,57 @@ a.stat-card:hover { border-color: var(--tone); transform: translateY(-1px); }
 .admin-steps { display: flex; flex-direction: column; gap: 0.45rem; margin: 0; padding-left: 1.25rem; list-style: decimal; font-size: 0.9rem; line-height: 1.5; }
 .admin-steps code, .admin-backup-note code { padding: 0 0.3rem; border-radius: 4px; font-size: 0.82em; background: var(--c-surface-2); }
 .text-danger { color: var(--c-danger); }
+
+/* Admin at scale: dashboard range, users list tools, user tabs */
+.health-fill[data-tone='primary'] { background: var(--g-brand); }
+.volume-chart.is-compact { gap: 2px; }
+.volume-chart.is-compact .volume-bar { width: 100%; border-radius: 4px 4px 1px 1px; }
+.volume-chart.is-compact .volume-label { white-space: nowrap; overflow: visible; }
+.admin-dash-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.6rem; margin-bottom: 1rem; }
+.admin-dash-updated { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.82rem; color: var(--c-muted); }
+.admin-rank { flex: none; width: 1.6rem; text-align: center; font-weight: 700; color: var(--c-subtle); }
+.admin-list-value { flex: none; font-weight: 700; font-size: 0.92rem; }
+.admin-health { display: flex; flex-direction: column; gap: 0.55rem; margin: 0; padding: 0; list-style: none; font-size: 0.88rem; }
+.admin-health li { display: flex; align-items: flex-start; gap: 0.55rem; }
+.admin-health .icon { flex: none; width: 1.05rem; height: 1.05rem; margin-top: 0.1rem; color: var(--c-success); }
+.admin-health li[data-ok='0'] .icon { color: var(--c-warning); }
+.admin-health strong { font-weight: 600; margin-right: 0.2rem; }
+
+.admin-user-filters { align-items: center; }
+.admin-more-filters { flex-basis: 100%; }
+.admin-more-filters > summary { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.2rem 0.4rem; border-radius: 8px; font-size: 0.86rem; font-weight: 600; color: var(--c-primary-text); cursor: pointer; list-style: none; }
+.admin-more-filters > summary::-webkit-details-marker { display: none; }
+.admin-more-filters > summary .icon { width: 1rem; height: 1rem; }
+.admin-more-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 12rem), 1fr)); gap: 0.6rem 1rem; align-items: end; padding: 0.75rem 0.25rem 0.25rem; }
+.admin-more-grid .form-group { margin: 0; }
+.admin-hint { display: flex; align-items: flex-start; gap: 0.5rem; margin: 0.75rem 0 0; padding: 0.6rem 0.8rem; border-radius: 12px; font-size: 0.84rem; color: var(--c-muted); background: var(--c-primary-soft); }
+.admin-hint .icon { flex: none; width: 1rem; height: 1rem; margin-top: 0.1rem; color: var(--c-primary-text); }
+[data-admin-bulk] { margin-top: 1rem; }
+.admin-bulk-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; padding: 0.6rem 0.9rem; border-bottom: 1px solid var(--c-border); }
+.admin-bulk-all { font-size: 0.86rem; font-weight: 600; }
+.admin-bulk-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.admin-bulk-controls .admin-select { width: auto; height: 2.2rem; min-width: 10rem; }
+.admin-bulk-ban { display: inline-flex; flex-wrap: wrap; gap: 0.5rem; }
+.admin-bulk-ban[hidden] { display: none; }
+.admin-bulk-ban .form-control { width: auto; height: 2.2rem; min-width: 14rem; }
+.admin-bulk-ban input.form-control { flex: 1 1 14rem; }
+.admin-bulk-export { margin-left: auto; }
+.admin-check-col { width: 2.5rem; }
+.admin-check-col input { width: 1.05rem; height: 1.05rem; accent-color: var(--c-primary); }
+
+.admin-user-tabs { margin-bottom: 1rem; }
+.admin-user-tabs .admin-tab { display: inline-flex; align-items: center; gap: 0.35rem; }
+.admin-user-tabs .icon { width: 0.95rem; height: 0.95rem; }
+.admin-user-strip { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem; padding: 0.7rem 1rem; }
+.admin-user-strip > .min-w-0 { flex: 1; }
+.admin-user-strip-actions { flex: none; }
+.admin-card-head-inline { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+a.mini-stat { color: inherit; text-decoration: none; }
+a.mini-stat[href]:hover { background: var(--c-primary-soft); }
+.admin-storage-total { margin: 0 0 0.75rem; font-size: 0.9rem; color: var(--c-muted); }
+.admin-storage-total strong { font-size: 1.35rem; color: var(--c-text); }
+.card-header.admin-card-head .admin-tabs { flex-wrap: nowrap; max-width: 100%; }
+@media (max-width: 767px) {
+    .card-header.admin-card-head { flex-wrap: wrap; }
+    .admin-user-strip { flex-wrap: wrap; }
+}

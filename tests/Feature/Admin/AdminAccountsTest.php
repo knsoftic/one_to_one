@@ -44,10 +44,11 @@ class AdminAccountsTest extends TestCase
         $this->actingAs($this->admin)->get("/admin/users/{$user->id}")
             ->assertOk()
             ->assertSee('Hina Tariq')
-            ->assertSee('Omar Farooq')
             ->assertSee('Chrome on Windows')
             ->assertSee('Ban Hina Tariq')
             ->assertSee('Turn off two-step verification');
+        // Chats have their own tab.
+        $this->actingAs($this->admin)->get("/admin/users/{$user->id}?tab=chats")->assertOk()->assertSee('Omar Farooq');
 
         // Edit the profile.
         $this->actingAs($this->admin)->from("/admin/users/{$user->id}")->put("/admin/users/{$user->id}", [

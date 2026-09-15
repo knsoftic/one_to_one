@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\BackupController as AdminBackupController;
 use App\Http\Controllers\Admin\ChatController as AdminChatController;
 use App\Http\Controllers\Admin\SpaceController;
 use App\Http\Controllers\Admin\SystemController;
+use App\Http\Controllers\Admin\UserDataController;
 use App\Http\Controllers\Admin\UserModerationController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AttachmentController;
@@ -465,7 +466,11 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::prefix('admin')->name('admin.')->middleware('admin')->group(function () {
         Route::get('/', [AdminController::class, 'dashboard'])->name('dashboard');
         Route::get('/users', [AdminController::class, 'users'])->name('users');
+        Route::get('/users/export', [UserDataController::class, 'export'])->middleware('throttle:chat-export')->name('users.export');
+        Route::post('/users/bulk', [UserDataController::class, 'bulk'])->name('users.bulk');
         Route::get('/users/{user}', [AdminController::class, 'showUser'])->whereNumber('user')->name('users.show');
+        Route::get('/users/{user}/data', [UserDataController::class, 'data'])->whereNumber('user')->middleware('throttle:chat-export')->name('users.data');
+        Route::delete('/users/{user}/sessions/{key}', [UserDataController::class, 'endSession'])->whereNumber('user')->where('key', '[a-f0-9]{40}')->name('users.sessions.destroy');
         Route::patch('/users/{user}/status', [AdminController::class, 'updateStatus'])->whereNumber('user')->name('users.status');
         Route::delete('/users/{user}', [AdminController::class, 'destroyUser'])->whereNumber('user')->name('users.destroy');
         Route::prefix('/users/{user}')->whereNumber('user')->name('users.')->group(function () {

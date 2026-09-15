@@ -88,7 +88,7 @@ class SessionService
         return $others->count();
     }
 
-    private function keyFor(string $sessionId): string
+    public function keyFor(string $sessionId): string
     {
         return substr(hash('sha256', 'session|'.$sessionId), 0, 40);
     }

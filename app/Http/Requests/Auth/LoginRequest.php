@@ -5,6 +5,7 @@ namespace App\Http\Requests\Auth;
 use App\Models\User;
 use App\Services\BanService;
 use App\Support\Phone;
+use Illuminate\Auth\Events\Failed;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Http\FormRequest;
@@ -53,6 +54,10 @@ class LoginRequest extends FormRequest
 
         if (! Auth::validate($credentials)) {
             RateLimiter::hit($this->throttleKey(), 60);
+            // Sign-in history (admin panel): a wrong password for an existing account.
+            if ($attempted = Auth::getLastAttempted()) {
+                event(new Failed('web', $attempted, ['login' => $this->string('login')->toString()]));
+            }
 
             throw ValidationException::withMessages(['login' => trans('auth.failed')]);
         }

@@ -8,6 +8,7 @@ import { initTheme } from './lib/theme';
 import { toast } from './lib/toast';
 import { initForms } from './ui/forms';
 import { initNetworkStatus } from './ui/network';
+import { initAdminBulk } from './ui/admin-bulk';
 import { initSettings } from './ui/settings';
 
 const config = readJsonScript('app-config');
@@ -18,6 +19,7 @@ initDropdowns();
 initForms();
 initSettings(config);
 initNetworkStatus(config);
+initAdminBulk();
 
 // Mobile app only: back button, status bar and push notifications (separate chunk).
 if (isNativeApp()) {
