@@ -27,6 +27,8 @@ class AppShellController extends Controller
             'background_color' => '#f4f3fb',
             'theme_color' => '#4338ca',
             'categories' => ['social', 'communication'],
+            // X2: the installed web app appears in the phone's Share menu for text and links.
+            'share_target' => ['action' => '/chat', 'method' => 'GET', 'params' => ['title' => 'share_title', 'text' => 'share_text', 'url' => 'share_url']],
             'icons' => [
                 ['src' => '/icons/icon-192.png', 'sizes' => '192x192', 'type' => 'image/png'],
                 ['src' => '/icons/icon-512.png', 'sizes' => '512x512', 'type' => 'image/png'],

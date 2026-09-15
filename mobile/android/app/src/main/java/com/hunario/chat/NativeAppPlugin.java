@@ -12,6 +12,7 @@ import android.os.Build;
 import android.os.PowerManager;
 import android.provider.ContactsContract.CommonDataKinds.Phone;
 import android.provider.Settings;
+import android.util.Base64;
 import androidx.annotation.NonNull;
 import androidx.biometric.BiometricManager;
 import androidx.biometric.BiometricPrompt;
@@ -35,6 +36,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.json.JSONObject;
+
 
 /**
  * App-specific native features used by the web app:
@@ -89,6 +91,59 @@ public class NativeAppPlugin extends Plugin {
         data.put("callId", callId);
         plugin.notifyListeners("callAction", data, true);
         return true;
+    }
+
+    /** X2: something was shared into the app while a page is open. */
+    static void emitShareReceived() {
+        NativeAppPlugin plugin = instance.get();
+        if (plugin != null && plugin.bridge != null) {
+            plugin.notifyListeners("shareReceived", new JSObject(), true);
+        }
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Share into the app (X2)                                             */
+    /* ------------------------------------------------------------------ */
+
+    /** {id, text, files: [{index, name, mime, size, skipped}]} or {} when nothing waits. */
+    @PluginMethod
+    public void getSharedContent(PluginCall call) {
+        if (!ShareInbox.hasPending()) {
+            call.resolve(new JSObject());
+            return;
+        }
+        executor.execute(() -> {
+            try {
+                call.resolve(JSObject.fromJSONObject(ShareInbox.describe(getContext())));
+            } catch (Exception exception) {
+                call.reject("Could not read what was shared.");
+            }
+        });
+    }
+
+    /** Base64 piece of a shared file: {index, offset, length}. */
+    @PluginMethod
+    public void readSharedFile(PluginCall call) {
+        int index = call.getInt("index", -1);
+        long offset = call.getData().optLong("offset", 0);
+        int length = Math.max(1, Math.min(call.getInt("length", 512 * 1024), 2 * 1024 * 1024));
+        executor.execute(() -> {
+            try {
+                byte[] bytes = ShareInbox.read(index, offset, length);
+                JSObject result = new JSObject();
+                result.put("data", Base64.encodeToString(bytes, Base64.NO_WRAP));
+                result.put("bytes", bytes.length);
+                call.resolve(result);
+            } catch (Exception exception) {
+                call.reject("Could not read the shared file.");
+            }
+        });
+    }
+
+    @PluginMethod
+    public void clearSharedContent(PluginCall call) {
+        ShareInbox.clear(getContext());
+        call.resolve();
     }
 
     /* ------------------------------------------------------------------ */

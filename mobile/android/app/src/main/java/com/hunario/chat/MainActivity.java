@@ -133,6 +133,8 @@ public class MainActivity extends BridgeActivity {
         super.onCreate(savedInstanceState);
         current = new WeakReference<>(this);
         handleCallIntent(getIntent());
+        // X2: opened from another app's Share menu; the chat page asks for it.
+        ShareInbox.capture(this, getIntent());
 
         handler.postDelayed(() -> contentReady = true, SPLASH_TIMEOUT_MS);
 
@@ -195,6 +197,11 @@ public class MainActivity extends BridgeActivity {
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
+
+        if (ShareInbox.capture(this, intent)) {
+            NativeAppPlugin.emitShareReceived();
+            return;
+        }
 
         long callId = handleCallIntent(intent);
         boolean answer = intent.getBooleanExtra(EXTRA_CALL_ANSWER, false);

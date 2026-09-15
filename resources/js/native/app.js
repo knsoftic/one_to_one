@@ -123,6 +123,11 @@ function bindBackButton() {
  * already granted), then switch on phone notifications and contact matching.
  */
 async function setUpChatPage() {
+    // X2: something was shared into the app from another app (once the chats are loaded).
+    const listenForShares = (chat) => chat?.shareReceiver?.listenNative(NativeApp).catch(() => {});
+    if (window.Chat?.ready) listenForShares(window.Chat);
+    else document.addEventListener('chat:ready', (event) => listenForShares(event.detail.chat), { once: true });
+
     const states = await requestStartupPermissions(appConfig.name ?? 'One2One Chat');
 
     if (states.contacts === 'granted') {

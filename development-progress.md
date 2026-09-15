@@ -1056,3 +1056,10 @@ Ctrl/⌘+K search chats · Alt+↑/↓ previous/next chat · Ctrl+Shift+F search
 - **Public download link** `/download/android` (the uploaded APK with the right file type, or a redirect to the store) — share it to install the app.
 - **Web**: every response carries `X-App-Version` (hash of the build manifest); a tab that was open during a deploy shows "A new version of One2One Chat is ready — Reload".
 - Files: `AppUpdateService`, `Admin\AppReleaseController`, `AppShellController` (manifest + download), `resources/js/ui/app-update.js`, `NativeAppPlugin.openExternal`. Tests: `tests/Feature/Admin/AppReleaseTest`, `resources/js/ui/__tests__/app-update.test.js`.
+
+### X2 — Share into the app ✅ (new APK 1.1, versionCode 2)
+- Android Share menu → **"Send with One2One Chat"** for text, links, photos, videos, audio and documents (up to 10 files, 100 MB each). The app keeps the share until the chats are loaded (also after signing in), copies the files into its cache and the page reads them in 512 KB pieces.
+- **Send to…** (the forward picker: recent chats and contacts, up to 5): one chat opens with the files in the caption preview and the text in the typing box, ready to send; several chats get it right away. Files that can't be read or are too big are named in a message; the cache is cleared afterwards.
+- The **installed web app** (PWA) appears in the phone's Share menu for text and links (manifest `share_target` → `/chat?share_text=…`).
+- Files: `ShareInbox.java`, `NativeAppPlugin` (`getSharedContent`, `readSharedFile`, `clearSharedContent`, `shareReceived` event), `MainActivity`, `AndroidManifest.xml` (SEND / SEND_MULTIPLE), `resources/js/chat/share-receiver.js`, `ForwardDialog` made reusable. Tests: `resources/js/chat/__tests__/share-receiver.test.js`.
+- New debug APK: `mobile/android/app/build/outputs/apk/debug/app-debug.apk` (also has X4's "open in browser" and D4's tones). Upload it in Admin → App settings → Android app with version code 2 / name 1.1 to prompt older phones.

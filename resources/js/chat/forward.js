@@ -3,7 +3,7 @@ import { icon } from '../lib/icons';
 import { toast } from '../lib/toast';
 import * as T from './templates';
 
-const MAX_CHATS = 5;
+export const MAX_CHATS = 5;
 
 /**
  * "Forward to…" dialog: pick up to five recent chats or saved contacts.
@@ -14,12 +14,18 @@ export class ForwardDialog {
         this.root = null;
     }
 
+    /** Title, what is being sent and the button (the share dialog changes them). */
+    labels() {
+        return { title: 'Forward to…', preview: T.previewOf(this.message) || 'Message', icon: 'forward', button: 'Forward', busy: 'Forwarding…' };
+    }
+
     open(message) {
         this.close();
 
         this.message = message;
         this.selected = new Map();
         this.targets = this.buildTargets();
+        const labels = this.labels();
 
         const root = document.createElement('div');
         root.className = 'modal forward-modal';
@@ -30,15 +36,15 @@ export class ForwardDialog {
             <div class="modal-backdrop" data-forward-close></div>
             <div class="modal-panel forward-panel">
                 <div class="forward-head">
-                    <h2 class="modal-title" id="forward-title">Forward to…</h2>
+                    <h2 class="modal-title" id="forward-title">${labels.title}</h2>
                     <button type="button" class="btn-icon" data-forward-close aria-label="Close">${raw(icon('x'))}</button>
                 </div>
-                <p class="forward-preview">${raw(icon('forward'))}<span>${T.previewOf(message) || 'Message'}</span></p>
+                <p class="forward-preview">${raw(icon(labels.icon))}<span>${labels.preview}</span></p>
                 <input type="search" class="form-control forward-search" data-forward-search placeholder="Search chats and contacts" autocomplete="off" aria-label="Search chats and contacts">
                 <div class="forward-list" data-forward-list></div>
                 <div class="forward-footer">
                     <span class="forward-count" data-forward-count aria-live="polite">Choose up to ${MAX_CHATS} chats</span>
-                    <button type="button" class="btn btn-primary" data-forward-send disabled>${raw(icon('send-horizontal'))} Forward</button>
+                    <button type="button" class="btn btn-primary" data-forward-send disabled>${raw(icon('send-horizontal'))} ${labels.button}</button>
                 </div>
             </div>
         `;
@@ -154,41 +160,49 @@ export class ForwardDialog {
         const targets = [...this.selected.values()];
         if (!targets.length || this.sending) return;
 
+        const labels = this.labels();
         this.sending = true;
         this.el.send.disabled = true;
-        this.el.send.innerHTML = '<span class="spinner"></span> Forwarding…';
+        this.el.send.innerHTML = `<span class="spinner"></span> ${labels.busy}`;
 
         try {
-            // Contacts without a chat yet get one first.
-            const conversationIds = [];
-            for (const target of targets) {
-                if (target.conversationId) {
-                    conversationIds.push(target.conversationId);
-                } else {
-                    const conversation = await this.chat.api.startConversation(target.userId);
-                    this.chat.upsertConversation(conversation);
-                    conversationIds.push(conversation.id);
-                }
-            }
-
-            const { data } = await this.chat.api.forwardMessage(this.message.id, conversationIds);
-
-            for (const item of data) {
-                const message = this.chat.normalizeMessage(item);
-                this.chat.appendMessage(message);
-                this.chat.touchConversation(message);
-            }
-
-            this.close();
-            toast.success(data.length === 1 ? 'Message forwarded.' : `Forwarded to ${data.length} chats.`, { timeout: 2500 });
+            await this.deliver(await this.conversationIdsFor(targets));
         } catch (error) {
-            toast.error(errorMessage(error, 'Could not forward the message.'));
+            toast.error(errorMessage(error, labels.button === 'Forward' ? 'Could not forward the message.' : 'Could not send.'));
             if (this.root) {
                 this.el.send.disabled = false;
-                this.el.send.innerHTML = `${icon('send-horizontal')} Forward`;
+                this.el.send.innerHTML = `${icon('send-horizontal')} ${labels.button}`;
             }
         } finally {
             this.sending = false;
         }
+    }
+
+    /** Contacts without a chat yet get one first. */
+    async conversationIdsFor(targets) {
+        const conversationIds = [];
+        for (const target of targets) {
+            if (target.conversationId) {
+                conversationIds.push(target.conversationId);
+            } else {
+                const conversation = await this.chat.api.startConversation(target.userId);
+                this.chat.upsertConversation(conversation);
+                conversationIds.push(conversation.id);
+            }
+        }
+        return conversationIds;
+    }
+
+    async deliver(conversationIds) {
+        const { data } = await this.chat.api.forwardMessage(this.message.id, conversationIds);
+
+        for (const item of data) {
+            const message = this.chat.normalizeMessage(item);
+            this.chat.appendMessage(message);
+            this.chat.touchConversation(message);
+        }
+
+        this.close();
+        toast.success(data.length === 1 ? 'Message forwarded.' : `Forwarded to ${data.length} chats.`, { timeout: 2500 });
     }
 }

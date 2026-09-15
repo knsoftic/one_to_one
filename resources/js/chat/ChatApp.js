@@ -49,6 +49,7 @@ import { ChatWallpaper } from './chat-wallpaper';
 import { ChatTone } from './chat-tone';
 import { ChatExport } from './chat-export';
 import { KeyboardShortcuts } from './shortcuts';
+import { ShareReceiver } from './share-receiver';
 import { openVideoPlayer } from './video';
 import { Realtime } from './realtime';
 import * as T from './templates';
@@ -200,6 +201,7 @@ export class ChatApp {
         this.tone = new ChatTone(this);
         this.exports = new ChatExport(this);
         this.shortcuts = new KeyboardShortcuts(this);
+        this.shareReceiver = new ShareReceiver(this);
         this.reports = new ReportUser(this);
         this.linkedDevices = new LinkedDevices(this);
         this.profileQr = new ProfileQr(this);
@@ -247,6 +249,7 @@ export class ChatApp {
         }, 60_000);
         setInterval(() => this.loadOnlineUsers(), 60_000);
 
+        this.ready = true;
         document.dispatchEvent(new CustomEvent('chat:ready', { detail: { chat: this } }));
     }
 
