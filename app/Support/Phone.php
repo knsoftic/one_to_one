@@ -2,6 +2,8 @@
 
 namespace App\Support;
 
+use App\Models\AppSetting;
+
 final class Phone
 {
     /** Number of trailing digits used to index and match phone numbers. */
@@ -16,6 +18,26 @@ final class Phone
         $plus = str_starts_with($phone, '+') ? '+' : '';
 
         return $plus.preg_replace('/\D+/', '', $phone);
+    }
+
+    /**
+     * A number typed for an account, in international form: "0300 1234567" becomes
+     * "+923001234567" with the app's default country code (admin panel, default +92).
+     * Numbers that already start with "+" or "00" keep their own country code.
+     */
+    public static function forAccount(string $phone, ?string $countryCode = null): string
+    {
+        $phone = self::normalize($phone);
+        $code = self::normalize((string) ($countryCode ?? AppSetting::get('default_country_code')));
+
+        if (str_starts_with($phone, '00')) {
+            return '+'.substr($phone, 2);
+        }
+        if ($phone !== '' && ! str_starts_with($phone, '+') && str_starts_with($phone, '0') && preg_match('/^\+\d{1,4}$/', $code)) {
+            return $code.ltrim($phone, '0');
+        }
+
+        return $phone;
     }
 
     /**

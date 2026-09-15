@@ -29,7 +29,7 @@
             ['name' => 'name', 'label' => 'Name', 'icon' => 'user-round', 'value' => $user->name, 'attrs' => ['maxlength' => 100, 'autocomplete' => 'name', 'required' => true], 'hint' => 'This name is shown to people you chat with.'],
             ['name' => 'about', 'label' => 'About', 'icon' => 'info', 'value' => $user->about, 'attrs' => ['maxlength' => 139, 'placeholder' => 'Hey there! I am using '.config('app.name').'.']],
             ['name' => 'username', 'label' => 'Username', 'icon' => 'at-sign', 'value' => $user->username, 'attrs' => ['maxlength' => 30, 'autocomplete' => 'username', 'autocapitalize' => 'none', 'required' => true]],
-            ['name' => 'email', 'label' => 'Email', 'icon' => 'mail', 'value' => $user->email, 'type' => 'email', 'attrs' => ['maxlength' => 191, 'autocomplete' => 'email', 'required' => true]],
+            ['name' => 'email', 'label' => 'Email', 'icon' => 'mail', 'value' => $user->email, 'type' => 'email', 'attrs' => ['maxlength' => 191, 'autocomplete' => 'email', 'placeholder' => 'Add an email to reset your password'] + (\App\Models\AppSetting::get('signup_email') === 'required' ? ['required' => true] : []), 'hint' => $user->email ? null : 'Optional — used to reset your password and PIN.'],
         ] as $field)
             @php($invalid = $errors->getBag('profile')->has($field['name']))
             <label class="wa-field" for="profile-{{ $field['name'] }}">
@@ -42,7 +42,7 @@
                            data-profile-input>
                     @if ($invalid)
                         <span class="form-error"><x-icon name="circle-alert" />{{ $errors->getBag('profile')->first($field['name']) }}</span>
-                    @elseif (isset($field['hint']))
+                    @elseif (! empty($field['hint']))
                         <span class="wa-field-hint">{{ $field['hint'] }}</span>
                     @endif
                 </span>

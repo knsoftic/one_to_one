@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Auth;
 
 use App\Http\Requests\Concerns\ValidatesProfileFields;
+use App\Models\AppSetting;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rules\Password;
 
@@ -22,12 +23,16 @@ class RegisterRequest extends FormRequest
 
     public function rules(): array
     {
+        // Short sign-up: name, mobile number and password. The username is made from the
+        // name (changeable later) and the email follows the admin panel setting.
+        $email = AppSetting::get('signup_email');
+
         return [
             'name' => $this->nameRules(),
-            'username' => $this->usernameRules(),
-            'email' => $this->emailRules(),
+            'username' => array_values(array_map(fn ($rule) => $rule === 'required' ? 'nullable' : $rule, $this->usernameRules())),
+            'email' => $email === 'hidden' ? ['prohibited'] : $this->emailRules(required: $email === 'required'),
             'phone' => $this->phoneRules(),
-            'password' => ['required', 'string', 'confirmed', Password::defaults()],
+            'password' => ['required', 'string', Password::defaults()],
             'profile_image' => $this->avatarRules(),
         ];
     }

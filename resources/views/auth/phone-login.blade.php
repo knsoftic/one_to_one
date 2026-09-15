@@ -19,13 +19,13 @@
             autocomplete="tel"
             inputmode="tel"
             maxlength="20"
-            hint="Include your country code, e.g. +92."
+            :hint="\App\Models\AppSetting::get('default_country_code') ? 'Type it like 0300 1234567 — '.\App\Models\AppSetting::get('default_country_code').' is added for you.' : 'Include your country code, e.g. +92.'"
             required
             autofocus
         />
 
         <label class="checkbox">
-            <input type="checkbox" name="remember" value="1" @checked(old('remember'))>
+            <input type="checkbox" name="remember" value="1" @checked(old('remember', ! session()->hasOldInput()))>
             Remember me
         </label>
 

@@ -34,7 +34,7 @@ class PhoneLoginTest extends TestCase
         $this->assertStringEndsWith("\n\n@".parse_url(config('app.url'), PHP_URL_HOST)." #{$code}", $sms->sent[0]['message']);
         $this->assertNotSame($code, OtpCode::query()->sole()->code_hash);
 
-        $this->get('/login/phone/code')->assertOk()->assertSee('00923001234567')->assertSee('Send again in');
+        $this->get('/login/phone/code')->assertOk()->assertSee('+923001234567')->assertSee('Send again in');
 
         $wrong = $code === '000000' ? '111111' : '000000';
         $this->post('/login/phone/code', ['code' => $wrong])->assertSessionHasErrors(['code' => 'That code is not correct.']);

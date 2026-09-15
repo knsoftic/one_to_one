@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Broadcasting\ResilientBroadcastManager;
+use App\Services\AppConfigService;
 use App\Services\ChatLockService;
 use App\Services\ConversationTypes;
 use App\Services\PrivacyService;
@@ -18,6 +19,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
@@ -34,6 +36,9 @@ class AppServiceProvider extends ServiceProvider
 
         // Reads the Firebase service-account file once per request.
         $this->app->singleton(PushService::class);
+
+        // SMS, email, GIF and call settings saved in the admin panel (MySQL).
+        $this->app->singleton(AppConfigService::class);
 
         // Remembers lock checks for one request (C9).
         $this->app->scoped(ChatLockService::class);
@@ -53,6 +58,10 @@ class AppServiceProvider extends ServiceProvider
     {
         JsonResource::withoutWrapping();
 
+        // Settings saved in the admin panel win over .env; queued jobs pick up changes too.
+        $this->app->make(AppConfigService::class)->apply();
+        Queue::before(fn () => $this->app->make(AppConfigService::class)->apply());
+
         // Per-request memory (scoped services) never outlives its request.
         Event::listen(RequestHandled::class, fn () => $this->app->forgetScopedInstances());
 
@@ -66,7 +75,8 @@ class AppServiceProvider extends ServiceProvider
         });
 
         Password::defaults(function () {
-            $rule = Password::min(8)->max(255)->letters()->mixedCase()->numbers();
+            // Easy to type on a phone: 8+ characters with letters and a number (no capital letter needed).
+            $rule = Password::min(8)->max(255)->letters()->numbers();
 
             return $this->app->isProduction() ? $rule->uncompromised() : $rule;
         });

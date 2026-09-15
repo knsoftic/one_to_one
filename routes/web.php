@@ -480,6 +480,8 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('/audit', [SystemController::class, 'audit'])->name('audit');
         Route::get('/settings', [SystemController::class, 'settings'])->name('settings');
         Route::put('/settings', [SystemController::class, 'updateSettings'])->name('settings.update');
+        Route::post('/settings/test-sms', [SystemController::class, 'testSms'])->middleware('throttle:chat-lock')->name('settings.test-sms');
+        Route::post('/settings/test-mail', [SystemController::class, 'testMail'])->middleware('throttle:chat-lock')->name('settings.test-mail');
         // Reports (Phase 6, P6)
         Route::get('/reports', [ReportController::class, 'index'])->name('reports');
         Route::get('/reports/{report}', [ReportController::class, 'show'])->whereNumber('report')->name('reports.show');

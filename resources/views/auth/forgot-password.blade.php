@@ -1,7 +1,7 @@
 <x-layouts.guest title="Forgot password">
     <div class="empty-state-icon" style="margin-bottom: 1.25rem"><x-icon name="key-round" /></div>
     <h2 class="auth-title">Forgot your password?</h2>
-    <p class="auth-subtitle">Enter your email and we'll send you a link to reset it.</p>
+    <p class="auth-subtitle">Enter your email and we'll send you a link to reset it.@if (Route::has('login.phone') && app(\App\Services\SmsService::class)->available()) No email on your account? <a href="{{ route('login.phone') }}" class="auth-link">Log in with your phone number</a>.@endif</p>
 
     <form method="POST" action="{{ route('password.email') }}" class="auth-form" data-loading-form novalidate>
         @csrf

@@ -105,7 +105,11 @@
             <x-field name="pin" type="password" label="Create a 6-digit PIN" icon="key-round" bag="twoStep" inputmode="numeric" maxlength="6" autocomplete="off" required />
             <x-field name="pin_confirmation" type="password" label="Confirm PIN" icon="key-round" bag="twoStep" inputmode="numeric" maxlength="6" autocomplete="off" required />
             <x-field name="current_password" id="two-step-enable-password" type="password" label="Current password" icon="lock" bag="twoStep" autocomplete="current-password" required />
-            <p class="form-hint">If you forget the PIN, you can turn it off with a link sent to {{ $user->email }}.</p>
+            @if ($user->email)
+                <p class="form-hint">If you forget the PIN, you can turn it off with a link sent to {{ $user->email }}.</p>
+            @else
+                <p class="form-hint">Add an email in <button type="button" class="wa-link" data-settings-open="profile">Profile</button> first — it's how you turn the PIN off if you forget it.</p>
+            @endif
             <div class="wa-form-actions"><button type="submit" class="btn btn-primary"><x-icon name="shield-check" /> Turn on</button></div>
         </form>
     @endif

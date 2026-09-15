@@ -78,6 +78,10 @@ class TwoStepController extends Controller
             return redirect()->route('login');
         }
 
+        if (! $pending['user']->email) {
+            return back()->withErrors(['pin' => 'This account has no email. Log in with your phone number, or contact support.']);
+        }
+
         $key = 'two-step-reset:'.$pending['user']->getKey();
         if (! RateLimiter::tooManyAttempts($key, 3)) {
             RateLimiter::hit($key, 3600);
@@ -105,6 +109,10 @@ class TwoStepController extends Controller
             'pin' => ['required', 'digits:6', 'confirmed'],
             'current_password' => ['required', 'current_password'],
         ], ['pin.digits' => 'The PIN must be 6 digits.', 'pin.confirmed' => 'The two PINs don\'t match.']);
+
+        if (! $request->user()->email) {
+            throw ValidationException::withMessages(['pin' => 'Add an email to your profile first, so you can turn the PIN off if you forget it.'])->errorBag('twoStep');
+        }
 
         $this->twoStep->enable($request->user(), $request->string('pin')->toString(), $request);
 

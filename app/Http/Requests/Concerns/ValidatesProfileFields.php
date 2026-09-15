@@ -23,11 +23,12 @@ trait ValidatesProfileFields
         }
 
         if ($this->has('email')) {
-            $data['email'] = mb_strtolower(trim((string) $this->input('email')));
+            $email = mb_strtolower(trim((string) $this->input('email')));
+            $data['email'] = $email === '' ? null : $email;
         }
 
         if ($this->has('phone')) {
-            $data['phone'] = Phone::normalize((string) $this->input('phone'));
+            $data['phone'] = Phone::forAccount((string) $this->input('phone'));
         }
 
         $this->merge($data);
@@ -49,9 +50,9 @@ trait ValidatesProfileFields
         ];
     }
 
-    protected function emailRules(?int $ignoreId = null): array
+    protected function emailRules(?int $ignoreId = null, bool $required = true): array
     {
-        return ['required', 'string', 'email:rfc', 'max:191', Rule::unique('users', 'email')->ignore($ignoreId)];
+        return [$required ? 'required' : 'nullable', 'string', 'email:rfc', 'max:191', Rule::unique('users', 'email')->ignore($ignoreId)];
     }
 
     protected function phoneRules(?int $ignoreId = null): array
@@ -78,7 +79,7 @@ trait ValidatesProfileFields
             'name.regex' => 'The name may only contain letters, spaces, dots, apostrophes and hyphens.',
             'username.regex' => 'The username may only contain lowercase letters, numbers, dots and underscores, and must start and end with a letter or number.',
             'username.not_in' => 'This username is reserved. Please choose another one.',
-            'phone.regex' => 'Enter a valid mobile number (7–15 digits, optional leading +).',
+            'phone.regex' => 'Enter a valid mobile number, e.g. 0300 1234567 or +92 300 1234567.',
             'profile_image.dimensions' => 'The profile image must be between 64×64 and 4096×4096 pixels.',
         ];
     }

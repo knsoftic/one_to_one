@@ -27,8 +27,8 @@ class AccountService
         try {
             return DB::transaction(fn () => User::create([
                 'name' => $data['name'],
-                'username' => $data['username'],
-                'email' => $data['email'],
+                'username' => filled($data['username'] ?? null) ? $data['username'] : $this->usernameFor($data['name']),
+                'email' => $data['email'] ?? null,
                 'phone' => $data['phone'],
                 'password' => $data['password'],
                 'profile_image' => $avatarPath,
@@ -41,6 +41,25 @@ class AccountService
     }
 
     /**
+     * A free username made from the name: "Awais Ahmed" → "awais.ahmed", "awais.ahmed2"…
+     */
+    public function usernameFor(string $name): string
+    {
+        $base = (string) str(Str::ascii($name))->lower()->replaceMatches('/[^a-z0-9]+/', '.')->trim('.')->limit(24, '');
+        $base = trim($base, '._');
+        if (mb_strlen($base) < 3 || in_array($base, config('chat.reserved_usernames'), true)) {
+            $base = 'user'.($base !== '' ? '.'.$base : '');
+        }
+
+        $candidate = $base;
+        for ($i = 2; User::query()->where('username', $candidate)->exists(); $i++) {
+            $candidate = $i > 50 ? $base.'.'.Str::lower(Str::random(4)) : $base.$i;
+        }
+
+        return $candidate;
+    }
+
+    /**
      * Update profile details and (optionally) the profile picture.
      */
     public function updateProfile(User $user, array $data, ?UploadedFile $avatar = null, bool $removeAvatar = false): User
@@ -48,7 +67,7 @@ class AccountService
         $user->fill([
             'name' => $data['name'],
             'username' => $data['username'],
-            'email' => $data['email'],
+            'email' => $data['email'] ?? null,
         ]);
 
         if (array_key_exists('about', $data)) {
@@ -56,7 +75,7 @@ class AccountService
             $user->about = $about === '' ? null : mb_substr($about, 0, 139);
         }
 
-        $oldEmail = $user->isDirty('email') ? (string) $user->getOriginal('email') : null;
+        $oldEmail = $user->isDirty('email') ? $user->getOriginal('email') : null;
         if ($oldEmail !== null) {
             $user->email_verified_at = null;
         }

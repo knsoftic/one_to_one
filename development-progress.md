@@ -955,3 +955,16 @@ PHPUnit **402 passed**, Vitest **170 passed**, Pint ✅, build ✅, migration ro
 **Checked in the browser**: admin dashboard, chat viewer and user page (desktop and phone, dark), phone menu, ban screen.
 **Verification**: PHPUnit **424 passed**, Vitest **179 passed**, Pint ✅, build ✅.
 **Deploy**: `php artisan migrate` (deploy script). The scheduler must run for temporary bans to end on time (they also end on the person's next visit).
+
+## Easier sign-up and login + .env settings in the admin panel ✅
+**Sign-up** is now name, mobile number and password (no username, no "confirm password"):
+- The username is made from the name (`awais.ahmed`, `awais.ahmed2`…) and can be changed in Settings.
+- The email is optional by default (admin panel: Optional / Required / Don't ask); the column is now nullable. Without an email, the "Forgot PIN?" link can't work, so two-step verification asks for an email first; adding or changing an email needs the password.
+- Mobile numbers can be typed as people know them: "0300 1234567" becomes "+923001234567" with the default country code (admin panel, default +92; other countries start with +). Login by number, phone login, change number and admin edits use the same rule, and old numbers saved without a code still log in.
+- Passwords need 8+ characters with a letter and a number (no capital letter needed). "Remember me" is ticked by default.
+
+**Admin panel → App settings** (saved in MySQL `app_settings`, no .env editing): sign-ups on/off, email at sign-up, default country code, notice for everyone, **SMS** (Twilio or any SMS web API, or log for testing), **Email / SMTP** (host, port, TLS/SSL, username, password, from), **Tenor GIF key**, **call relay (TURN)** and **invite link**. Passwords and API keys are encrypted with APP_KEY, never shown again ("Saved — leave empty to keep it", "Remove the saved value"); the audit log names changed settings, never values. A saved value wins over .env, an empty one falls back to .env; queued jobs pick up changes. **Send a test SMS / test email** buttons. Only the server basics (database, APP_KEY, APP_URL, Reverb) stay in .env.
+- Files: `AppConfigService`, `AppSetting` (defaults, empty values stay empty), `Admin\SystemController` (settings, test SMS/mail), `admin/settings.blade.php` + `admin/partials/setting-field.blade.php`, `Phone::forAccount`, `AccountService::usernameFor`, `RegisterRequest`, `auth/register.blade.php`, migration `2026_09_26_000001_make_signup_simpler`.
+- Tests: `tests/Feature/Auth/EasySignupTest` (5), `tests/Feature/Admin/AppSettingsTest` (3); phone login test updated.
+- Checked in the browser: sign-up page (phone) and App settings (desktop, dark).
+- Verification: PHPUnit **432 passed**, Vitest **179 passed**, Pint ✅, build ✅.

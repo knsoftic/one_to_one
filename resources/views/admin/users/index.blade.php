@@ -53,7 +53,7 @@
                                 </a>
                             </td>
                             <td class="hidden md:table-cell">
-                                <span class="block text-sm truncate">{{ $user->email }}</span>
+                                <span class="block text-sm truncate">{{ $user->email ?? '—' }}</span>
                                 <span class="block text-xs text-muted tabular-nums">{{ $user->phone }}</span>
                             </td>
                             <td>

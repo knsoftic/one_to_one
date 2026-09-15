@@ -377,3 +377,17 @@ a.stat-card:hover { border-color: var(--tone); transform: translateY(-1px); }
 .app-notice .icon { width: 1rem; height: 1rem; flex: none; margin-top: 0.1rem; }
 .app-notice p { flex: 1; margin: 0; overflow-wrap: anywhere; }
 .app-notice button { flex: none; padding: 0; border: 0; color: inherit; background: none; cursor: pointer; }
+
+/* App settings (integrations saved in MySQL) */
+.admin-settings-grid { display: grid; gap: 0.9rem 1.1rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr)); }
+.admin-settings-sub { margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid var(--c-border); }
+.admin-settings-sub > summary { margin-bottom: 0.6rem; }
+.admin-setting-field textarea.form-control { min-height: 3.2rem; }
+.admin-setting-clear { margin-top: 0.15rem; font-size: 0.8rem; }
+.admin-env { display: inline-block; margin-left: 0.25rem; padding: 0 0.35rem; border-radius: 4px; font-size: 0.7rem; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--c-muted); background: var(--c-surface-2); }
+.admin-subtitle-row { margin: 1.25rem 0 0.6rem; font-size: 0.88rem; font-weight: 600; color: var(--c-muted); }
+.admin-settings .admin-setting-row { margin-bottom: 1rem; }
+.admin-settings-save { position: sticky; bottom: 0; z-index: 5; padding: 0.75rem 0; background: linear-gradient(to top, var(--c-bg) 70%, transparent); }
+.admin-test-form { display: flex; flex-direction: column; gap: 0.4rem; }
+.admin-test-row { display: flex; gap: 0.5rem; }
+.admin-test-row .form-control { flex: 1; min-width: 0; }

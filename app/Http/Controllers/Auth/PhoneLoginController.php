@@ -39,7 +39,7 @@ class PhoneLoginController extends Controller
     {
         abort_unless($this->otp->available(), 404);
 
-        $request->merge(['phone' => Phone::normalize((string) $request->input('phone'))]);
+        $request->merge(['phone' => Phone::forAccount((string) $request->input('phone'))]);
         $request->validate([
             'phone' => ['required', 'string', 'regex:/^\+?[0-9]{7,15}$/'],
             'remember' => ['nullable', 'boolean'],

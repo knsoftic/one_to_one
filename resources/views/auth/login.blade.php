@@ -33,7 +33,7 @@
 
         <div class="auth-row">
             <label class="checkbox">
-                <input type="checkbox" name="remember" value="1" @checked(old('remember'))>
+                <input type="checkbox" name="remember" value="1" @checked(old('remember', ! session()->hasOldInput()))>
                 Remember me
             </label>
             <a href="{{ route('password.request') }}" class="auth-link">Forgot password?</a>

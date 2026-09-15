@@ -28,7 +28,7 @@ class PhoneChangeController extends Controller
     public function start(Request $request): RedirectResponse
     {
         $user = $request->user();
-        $request->merge(['phone' => Phone::normalize((string) $request->input('phone'))]);
+        $request->merge(['phone' => Phone::forAccount((string) $request->input('phone'))]);
 
         $request->validateWithBag('phone', [
             'phone' => ['required', 'string', 'regex:/^\+?[0-9]{7,15}$/', $this->notTaken($user)],

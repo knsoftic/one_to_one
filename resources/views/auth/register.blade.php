@@ -1,3 +1,7 @@
+@php
+    $emailMode = \App\Models\AppSetting::get('signup_email');
+    $countryCode = \App\Models\AppSetting::get('default_country_code');
+@endphp
 <x-layouts.guest title="Create account">
     <ol class="signup-steps" aria-label="Sign-up steps">
         <li class="is-current"><span>1</span> Your details</li>
@@ -5,36 +9,35 @@
     </ol>
 
     <h2 class="auth-title">Create your account</h2>
-    <p class="auth-subtitle">Just your details — you can add a photo on the next step.</p>
+    <p class="auth-subtitle">It takes a few seconds: your name, mobile number and a password.</p>
 
-    <form method="POST" action="{{ route('register.store') }}" class="auth-form" data-loading-form data-username-suggest novalidate>
+    <form method="POST" action="{{ route('register.store') }}" class="auth-form" data-loading-form novalidate>
         @csrf
 
         <x-alerts />
 
-        <x-field name="name" label="Full name" icon="user" placeholder="Awais Ahmed" autocomplete="name" maxlength="100" required autofocus data-suggest-source />
+        <x-field name="name" label="Your name" icon="user" placeholder="Awais Ahmed" autocomplete="name" maxlength="100" required autofocus />
 
-        <x-field name="phone" type="tel" label="Mobile number" icon="phone" placeholder="+92 300 1234567" autocomplete="tel" inputmode="tel" maxlength="20" required
-                 hint="People who have your number saved will find you in their contacts." />
+        <x-field name="phone" type="tel" label="Mobile number" icon="phone" :placeholder="$countryCode === '+92' ? '0300 1234567' : ($countryCode ? $countryCode.' …' : '+92 300 1234567')" autocomplete="tel" inputmode="tel" maxlength="20" required
+                 :hint="'People who saved your number will find you.'.($countryCode ? ' '.$countryCode.' is added for you — for another country start with +.' : '')" />
 
-        <x-field name="email" type="email" label="Email" icon="mail" placeholder="you@example.com" autocomplete="email" inputmode="email" autocapitalize="none" maxlength="191" required />
+        @if ($emailMode !== 'hidden')
+            <x-field name="email" type="email" label="Email" icon="mail" placeholder="you@example.com" autocomplete="email" inputmode="email" autocapitalize="none" maxlength="191"
+                     :optional="$emailMode !== 'required'" :required="$emailMode === 'required'"
+                     hint="Only used to reset your password." />
+        @endif
 
-        <x-field name="username" label="Username" icon="at-sign" placeholder="awais.ahmed" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="30" required data-suggest-target
-                 hint="Filled in from your name — change it if you like." />
-
-        <div class="auth-grid auth-grid-2">
-            <x-field name="password" type="password" label="Password" icon="lock" placeholder="Min. 8 characters" autocomplete="new-password" data-strength-input required>
-                <div class="strength" data-strength-meter data-score="0" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
-            </x-field>
-            <x-field name="password_confirmation" type="password" label="Confirm password" icon="lock" placeholder="Repeat password" autocomplete="new-password" required />
-        </div>
-
-        <p class="form-hint -mt-1">At least 8 characters with upper &amp; lowercase letters and a number.</p>
+        <x-field name="password" type="password" label="Password" icon="lock" placeholder="At least 8 letters and numbers" autocomplete="new-password" data-strength-input required
+                 hint="At least 8 characters with a letter and a number. Tap the eye to see what you typed.">
+            <div class="strength" data-strength-meter data-score="0" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+        </x-field>
 
         <button type="submit" class="btn btn-primary btn-lg btn-block">
-            <span>Continue</span>
+            <span>Create account</span>
             <x-icon name="arrow-left" class="rotate-180" />
         </button>
+
+        <p class="form-hint text-center">Your username is made from your name — you can change it later in Settings.</p>
     </form>
 
     <p class="auth-alt">

@@ -68,7 +68,7 @@ class UserModerationController extends Controller
         $validated = Validator::make($request->all(), [
             'name' => $this->nameRules(),
             'username' => array_values(array_filter($this->usernameRules($user->getKey()), fn ($rule) => ! $rule instanceof NotIn)),
-            'email' => $this->emailRules($user->getKey()),
+            'email' => $this->emailRules($user->getKey(), required: false),
             'phone' => $this->phoneRules($user->getKey()),
             'about' => ['nullable', 'string', 'max:139'],
         ], $this->profileMessages())->validateWithBag('edit');
@@ -132,8 +132,8 @@ class UserModerationController extends Controller
         $request->merge([
             'name' => preg_replace('/\s+/u', ' ', trim((string) $request->input('name'))),
             'username' => mb_strtolower(ltrim(trim((string) $request->input('username')), '@')),
-            'email' => mb_strtolower(trim((string) $request->input('email'))),
-            'phone' => Phone::normalize((string) $request->input('phone')),
+            'email' => mb_strtolower(trim((string) $request->input('email'))) ?: null,
+            'phone' => Phone::forAccount((string) $request->input('phone')),
         ]);
     }
 }

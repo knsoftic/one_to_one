@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Profile;
 
 use App\Http\Requests\Concerns\ValidatesProfileFields;
+use App\Models\AppSetting;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\NotIn;
@@ -39,9 +40,9 @@ class UpdateProfileRequest extends FormRequest
         return [
             'name' => $this->nameRules(),
             'username' => $usernameRules,
-            'email' => $this->emailRules($id),
+            'email' => $this->emailRules($id, required: AppSetting::get('signup_email') === 'required'),
             // A new email needs the password: with it someone could reset the password (and the PIN).
-            'current_password' => [Rule::requiredIf(fn () => $this->input('email') !== $this->user()->email), 'nullable', 'string', 'current_password'],
+            'current_password' => [Rule::requiredIf(fn () => $this->input('email') !== null && $this->input('email') !== $this->user()->email), 'nullable', 'string', 'current_password'],
             'profile_image' => $this->avatarRules(),
             'about' => ['nullable', 'string', 'max:139'],
             'remove_profile_image' => ['nullable', 'boolean'],

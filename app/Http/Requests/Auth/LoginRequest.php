@@ -94,13 +94,13 @@ class LoginRequest extends FormRequest
         }
 
         $username = mb_strtolower(ltrim($value, '@'));
-        $phone = preg_match('/^\+?[\d\s()\-]{7,20}$/', $value) ? Phone::normalize($value) : null;
+        $phones = preg_match('/^\+?[\d\s()\-]{7,20}$/', $value) ? array_unique([Phone::normalize($value), Phone::forAccount($value)]) : [];
 
-        return fn (Builder $query) => $query->where(function (Builder $q) use ($username, $phone) {
+        return fn (Builder $query) => $query->where(function (Builder $q) use ($username, $phones) {
             $q->where('username', $username);
 
-            if ($phone !== null) {
-                $q->orWhere('phone', $phone);
+            if ($phones !== []) {
+                $q->orWhereIn('phone', $phones);
             }
         });
     }

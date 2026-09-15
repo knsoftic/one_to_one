@@ -172,7 +172,7 @@
                                 <div class="auth-grid auth-grid-2">
                                     <x-field name="name" id="edit-name" label="Name" icon="user" :value="$user->name" bag="edit" maxlength="100" required />
                                     <x-field name="username" id="edit-username" label="Username" icon="at-sign" :value="$user->username" bag="edit" maxlength="30" required />
-                                    <x-field name="email" id="edit-email" type="email" label="Email" icon="mail" :value="$user->email" bag="edit" maxlength="191" required />
+                                    <x-field name="email" id="edit-email" type="email" label="Email" icon="mail" :value="$user->email" bag="edit" maxlength="191" optional />
                                     <x-field name="phone" id="edit-phone" type="tel" label="Mobile" icon="phone" :value="$user->phone" bag="edit" maxlength="20" required />
                                 </div>
                                 <x-field name="about" id="edit-about" label="About" icon="info" :value="$user->about" bag="edit" maxlength="139" optional />

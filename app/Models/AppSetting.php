@@ -8,13 +8,18 @@ use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 /**
- * App-wide switches changed from the admin panel (sign-ups open, notice for everyone).
+ * App-wide settings changed from the admin panel (sign-ups, notice for everyone, and the
+ * integration settings of AppConfigService).
  */
 class AppSetting extends Model
 {
     public const DEFAULTS = [
         'registration_open' => true,
         'notice' => null,
+        // Numbers typed as "0300 1234567" get this country code.
+        'default_country_code' => '+92',
+        // Email at sign-up: optional, required or hidden.
+        'signup_email' => 'optional',
     ];
 
     private const CACHE_KEY = 'app-settings';
@@ -29,7 +34,10 @@ class AppSetting extends Model
 
     public static function get(string $key): mixed
     {
-        return self::stored()[$key] ?? self::DEFAULTS[$key] ?? null;
+        $stored = self::stored();
+
+        // A setting saved as empty stays empty (it does not fall back to the default).
+        return array_key_exists($key, $stored) ? $stored[$key] : (self::DEFAULTS[$key] ?? null);
     }
 
     /**
