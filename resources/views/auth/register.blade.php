@@ -38,6 +38,7 @@
         </button>
 
         <p class="form-hint text-center">Your username is made from your name — you can change it later in Settings.</p>
+        <p class="form-hint text-center">By creating an account you agree to the <a href="{{ route('legal', 'terms') }}" class="auth-link">Terms</a> and <a href="{{ route('legal', 'privacy') }}" class="auth-link">Privacy policy</a>.</p>
     </form>
 
     <p class="auth-alt">

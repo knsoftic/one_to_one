@@ -7,6 +7,7 @@
         <a href="#sms" class="admin-tab">SMS</a>
         <a href="#email" class="admin-tab">Email</a>
         <a href="#extras" class="admin-tab">GIFs, calls &amp; invite</a>
+        <a href="#legal" class="admin-tab">Legal pages</a>
         <a href="#android" class="admin-tab">Android app</a>
         <a href="#tests" class="admin-tab">Test</a>
     </nav>
@@ -110,6 +111,34 @@
                     {!! $field('turn_secret', 'Shared secret (coturn)', ['hint' => 'Or fill in a fixed username and password below.', 'env' => 'CHAT_CALL_TURN_SECRET']) !!}
                     {!! $field('turn_username', 'Username', ['env' => 'CHAT_CALL_TURN_USERNAME']) !!}
                     {!! $field('turn_password', 'Password', ['env' => 'CHAT_CALL_TURN_PASSWORD']) !!}
+                </div>
+            </div>
+        </section>
+
+        {{-- Legal pages (X5) --}}
+        <section class="card admin-tool" id="legal">
+            <div class="card-body">
+                <h3 class="admin-section-title"><x-icon name="scale" /> Legal pages</h3>
+                <p class="admin-muted">Shown on the <a class="admin-link" href="{{ route('legal', 'privacy') }}" target="_blank" rel="noopener">privacy policy</a>, <a class="admin-link" href="{{ route('legal', 'terms') }}" target="_blank" rel="noopener">terms</a>, <a class="admin-link" href="{{ route('legal', 'child-safety') }}" target="_blank" rel="noopener">child safety</a> and <a class="admin-link" href="{{ route('legal', 'delete-account') }}" target="_blank" rel="noopener">delete account</a> pages. Google Play asks for these links.</p>
+                <div class="admin-settings-grid mt-3">
+                    <div class="form-group">
+                        <label for="legal-owner" class="form-label">Operator (person or company)</label>
+                        <input id="legal-owner" name="legal_owner" class="form-control @error('legal_owner') is-invalid @enderror" maxlength="120" value="{{ old('legal_owner', $legal['owner']) }}" placeholder="{{ config('app.name') }}">
+                        @error('legal_owner')<p class="form-error"><x-icon name="circle-alert" />{{ $message }}</p>@enderror
+                    </div>
+                    <div class="form-group">
+                        <label for="legal-email" class="form-label">Contact and child safety email</label>
+                        <input id="legal-email" type="email" name="legal_email" class="form-control @error('legal_email') is-invalid @enderror" maxlength="191" value="{{ old('legal_email', $legal['email']) }}" placeholder="{{ config('mail.from.address') }}">
+                        @error('legal_email')<p class="form-error"><x-icon name="circle-alert" />{{ $message }}</p>@enderror
+                    </div>
+                    <div class="form-group">
+                        <label for="legal-country" class="form-label">Country</label>
+                        <input id="legal-country" name="legal_country" class="form-control" maxlength="80" value="{{ old('legal_country', $legal['country']) }}" placeholder="Pakistan">
+                    </div>
+                    <div class="form-group">
+                        <label for="legal-updated" class="form-label">"Last updated" date</label>
+                        <input id="legal-updated" name="legal_updated" class="form-control" maxlength="40" value="{{ old('legal_updated', $legal['updated']) }}" placeholder="15 September 2026">
+                    </div>
                 </div>
             </div>
         </section>

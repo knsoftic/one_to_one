@@ -1063,3 +1063,10 @@ Ctrl/⌘+K search chats · Alt+↑/↓ previous/next chat · Ctrl+Shift+F search
 - The **installed web app** (PWA) appears in the phone's Share menu for text and links (manifest `share_target` → `/chat?share_text=…`).
 - Files: `ShareInbox.java`, `NativeAppPlugin` (`getSharedContent`, `readSharedFile`, `clearSharedContent`, `shareReceived` event), `MainActivity`, `AndroidManifest.xml` (SEND / SEND_MULTIPLE), `resources/js/chat/share-receiver.js`, `ForwardDialog` made reusable. Tests: `resources/js/chat/__tests__/share-receiver.test.js`.
 - New debug APK: `mobile/android/app/build/outputs/apk/debug/app-debug.apk` (also has X4's "open in browser" and D4's tones). Upload it in Admin → App settings → Android app with version code 2 / name 1.1 to prompt older phones.
+
+### X5 — Google Play release preparation ✅
+- Public pages Google Play asks for: **`/privacy`** (what is stored, why, who can see it — including that chats are not end-to-end encrypted and administrators can open them with an audit log — service providers, retention, choices), **`/terms`**, **`/child-safety`** (CSAE standards, in-app and email reporting, what happens), **`/delete-account`** (in-app steps and email request). Linked from sign-in/sign-up ("By creating an account you agree…") and the Settings list.
+- Admin → App settings → **Legal pages**: operator name, contact/child-safety email, country and "last updated" date shown on those pages.
+- **`docs/PLAY-STORE.md`**: developer account, upload key and `keystore.properties` (already wired in `build.gradle`), `bundleRelease`, store listing texts (short and full description), graphics, every App content answer (app access, rating, audience, child safety, account deletion, foreground service and full-screen intent declarations), a filled **Data safety** table, closed testing rule for new personal accounts, release and update checklist.
+- Tests: `tests/Feature/LegalPagesTest`.
+- You still need to: create the Play developer account, the upload key, and the store listing graphics/screenshots, then follow the guide.

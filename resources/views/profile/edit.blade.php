@@ -80,6 +80,12 @@
                     </form>
                 </nav>
 
+                <nav class="wa-legal" aria-label="Help and legal">
+                    <a href="{{ route('legal', 'privacy') }}">Privacy policy</a>
+                    <a href="{{ route('legal', 'terms') }}">Terms</a>
+                    <a href="{{ route('legal', 'child-safety') }}">Child safety</a>
+                    <a href="{{ route('legal', 'delete-account') }}">Delete account</a>
+                </nav>
                 <p class="wa-settings-footer">from<br><strong>{{ config('app.name') }}</strong></p>
             </div>
         </aside>

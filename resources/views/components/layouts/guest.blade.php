@@ -41,7 +41,7 @@
                 </div>
             </div>
 
-            <p class="auth-hero-footer">&copy; {{ date('Y') }} {{ config('app.name') }}. All rights reserved.</p>
+            <p class="auth-hero-footer">&copy; {{ date('Y') }} {{ config('app.name') }}. All rights reserved. · <a href="{{ route('legal', 'privacy') }}">Privacy</a> · <a href="{{ route('legal', 'terms') }}">Terms</a></p>
         </aside>
 
         <main class="auth-main">
@@ -56,6 +56,12 @@
             <div @class(['auth-card', 'is-wide' => $wide])>
                 {{ $slot }}
             </div>
+            <nav class="auth-legal" aria-label="Legal">
+                <a href="{{ route('legal', 'privacy') }}">Privacy policy</a>
+                <a href="{{ route('legal', 'terms') }}">Terms</a>
+                <a href="{{ route('legal', 'child-safety') }}">Child safety</a>
+                <a href="{{ route('legal', 'delete-account') }}">Delete account</a>
+            </nav>
         </main>
     </div>
 </x-layouts.base>

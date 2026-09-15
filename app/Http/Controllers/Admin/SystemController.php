@@ -59,6 +59,12 @@ class SystemController extends Controller
         return view('admin.settings', [
             'registrationOpen' => (bool) AppSetting::get('registration_open'),
             'notice' => AppSetting::get('notice'),
+            'legal' => [
+                'owner' => AppSetting::get('legal_owner'),
+                'email' => AppSetting::get('legal_email'),
+                'country' => AppSetting::get('legal_country'),
+                'updated' => AppSetting::get('legal_updated'),
+            ],
             'values' => $this->config->formValues(),
             'smsReady' => $sms->available(),
             'mailer' => (string) config('mail.default'),
@@ -82,6 +88,11 @@ class SystemController extends Controller
         $validated = $request->validate([
             'registration_open' => ['nullable', 'boolean'],
             'notice' => ['nullable', 'string', 'max:300'],
+            // X5 — shown on the privacy policy, terms and child safety pages.
+            'legal_owner' => ['nullable', 'string', 'max:120'],
+            'legal_email' => ['nullable', 'email:rfc', 'max:191'],
+            'legal_country' => ['nullable', 'string', 'max:80'],
+            'legal_updated' => ['nullable', 'string', 'max:40'],
             'default_country_code' => ['nullable', 'regex:/^\+\d{1,4}$/'],
             'signup_email' => ['nullable', Rule::in(AppConfigService::FIELDS['signup_email']['options'])],
 
@@ -128,6 +139,11 @@ class SystemController extends Controller
             'registration_open' => $request->boolean('registration_open'),
             'notice' => filled($validated['notice'] ?? null) ? trim((string) $validated['notice']) : null,
         ];
+        foreach (['legal_owner', 'legal_email', 'legal_country', 'legal_updated'] as $key) {
+            if ($request->has($key)) {
+                $simple[$key] = filled($validated[$key] ?? null) ? trim((string) $validated[$key]) : null;
+            }
+        }
         AppSetting::put($simple);
 
         $input = array_intersect_key($validated, AppConfigService::FIELDS);

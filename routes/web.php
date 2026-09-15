@@ -37,6 +37,7 @@ use App\Http\Controllers\DeviceController;
 use App\Http\Controllers\DisappearingMessageController;
 use App\Http\Controllers\GifController;
 use App\Http\Controllers\GroupController;
+use App\Http\Controllers\LegalController;
 use App\Http\Controllers\LinkedDeviceController;
 use App\Http\Controllers\LinkPreviewController;
 use App\Http\Controllers\LiveLocationController;
@@ -68,6 +69,9 @@ use Illuminate\Support\Facades\Route;
 | Guest routes
 |--------------------------------------------------------------------------
 */
+
+// Privacy policy, terms, child safety standards and account deletion (X5, Google Play).
+Route::get('/{page}', [LegalController::class, 'show'])->whereIn('page', array_keys(LegalController::PAGES))->name('legal');
 
 // Installable app (X3) and the Android app download (X4).
 Route::get('/manifest.webmanifest', [AppShellController::class, 'manifest'])->name('manifest');

@@ -152,7 +152,7 @@ light/dark theme · admin panel.
 | X2 | **Share into app** | Doosri app se photo/file/link "Share → One2One Chat" | 🟡 | [x] |
 | X3 | **Browser push (PWA)** | Computer par tab band ho tab bhi notification; install as app | 🟡 | [x] |
 | X4 | **App update prompt** | Nayi APK aane par "Update available" | 🟢 | [x] |
-| X5 | **Play Store release** | Signed release, store listing, privacy policy page | 🟡 | [ ] |
+| X5 | **Play Store release** | Signed release, store listing, privacy policy page | 🟡 | [x] |
 | X6 | **Desktop keyboard shortcuts** | Ctrl+K search, Esc, Alt+↑/↓ chat badalna | 🟢 | [x] |
 | X7 | **iPhone app** | iOS build (Mac + Apple Developer $99/saal chahiye) | 🟠 | [ ] |
 | X8 | **Business tools** (optional) | Business profile, quick replies, away message, labels | 🟠 | [ ] |
