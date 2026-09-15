@@ -2,11 +2,13 @@
  * Date / time formatting in the viewer's locale and timezone.
  */
 
-const timeFormat = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' });
-const weekdayLong = new Intl.DateTimeFormat(undefined, { weekday: 'long' });
-const weekdayShort = new Intl.DateTimeFormat(undefined, { weekday: 'short' });
-const monthDay = new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
-const fullDate = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+// X1: Urdu pages show Urdu month and day names.
+const LOCALE = typeof document !== 'undefined' && document.documentElement.lang?.startsWith('ur') ? 'ur-PK' : undefined;
+const timeFormat = new Intl.DateTimeFormat(LOCALE, { hour: 'numeric', minute: '2-digit' });
+const weekdayLong = new Intl.DateTimeFormat(LOCALE, { weekday: 'long' });
+const weekdayShort = new Intl.DateTimeFormat(LOCALE, { weekday: 'short' });
+const monthDay = new Intl.DateTimeFormat(LOCALE, { weekday: 'short', month: 'short', day: 'numeric' });
+const fullDate = new Intl.DateTimeFormat(LOCALE, { month: 'short', day: 'numeric', year: 'numeric' });
 const shortDate = new Intl.DateTimeFormat(undefined, { day: '2-digit', month: '2-digit', year: '2-digit' });
 
 const toDate = (value) => (value instanceof Date ? value : new Date(value));

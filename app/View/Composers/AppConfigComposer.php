@@ -8,6 +8,7 @@ use App\Services\DeviceService;
 use App\Services\WallpaperService;
 use App\Services\WebPushService;
 use App\Support\ChatPreferences;
+use App\Support\Locales;
 use Illuminate\Support\Facades\Route;
 use Illuminate\View\View;
 
@@ -65,6 +66,9 @@ class AppConfigComposer
             'mobile' => $user && Route::has('devices.store') ? ['configVersion' => app(DeviceService::class)->configVersion()] : null,
             // X4: the web app's build (open tabs offer a reload after a deploy) and the newest Android app.
             'version' => app(AppUpdateService::class)->webVersion(),
+            // X1: app language; Urdu text is swapped in by the browser.
+            'locale' => app()->getLocale(),
+            'dir' => Locales::direction(),
             'appUpdate' => ['android' => app(AppUpdateService::class)->android()],
             // Browser push (X3): the key browsers subscribe with.
             'webPush' => $user ? ['publicKey' => app(WebPushService::class)->publicKey()] : null,

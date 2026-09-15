@@ -322,6 +322,8 @@ function initCopyButtons(container) {
 }
 
 export function initSettings(config) {
+    // X1: changing the app language reloads the page in that language.
+    $$('[data-language-select]').forEach((select) => select.addEventListener('change', () => select.form?.requestSubmit()));
     const container = $('[data-settings-tabs]');
     if (!container) return;
     initSettingsNav(container.matches('[data-settings]') ? container : null);

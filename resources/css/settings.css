@@ -48,7 +48,7 @@
 .list-row:last-child { border-bottom: 0; }
 
 /* Phase 6 — privacy choices */
-.setting-select { width: auto; min-width: 11.5rem; height: 2.4rem; padding-right: 2rem; cursor: pointer; }
+.setting-select { width: auto; min-width: 11.5rem; height: 2.4rem; padding-inline-end: 2rem; cursor: pointer; }
 @media (max-width: 560px) { .setting-select { width: 100%; } }
 .contact-info-presence { margin: 0.1rem 0 0; font-size: 0.85rem; color: var(--c-muted); }
 

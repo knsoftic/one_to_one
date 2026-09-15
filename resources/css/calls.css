@@ -77,7 +77,7 @@
     position: absolute;
     z-index: 3;
     top: calc(max(env(safe-area-inset-top), var(--app-safe-top, 0px), 0.75rem) + 3.5rem);
-    right: 1rem;
+    inset-inline-end: 1rem;
     width: clamp(6.5rem, 26vw, 10rem);
     aspect-ratio: 3 / 4;
     border-radius: 1rem;
@@ -233,10 +233,10 @@
     flex: 0;
     position: absolute;
     top: calc(max(env(safe-area-inset-top), var(--app-safe-top, 0px), 0.75rem) + 2.9rem);
-    left: 1rem;
-    right: calc(clamp(6.5rem, 26vw, 10rem) + 2rem);
+    inset-inline-start: 1rem;
+    inset-inline-end: calc(clamp(6.5rem, 26vw, 10rem) + 2rem);
     align-items: flex-start;
-    text-align: left;
+    text-align: start;
     padding: 0;
     gap: 0.1rem;
     width: auto;
@@ -377,7 +377,7 @@
     color: inherit;
     background: none;
     font: inherit;
-    text-align: left;
+    text-align: start;
     cursor: pointer;
 }
 
@@ -443,7 +443,7 @@
 
 /* ---------- K1 Calls tab ---------- */
 .header-calls { position: relative; }
-.header-calls-badge { position: absolute; top: 0.1rem; right: 0.05rem; height: 1rem; min-width: 1rem; padding: 0 0.25rem; font-size: 0.6rem; box-shadow: 0 0 0 2px var(--c-surface); }
+.header-calls-badge { position: absolute; top: 0.1rem; inset-inline-end: 0.05rem; height: 1rem; min-width: 1rem; padding: 0 0.25rem; font-size: 0.6rem; box-shadow: 0 0 0 2px var(--c-surface); }
 .calls-entry {
     display: flex;
     align-items: center;
@@ -492,7 +492,7 @@
 .call-pip {
     position: fixed;
     z-index: 390;
-    right: 1rem;
+    inset-inline-end: 1rem;
     bottom: calc(1rem + env(safe-area-inset-bottom));
     width: clamp(7.5rem, 28vw, 13rem);
     aspect-ratio: 3 / 4;
@@ -512,8 +512,8 @@
 .call-pip.has-video .call-pip-video { opacity: 1; }
 .call-pip-avatar { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
 .call-pip::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0, 0, 0, 0.5), transparent 30%, transparent 62%, rgba(0, 0, 0, 0.6)); pointer-events: none; }
-.call-pip-time { position: absolute; z-index: 1; top: 0.45rem; left: 0.6rem; font-size: 0.72rem; font-weight: 600; font-variant-numeric: tabular-nums; }
-.call-pip-actions { position: absolute; z-index: 1; left: 0; right: 0; bottom: 0.45rem; display: flex; justify-content: center; gap: 0.35rem; }
+.call-pip-time { position: absolute; z-index: 1; top: 0.45rem; inset-inline-start: 0.6rem; font-size: 0.72rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.call-pip-actions { position: absolute; z-index: 1; inset-inline-start: 0; inset-inline-end: 0; bottom: 0.45rem; display: flex; justify-content: center; gap: 0.35rem; }
 .call-pip-btn { width: 2rem; height: 2rem; display: grid; place-items: center; border: 0; border-radius: 999px; color: #fff; background: rgba(255, 255, 255, 0.2); backdrop-filter: blur(6px); cursor: pointer; }
 .call-pip-btn:hover { background: rgba(255, 255, 255, 0.32); }
 .call-pip-btn.is-on { color: #0f172a; background: #f8fafc; }
@@ -639,7 +639,7 @@
 .group-tile.is-ringing .group-tile-avatar .avatar { animation: call-pulse-soft 1.6s ease-in-out infinite; }
 .group-tile-name {
     position: absolute;
-    left: 0.6rem;
+    inset-inline-start: 0.6rem;
     bottom: 0.5rem;
     max-width: calc(100% - 3rem);
     overflow: hidden;
@@ -651,7 +651,7 @@
     font-weight: 600;
     background: rgba(0, 0, 0, 0.45);
 }
-.group-tile-flag { position: absolute; top: 0.5rem; right: 0.5rem; display: grid; place-items: center; }
+.group-tile-flag { position: absolute; top: 0.5rem; inset-inline-end: 0.5rem; display: grid; place-items: center; }
 .group-tile-flag:not(:empty) { width: 1.8rem; height: 1.8rem; border-radius: 999px; background: rgba(0, 0, 0, 0.5); }
 .group-tile-flag .icon { width: 0.95rem; height: 0.95rem; }
 @keyframes call-pulse-soft { 50% { transform: scale(1.06); opacity: 0.8; } }
@@ -659,7 +659,7 @@
     .group-tile.is-ringing .group-tile-avatar .avatar { animation: none; }
 }
 
-.people-picker-panel { max-width: 24rem; text-align: left; display: flex; flex-direction: column; gap: 0.5rem; }
+.people-picker-panel { max-width: 24rem; text-align: start; display: flex; flex-direction: column; gap: 0.5rem; }
 .people-picker-hint { margin: -0.25rem 0 0; font-size: 0.8rem; color: var(--c-muted); }
 .people-picker-list { max-height: 18rem; overflow-y: auto; display: flex; flex-direction: column; margin: 0 -0.3rem; }
 .people-picker-row { display: flex; align-items: center; gap: 0.65rem; padding: 0.45rem 0.4rem; border-radius: 10px; font-size: 0.9rem; cursor: pointer; }
@@ -670,7 +670,7 @@
 .people-picker-panel .modal-actions .icon { width: 1rem; height: 1rem; }
 
 /* ---------- K7 Call links ---------- */
-.call-links-panel { max-width: 28rem; text-align: left; display: flex; flex-direction: column; gap: 0.6rem; }
+.call-links-panel { max-width: 28rem; text-align: start; display: flex; flex-direction: column; gap: 0.6rem; }
 .call-links-hint { margin: -0.2rem 0 0; font-size: 0.82rem; color: var(--c-muted); }
 .call-links-list { display: flex; flex-direction: column; gap: 0.25rem; max-height: 16rem; overflow-y: auto; }
 .call-link-row { display: flex; align-items: center; gap: 0.5rem; padding: 0.45rem 0.35rem 0.45rem 0.5rem; border-radius: 12px; background: var(--c-surface-2); }

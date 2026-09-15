@@ -50,7 +50,7 @@
     color: var(--c-text);
     background: transparent;
     font: inherit;
-    text-align: left;
+    text-align: start;
     cursor: pointer;
 }
 .forward-item:hover, .forward-item:focus-visible { background: var(--c-surface-2); outline: none; }
@@ -79,7 +79,7 @@
     position: absolute;
     z-index: 2;
     bottom: -1.1rem;
-    left: 0.6rem;
+    inset-inline-start: 0.6rem;
     display: inline-flex;
     align-items: center;
     gap: 0.1rem;
@@ -97,7 +97,7 @@
     animation: reaction-pop 0.25s var(--ease-spring, ease-out);
 }
 .message-reactions.is-mine { background: var(--c-primary-soft); color: var(--c-primary-text, var(--c-primary)); }
-.message-reactions-count { margin-left: 0.2rem; font-size: 0.72rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.message-reactions-count { margin-inline-start: 0.2rem; font-size: 0.72rem; font-weight: 600; font-variant-numeric: tabular-nums; }
 .message-reactions:focus-visible { outline: 2px solid var(--c-focus); outline-offset: 2px; }
 
 /* Smiley button beside a bubble (mouse and trackpad only; touch uses long press). */
@@ -169,7 +169,7 @@
     color: var(--c-text);
     background: transparent;
     font: inherit;
-    text-align: left;
+    text-align: start;
 }
 button.reaction-row { cursor: pointer; }
 button.reaction-row:hover, button.reaction-row:focus-visible { background: var(--c-surface-2); outline: none; }
@@ -184,7 +184,7 @@ button.reaction-row:hover, button.reaction-row:focus-visible { background: var(-
 @keyframes reaction-pop { from { transform: scale(0.6); opacity: 0; } to { transform: none; opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .message-reactions, .reaction-popover { animation: none; } }
 @media (max-width: 767px) {
-    .reaction-picker-host .emoji-panel { left: 0.4rem; right: 0.4rem; transform: none; }
+    .reaction-picker-host .emoji-panel { inset-inline-start: 0.4rem; inset-inline-end: 0.4rem; transform: none; }
 }
 
 /* ---------- M3 Search in chat ---------- */
@@ -218,12 +218,12 @@ button.reaction-row:hover, button.reaction-row:focus-visible { background: var(-
 .chat-search-results {
     position: absolute;
     top: calc(100% + 0.35rem);
-    left: 0.6rem;
-    right: 0.6rem;
+    inset-inline-start: 0.6rem;
+    inset-inline-end: 0.6rem;
     max-height: min(22rem, 55dvh);
     overflow-y: auto;
 }
-.chat-search-result { display: flex; align-items: baseline; gap: 0.75rem; width: 100%; text-align: left; }
+.chat-search-result { display: flex; align-items: baseline; gap: 0.75rem; width: 100%; text-align: start; }
 .chat-search-result-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chat-search-result-time { flex-shrink: 0; font-size: 0.72rem; color: var(--c-subtle); }
 .chat-search-result.is-current { background: var(--c-primary-soft); }
@@ -252,7 +252,7 @@ mark.search-hit { padding: 0 0.08em; border-radius: 3px; color: inherit; backgro
     background: color-mix(in srgb, currentColor 10%, transparent);
 }
 .message-text .msg-ul,
-.message-text .msg-ol { margin: 0.15rem 0; padding-left: 1.25rem; white-space: normal; }
+.message-text .msg-ol { margin: 0.15rem 0; padding-inline-start: 1.25rem; white-space: normal; }
 .message-text .msg-ul { list-style: disc; }
 .message-text .msg-ol { list-style: decimal; }
 .message-text .msg-ul li,
@@ -260,12 +260,12 @@ mark.search-hit { padding: 0 0.08em; border-radius: 3px; color: inherit; backgro
 .message-text .msg-blockquote {
     margin: 0.15rem 0;
     padding: 0.1rem 0 0.1rem 0.6rem;
-    border-left: 3px solid color-mix(in srgb, currentColor 40%, transparent);
+    border-inline-start: 3px solid color-mix(in srgb, currentColor 40%, transparent);
     opacity: 0.9;
 }
 
 /* ---------- M5 Starred messages ---------- */
-.message-star { display: inline-flex; align-items: center; margin-right: 0.15rem; }
+.message-star { display: inline-flex; align-items: center; margin-inline-end: 0.15rem; }
 .message-star .icon { width: 0.72rem; height: 0.72rem; fill: currentColor; }
 
 .starred-item {
@@ -279,7 +279,7 @@ mark.search-hit { padding: 0 0.08em; border-radius: 3px; color: inherit; backgro
     color: var(--c-text);
     background: transparent;
     font: inherit;
-    text-align: left;
+    text-align: start;
     cursor: pointer;
 }
 .starred-item:hover, .starred-item:focus-visible { background: var(--c-surface-2); outline: none; }
@@ -296,7 +296,7 @@ mark.search-hit { padding: 0 0.08em; border-radius: 3px; color: inherit; backgro
     line-height: 1.4;
     overflow-wrap: anywhere;
 }
-.starred-text .icon { width: 0.8rem; height: 0.8rem; margin-right: 0.3rem; vertical-align: -0.05rem; color: #eab308; fill: currentColor; }
+.starred-text .icon { width: 0.8rem; height: 0.8rem; margin-inline-end: 0.3rem; vertical-align: -0.05rem; color: #eab308; fill: currentColor; }
 
 /* ---------- M6 Pinned messages ---------- */
 .pinned-bar {
@@ -315,7 +315,7 @@ mark.search-hit { padding: 0 0.08em; border-radius: 3px; color: inherit; backgro
     background: color-mix(in srgb, var(--c-surface) 94%, transparent);
     backdrop-filter: saturate(1.4) blur(14px);
     font: inherit;
-    text-align: left;
+    text-align: start;
     cursor: pointer;
 }
 .pinned-bar[hidden] { display: none; }
@@ -434,7 +434,7 @@ a.link-card:focus-visible { outline: 2px solid var(--c-focus); outline-offset: 2
 /* ---------- M12 Videos ---------- */
 .message.is-type-video .message-bubble { padding: 0.25rem; }
 .message.is-type-video .message-text { padding: 0.3rem 0.45rem 0; }
-.message.is-type-video .message-meta { margin-right: 0.3rem; }
+.message.is-type-video .message-meta { margin-inline-end: 0.3rem; }
 .message.is-type-video .reply-quote { margin: 0 0 0.25rem; }
 .message-video {
     position: relative;
@@ -466,12 +466,12 @@ a.link-card:focus-visible { outline: 2px solid var(--c-focus); outline-offset: 2
     transform: translate(-50%, -50%);
     transition: transform 0.2s var(--ease-spring, ease-out), background-color 0.2s ease;
 }
-.message-video-play .icon { width: 1.5rem; height: 1.5rem; margin-left: 0.15rem; fill: currentColor; }
+.message-video-play .icon { width: 1.5rem; height: 1.5rem; margin-inline-start: 0.15rem; fill: currentColor; }
 .message-video:hover .message-video-play { transform: translate(-50%, -50%) scale(1.08); background: rgba(0, 0, 0, 0.62); }
 .message-video:focus-visible { outline: 2px solid var(--c-focus); outline-offset: 2px; }
 .message-video-info {
     position: absolute;
-    left: 0.55rem;
+    inset-inline-start: 0.55rem;
     bottom: 0.55rem;
     display: inline-flex;
     align-items: center;
@@ -512,7 +512,7 @@ a.link-card:focus-visible { outline: 2px solid var(--c-focus); outline-offset: 2
 .message.in-album.is-theirs.album-even { grid-column: 2; }
 .message.in-album.is-mine.album-odd { grid-column: 4; }
 .message.in-album.is-mine.album-even { grid-column: 5; }
-.message.in-album.album-even { margin-left: 0.2rem; }
+.message.in-album.album-even { margin-inline-start: 0.2rem; }
 .message.in-album:not(.album-first-row) { margin-top: 0.2rem; }
 .message.album-hidden { display: none; }
 .message.in-album .message-react-btn { display: none; }
@@ -542,7 +542,7 @@ a.link-card:focus-visible { outline: 2px solid var(--c-focus); outline-offset: 2
     margin-bottom: 0.5rem;
     padding: 0.5rem;
     border-radius: 14px;
-    border-left: 3px solid var(--c-primary);
+    border-inline-start: 3px solid var(--c-primary);
     background: var(--c-surface-2);
     animation: fade-in-up 0.2s var(--ease-out);
 }
@@ -573,7 +573,7 @@ a.link-card:focus-visible { outline: 2px solid var(--c-focus); outline-offset: 2
 .attachment-tray-add:hover { color: var(--c-primary); border-color: var(--c-primary); }
 .attachment-tray-play { position: absolute; inset: 0; display: grid; place-items: center; color: #fff; background: rgba(0, 0, 0, 0.28); }
 .attachment-tray-play .icon { width: 1rem; height: 1rem; fill: currentColor; }
-.attachment-tray-caption { position: absolute; right: 0.2rem; bottom: 0.2rem; width: 0.55rem; height: 0.55rem; border-radius: 999px; background: var(--c-primary); box-shadow: 0 0 0 2px var(--c-surface); }
+.attachment-tray-caption { position: absolute; inset-inline-end: 0.2rem; bottom: 0.2rem; width: 0.55rem; height: 0.55rem; border-radius: 999px; background: var(--c-primary); box-shadow: 0 0 0 2px var(--c-surface); }
 .attachment-tray-footer { display: flex; align-items: center; gap: 0.5rem; padding: 0 0 0 0.25rem; }
 
 /* ---------- M14 Photo editor ---------- */
@@ -639,10 +639,10 @@ a.link-card:focus-visible { outline: 2px solid var(--c-focus); outline-offset: 2
     height: 1.5rem;
     border: 4px solid #fff;
 }
-.image-editor-crop [data-handle='nw'] { top: -4px; left: -4px; border-right: 0; border-bottom: 0; cursor: nwse-resize; }
-.image-editor-crop [data-handle='ne'] { top: -4px; right: -4px; border-left: 0; border-bottom: 0; cursor: nesw-resize; }
-.image-editor-crop [data-handle='sw'] { bottom: -4px; left: -4px; border-right: 0; border-top: 0; cursor: nesw-resize; }
-.image-editor-crop [data-handle='se'] { bottom: -4px; right: -4px; border-left: 0; border-top: 0; cursor: nwse-resize; }
+.image-editor-crop [data-handle='nw'] { top: -4px; inset-inline-start: -4px; border-inline-end: 0; border-bottom: 0; cursor: nwse-resize; }
+.image-editor-crop [data-handle='ne'] { top: -4px; inset-inline-end: -4px; border-inline-start: 0; border-bottom: 0; cursor: nesw-resize; }
+.image-editor-crop [data-handle='sw'] { bottom: -4px; inset-inline-start: -4px; border-inline-end: 0; border-top: 0; cursor: nesw-resize; }
+.image-editor-crop [data-handle='se'] { bottom: -4px; inset-inline-end: -4px; border-inline-start: 0; border-top: 0; cursor: nwse-resize; }
 .image-editor-crop span::after { content: ''; position: absolute; inset: -0.75rem; }
 
 .image-editor-text-input {
@@ -720,7 +720,7 @@ a.link-card:focus-visible { outline: 2px solid var(--c-focus); outline-offset: 2
     transform: translate(-50%, -50%);
 }
 .camera-top,
-.camera-bottom { position: absolute; left: 0; right: 0; display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1rem; }
+.camera-bottom { position: absolute; inset-inline-start: 0; inset-inline-end: 0; display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1rem; }
 .camera-top { top: 0; display: grid; grid-template-columns: auto 1fr auto; padding-top: max(0.75rem, env(safe-area-inset-top)); background: linear-gradient(rgba(0, 0, 0, 0.45), transparent); }
 .camera-timer { grid-column: 2; justify-self: center; }
 .camera-bottom {
@@ -784,7 +784,7 @@ a.link-card:focus-visible { outline: 2px solid var(--c-focus); outline-offset: 2
 .message-image-hd {
     position: absolute;
     top: 0.45rem;
-    left: 0.45rem;
+    inset-inline-start: 0.45rem;
     padding: 0.05rem 0.35rem;
     border-radius: 4px;
     font-size: 0.62rem;
@@ -814,8 +814,8 @@ a.link-card:focus-visible { outline: 2px solid var(--c-focus); outline-offset: 2
 .message.is-type-sticker .message-bubble { padding: 0; background: transparent !important; box-shadow: none; }
 .message-sticker { display: block; width: min(9.5rem, 40vw); }
 .message-sticker img { display: block; width: 100%; height: auto; filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.12)); }
-.message.is-type-sticker .message-meta { bottom: 0.1rem; right: 0.1rem; }
-.message-image-hd.is-gif { top: auto; bottom: 0.45rem; left: 0.45rem; }
+.message.is-type-sticker .message-meta { bottom: 0.1rem; inset-inline-end: 0.1rem; }
+.message-image-hd.is-gif { top: auto; bottom: 0.45rem; inset-inline-start: 0.45rem; }
 
 .picker-modes { display: flex; gap: 0.25rem; padding: 0.4rem 0.4rem 0; }
 .picker-mode {
@@ -862,7 +862,7 @@ a.link-card:focus-visible { outline: 2px solid var(--c-focus); outline-offset: 2
 .sticker-remove {
     position: absolute;
     top: -0.2rem;
-    right: -0.2rem;
+    inset-inline-end: -0.2rem;
     width: 1.25rem;
     height: 1.25rem;
     display: grid;
@@ -886,7 +886,7 @@ a.link-card:focus-visible { outline: 2px solid var(--c-focus); outline-offset: 2
 .gif-item { display: block; width: 100%; margin: 0 0 0.35rem; padding: 0; border: 0; border-radius: 10px; overflow: hidden; background: var(--c-surface-2); cursor: pointer; break-inside: avoid; }
 .gif-item img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .gif-footer { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
-.gif-credit { margin-left: auto; font-size: 0.65rem; color: var(--c-subtle); }
+.gif-credit { margin-inline-start: auto; font-size: 0.65rem; color: var(--c-subtle); }
 
 .sticker-maker-panel { max-width: 22rem; }
 .sticker-maker-canvas {
@@ -905,7 +905,7 @@ a.link-card:focus-visible { outline: 2px solid var(--c-focus); outline-offset: 2
 /* ---------- M18 Location and attach menu ---------- */
 .attach-menu {
     position: absolute;
-    left: clamp(0.5rem, 2vw, 1.5rem);
+    inset-inline-start: clamp(0.5rem, 2vw, 1.5rem);
     bottom: calc(100% + 0.5rem);
     z-index: 30;
     min-width: 14rem;
@@ -953,9 +953,9 @@ a.link-card:focus-visible { outline: 2px solid var(--c-focus); outline-offset: 2
 .location-actions .btn { height: 1.9rem; padding: 0 0.7rem; font-size: 0.78rem; border-radius: 999px; }
 .location-open { color: inherit; background: color-mix(in srgb, currentColor 12%, transparent); }
 .location-stop { color: #fff; background: #dc2626; }
-.message.is-type-location .message-meta { margin-right: 0.35rem; }
+.message.is-type-location .message-meta { margin-inline-end: 0.35rem; }
 
-.location-panel { max-width: 24rem; text-align: left; }
+.location-panel { max-width: 24rem; text-align: start; }
 .location-status { display: flex; align-items: center; justify-content: center; gap: 0.6rem; min-height: 4rem; font-size: 0.9rem; color: var(--c-muted); }
 .location-error { display: flex; align-items: flex-start; gap: 0.5rem; color: var(--c-danger); line-height: 1.45; }
 .location-error .icon { flex-shrink: 0; margin-top: 0.1rem; }
@@ -969,7 +969,7 @@ a.link-card:focus-visible { outline: 2px solid var(--c-focus); outline-offset: 2
     border: 1px solid var(--c-border);
     border-radius: 14px;
     font: inherit;
-    text-align: left;
+    text-align: start;
     color: var(--c-text);
     background: var(--c-surface);
 }
@@ -1016,11 +1016,11 @@ button.location-choice:hover { background: var(--c-surface-2); }
     cursor: pointer;
     text-decoration: none;
 }
-.contact-card-action + .contact-card-action { border-left: 1px solid color-mix(in srgb, currentColor 18%, transparent); }
+.contact-card-action + .contact-card-action { border-inline-start: 1px solid color-mix(in srgb, currentColor 18%, transparent); }
 .message:not(.is-mine) .contact-card-action { color: var(--c-primary); }
 .contact-card-action:hover { background: color-mix(in srgb, currentColor 8%, transparent); }
 
-.contact-share-panel { max-width: 24rem; text-align: left; display: flex; flex-direction: column; gap: 0.6rem; }
+.contact-share-panel { max-width: 24rem; text-align: start; display: flex; flex-direction: column; gap: 0.6rem; }
 .contact-pick { align-self: flex-start; }
 .contact-pick .icon { width: 1rem; height: 1rem; }
 .contact-share-list { max-height: 16rem; overflow-y: auto; margin: 0 -0.35rem; display: flex; flex-direction: column; }
@@ -1034,7 +1034,7 @@ button.location-choice:hover { background: var(--c-surface-2); }
     border: 0;
     border-radius: 12px;
     font: inherit;
-    text-align: left;
+    text-align: start;
     color: var(--c-text);
     background: transparent;
     cursor: pointer;
@@ -1063,7 +1063,7 @@ button.location-choice:hover { background: var(--c-surface-2); }
     border: 0;
     border-radius: 10px;
     font: inherit;
-    text-align: left;
+    text-align: start;
     color: inherit;
     background: transparent;
     cursor: pointer;
@@ -1094,7 +1094,7 @@ button.location-choice:hover { background: var(--c-surface-2); }
 .message.is-mine .poll-option.is-mine .poll-check { color: #166534; background: #bbf7d0; }
 .poll-total { padding: 0.15rem 0.2rem 0; font-size: 0.72rem; opacity: 0.7; }
 
-.poll-panel { max-width: 24rem; text-align: left; display: flex; flex-direction: column; gap: 0.45rem; }
+.poll-panel { max-width: 24rem; text-align: start; display: flex; flex-direction: column; gap: 0.45rem; }
 .poll-options { display: flex; flex-direction: column; gap: 0.35rem; max-height: 16rem; overflow-y: auto; padding: 0.1rem; }
 .poll-multiple { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.25rem; font-size: 0.88rem; cursor: pointer; }
 .poll-multiple input { width: 1.05rem; height: 1.05rem; accent-color: var(--c-primary); }
@@ -1116,11 +1116,11 @@ button.location-choice:hover { background: var(--c-surface-2); }
 }
 .message-timer { display: inline-flex; opacity: 0.7; }
 .message-timer .icon { width: 0.75rem; height: 0.75rem; }
-.chat-header-timer { display: inline-flex; margin-left: 0.3rem; vertical-align: -0.1rem; color: var(--c-primary); }
+.chat-header-timer { display: inline-flex; margin-inline-start: 0.3rem; vertical-align: -0.1rem; color: var(--c-primary); }
 .chat-header-timer .icon { width: 0.9rem; height: 0.9rem; }
-.dropdown-item-hint { margin-left: auto; padding-left: 0.75rem; font-size: 0.75rem; color: var(--c-subtle); }
+.dropdown-item-hint { margin-inline-start: auto; padding-inline-start: 0.75rem; font-size: 0.75rem; color: var(--c-subtle); }
 .disappearing-panel { max-width: 22rem; }
-.disappearing-options { display: flex; flex-direction: column; gap: 0.25rem; margin: 0.25rem 0 0.75rem; text-align: left; }
+.disappearing-options { display: flex; flex-direction: column; gap: 0.25rem; margin: 0.25rem 0 0.75rem; text-align: start; }
 .disappearing-option { display: flex; align-items: center; gap: 0.65rem; padding: 0.55rem 0.7rem; border-radius: 12px; font-size: 0.92rem; cursor: pointer; }
 .disappearing-option:hover { background: var(--c-surface-2); }
 .disappearing-option input { width: 1.1rem; height: 1.1rem; accent-color: var(--c-primary); }

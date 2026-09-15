@@ -64,6 +64,23 @@
                         </button>
                     @endforeach
 
+                    {{-- X1: app language --}}
+                    <form method="POST" action="{{ route('locale.update') }}" class="wa-menu-form">
+                        @csrf
+                        <label class="wa-menu-row wa-choice">
+                            <x-icon name="languages" />
+                            <span class="wa-menu-body">
+                                <span class="wa-menu-title">App language</span>
+                                <span class="wa-menu-text" translate="no">{{ \App\Support\Locales::SUPPORTED[app()->getLocale()] ?? 'English' }}</span>
+                            </span>
+                            <select name="locale" class="wa-choice-select" data-language-select aria-label="App language" translate="no">
+                                @foreach (\App\Support\Locales::SUPPORTED as $code => $language)
+                                    <option value="{{ $code }}" lang="{{ $code }}" @selected(app()->getLocale() === $code)>{{ $language }}</option>
+                                @endforeach
+                            </select>
+                        </label>
+                    </form>
+
                     @if ($user->isAdmin() && Route::has('admin.dashboard'))
                         <a href="{{ route('admin.dashboard') }}" class="wa-menu-row">
                             <x-icon name="layout-dashboard" />

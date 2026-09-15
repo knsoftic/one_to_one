@@ -8,6 +8,9 @@ namespace App\Support;
  */
 final class Icons
 {
+    /** X1: arrows that point the other way in right-to-left languages (same list as icons.js). */
+    public const FLIP_IN_RTL = ['arrow-left', 'chevron-left', 'chevron-right', 'send-horizontal', 'reply', 'forward', 'undo-2', 'log-out', 'log-in', 'corner-up-left', 'message-square-reply'];
+
     /** @var array<string,string>|null */
     private static ?array $icons = null;
 

@@ -5,6 +5,7 @@ import { initDropdowns } from './lib/dropdown';
 import { confirmDialog } from './lib/modal';
 import { isNativeApp } from './lib/native';
 import { initTheme } from './lib/theme';
+import { initI18n } from './lib/i18n';
 import { toast } from './lib/toast';
 import { initForms } from './ui/forms';
 import { initNetworkStatus } from './ui/network';
@@ -14,6 +15,10 @@ import { initSettings } from './ui/settings';
 import { initInstallPrompt, listenForNotificationClicks, registerServiceWorker, syncPush } from './lib/web-push';
 
 const config = readJsonScript('app-config');
+
+// X1: Urdu text is swapped in by the browser (the dictionary is its own chunk).
+const dictionaries = { ur: () => import('../../lang/ur.json') };
+initI18n(async (locale) => (await (dictionaries[locale] ?? dictionaries.ur)()).default);
 window.App = { config, toast };
 
 initTheme(config);

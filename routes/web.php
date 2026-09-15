@@ -42,6 +42,7 @@ use App\Http\Controllers\LegalController;
 use App\Http\Controllers\LinkedDeviceController;
 use App\Http\Controllers\LinkPreviewController;
 use App\Http\Controllers\LiveLocationController;
+use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\MessagePinController;
 use App\Http\Controllers\MessageReactionController;
@@ -76,6 +77,9 @@ Route::get('/{page}', [LegalController::class, 'show'])->whereIn('page', array_k
 
 // Installable app (X3) and the Android app download (X4).
 Route::get('/manifest.webmanifest', [AppShellController::class, 'manifest'])->name('manifest');
+
+// App language, English or Urdu (X1) — also on the sign-in pages.
+Route::post('/language', [LocaleController::class, 'update'])->middleware('throttle:20,1')->name('locale.update');
 Route::get('/download/android', [AppShellController::class, 'downloadAndroid'])->middleware('throttle:60,1')->name('app.download.android');
 
 Route::middleware('guest')->group(function () {

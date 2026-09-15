@@ -1,7 +1,7 @@
 @props(['title' => null, 'bodyClass' => '', 'scripts' => []])
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}"
-      class="no-transitions"
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" dir="{{ \App\Support\Locales::direction() }}"
+      class="no-transitions" @if (app()->getLocale() !== 'en') data-i18n-pending @endif
       @auth data-theme-pref="{{ auth()->user()->theme }}" data-font-size="{{ auth()->user()->font_size ?? 'medium' }}" @endauth>
 <head>
     <meta charset="utf-8">

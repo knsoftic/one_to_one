@@ -48,8 +48,8 @@
     position: fixed;
     z-index: 150;
     top: var(--app-safe-top);
-    left: 0;
-    right: 0;
+    inset-inline-start: 0;
+    inset-inline-end: 0;
     height: 2rem;
     display: flex;
     align-items: center;
@@ -72,9 +72,9 @@
 .network-bar-icon { display: inline-grid; place-items: center; }
 .network-bar-icon .icon { width: 1rem; height: 1rem; }
 .network-bar-hint { font-weight: 500; opacity: 0.88; overflow: hidden; text-overflow: ellipsis; }
-.network-bar-hint::before { content: '·'; margin-right: 0.45rem; }
+.network-bar-hint::before { content: '·'; margin-inline-end: 0.45rem; }
 
-.network-bar-dots { display: inline-flex; gap: 3px; margin-left: 0.15rem; }
+.network-bar-dots { display: inline-flex; gap: 3px; margin-inline-start: 0.15rem; }
 .network-bar-dots i {
     width: 4px;
     height: 4px;
@@ -112,7 +112,7 @@
     margin: 1rem 0 0.25rem;
     padding: 0;
     list-style: none;
-    text-align: left;
+    text-align: start;
 }
 
 .permission-item { display: flex; align-items: flex-start; gap: 0.75rem; }

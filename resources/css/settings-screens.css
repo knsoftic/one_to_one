@@ -54,7 +54,7 @@
     border: 0;
     border-radius: 0 12px 12px 0;
     color: inherit;
-    text-align: left;
+    text-align: start;
     background: transparent;
     cursor: pointer;
 }
@@ -75,7 +75,7 @@
     padding: 0.7rem var(--wa-pad) 0.7rem 1.6rem;
     border: 0;
     color: inherit;
-    text-align: left;
+    text-align: start;
     text-decoration: none;
     background: transparent;
     cursor: pointer;
@@ -114,7 +114,7 @@
     padding: 0.7rem var(--wa-pad);
     border: 0;
     color: inherit;
-    text-align: left;
+    text-align: start;
     text-decoration: none;
     background: transparent;
 }
@@ -155,8 +155,8 @@
     background: transparent;
     box-shadow: none;
 }
-.wa-settings .wa-form .input-wrap > .icon { left: 0.1rem; }
-.wa-settings .wa-form .input-wrap > .icon ~ .form-control { padding-left: 2.1rem; }
+.wa-settings .wa-form .input-wrap > .icon { inset-inline-start: 0.1rem; }
+.wa-settings .wa-form .input-wrap > .icon ~ .form-control { padding-inline-start: 2.1rem; }
 .wa-settings .wa-form .form-control:not(.two-step-pin):focus { border-bottom-color: var(--c-primary); box-shadow: none; }
 .wa-settings .wa-form .form-control.is-invalid { border-bottom-color: var(--c-danger); }
 .wa-settings .phone-change-code { max-width: 16rem; }
@@ -185,7 +185,7 @@
 .wa-profile-camera {
     position: absolute;
     top: 8.6rem;
-    left: calc(50% + 2.4rem);
+    inset-inline-start: calc(50% + 2.4rem);
     display: grid;
     place-items: center;
     width: 3rem;
@@ -213,7 +213,7 @@
     padding: 0.85rem var(--wa-pad);
     border: 0;
     color: inherit;
-    text-align: left;
+    text-align: start;
     background: transparent;
     cursor: text;
 }
@@ -276,8 +276,8 @@ button.wa-field { cursor: pointer; }
     .wa-settings { grid-template-columns: clamp(19rem, 34%, 27rem) minmax(0, 1fr); background: var(--c-bg); }
     .wa-settings[data-view] .wa-settings-list,
     .wa-settings[data-view] .wa-settings-detail { display: flex; }
-    .wa-settings-list { border-right: 1px solid var(--c-border); background: var(--c-surface); }
-    .wa-settings-detail .wa-appbar { padding-left: 1rem; background: var(--c-panel-header); }
+    .wa-settings-list { border-inline-end: 1px solid var(--c-border); background: var(--c-surface); }
+    .wa-settings-detail .wa-appbar { padding-inline-start: 1rem; background: var(--c-panel-header); }
     .wa-back { display: none; }
     .wa-section-body { padding-top: 0.5rem; }
     .wa-menu-row[aria-current='page'], .wa-me-main[aria-current='page'] { background: var(--c-list-active); }
@@ -330,7 +330,7 @@ button.wa-field { cursor: pointer; }
 .legal-content { max-width: 68ch; font-size: 0.97rem; line-height: 1.7; color: var(--c-text); }
 .legal-content h2 { margin: 1.9rem 0 0.5rem; font-size: 1.15rem; }
 .legal-content p, .legal-content ul, .legal-content ol { margin: 0 0 0.9rem; }
-.legal-content ul, .legal-content ol { padding-left: 1.3rem; }
+.legal-content ul, .legal-content ol { padding-inline-start: 1.3rem; }
 .legal-content ul { list-style: disc; }
 .legal-content ol { list-style: decimal; }
 .legal-content li + li { margin-top: 0.4rem; }
@@ -348,7 +348,7 @@ button.wa-field { cursor: pointer; }
 .business-intro-art { display: grid; place-items: center; width: 4rem; height: 4rem; border-radius: 1.3rem; color: #fff; background: var(--g-brand); box-shadow: 0 14px 30px -18px rgba(79, 70, 229, 0.9); }
 .business-intro-art .icon { width: 1.9rem; height: 1.9rem; }
 .business-intro-title { margin: 0.2rem 0 0; font-size: 1.1rem; text-wrap: balance; }
-.business-intro-list { display: grid; gap: 0.55rem; max-width: 30rem; margin: 0.3rem 0 0; padding: 0; list-style: none; text-align: left; font-size: 0.9rem; line-height: 1.45; }
+.business-intro-list { display: grid; gap: 0.55rem; max-width: 30rem; margin: 0.3rem 0 0; padding: 0; list-style: none; text-align: start; font-size: 0.9rem; line-height: 1.45; }
 .business-intro-list li { display: flex; gap: 0.65rem; }
 .business-intro-list .icon { flex: none; width: 1.15rem; height: 1.15rem; margin-top: 0.1rem; color: var(--c-primary-text); }
 .business-form .form-group { margin: 0; }
@@ -380,6 +380,6 @@ button.wa-field { cursor: pointer; }
 .quick-reply-form { gap: 0.6rem; padding-top: 0; }
 .quick-reply-new { gap: 0.6rem; padding-top: 0.9rem; }
 .quick-reply-shortcut-input { position: relative; }
-.quick-reply-slash { position: absolute; top: 50%; left: 0.85rem; transform: translateY(-50%); font-weight: 700; color: var(--c-primary-text); pointer-events: none; }
-.quick-reply-shortcut-input .form-control { padding-left: 1.6rem; }
+.quick-reply-slash { position: absolute; top: 50%; inset-inline-start: 0.85rem; transform: translateY(-50%); font-weight: 700; color: var(--c-primary-text); pointer-events: none; }
+.quick-reply-shortcut-input .form-control { padding-inline-start: 1.6rem; }
 .wa-settings .btn.is-danger { color: var(--c-danger); }

@@ -1,0 +1,48 @@
+/* ==========================================================================
+   X1 — Urdu and right-to-left
+   Layout uses logical properties (margin-inline-start…), so it mirrors by itself
+   under dir="rtl". This file holds what logical properties can't express.
+   ========================================================================== */
+
+/* The page stays hidden for a moment while Urdu text is swapped in (never longer than 4s). */
+html[data-i18n-pending] body { opacity: 0; animation: i18n-reveal 0s linear 4s forwards; }
+@keyframes i18n-reveal { to { opacity: 1; } }
+
+/* Urdu script: a Naskh face that stays compact in lists and buttons. */
+:root:lang(ur) { --font-urdu: 'Noto Naskh Arabic', 'Segoe UI', Tahoma, 'Geeza Pro', 'Arial', sans-serif; }
+:root:lang(ur) body { font-family: var(--font-urdu); line-height: 1.6; }
+:root:lang(ur) :is(input, textarea, select, button) { font-family: inherit; }
+
+/* Arrows point the other way. */
+[dir='rtl'] .icon-flip { transform: scaleX(-1); }
+
+/* People's own words take the direction of what they wrote (Urdu or English), in both layouts. */
+.message-text,
+.conversation-name,
+.conversation-preview-text,
+.chat-header-name,
+.group-info-name,
+.group-info-description,
+.wa-me-name,
+.wa-me-about,
+.quick-reply-text,
+.quick-reply-option-text,
+textarea,
+input:not([type]),
+input[type='text'],
+input[type='search'] { unicode-bidi: plaintext; }
+
+/* Numbers, emails, links and passwords are always written left to right. */
+[dir='rtl'] :is(input[type='tel'], input[type='email'], input[type='url'], input[type='password'], input[type='number'], .otp-input) { direction: ltr; text-align: right; }
+[dir='rtl'] :is(kbd, code, .wa-tabular) { direction: ltr; unicode-bidi: isolate; }
+
+/* Select arrows sit on the left. */
+[dir='rtl'] select { background-position: left 0.7rem center; }
+
+/* App language row in Settings, and the switch on the sign-in pages. */
+.wa-menu-form { margin: 0; }
+.wa-menu-row.wa-choice { position: relative; }
+.auth-language { display: contents; }
+.auth-language button { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0; border: 0; font: inherit; font-weight: 600; color: var(--c-primary-text); background: none; cursor: pointer; }
+.auth-language button:hover { text-decoration: underline; }
+.auth-language .icon { width: 0.95rem; height: 0.95rem; }

@@ -57,6 +57,12 @@
                 {{ $slot }}
             </div>
             <nav class="auth-legal" aria-label="Legal">
+                @php($other = app()->getLocale() === 'ur' ? 'en' : 'ur')
+                <form method="POST" action="{{ route('locale.update') }}" class="auth-language">
+                    @csrf
+                    <input type="hidden" name="locale" value="{{ $other }}">
+                    <button type="submit" lang="{{ $other }}" translate="no"><x-icon name="languages" /> {{ \App\Support\Locales::SUPPORTED[$other] }}</button>
+                </form>
                 <a href="{{ route('legal', 'privacy') }}">Privacy policy</a>
                 <a href="{{ route('legal', 'terms') }}">Terms</a>
                 <a href="{{ route('legal', 'child-safety') }}">Child safety</a>

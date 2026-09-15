@@ -107,7 +107,7 @@
 .input-wrap { position: relative; display: flex; align-items: center; }
 .input-wrap > .icon {
     position: absolute;
-    left: 0.875rem;
+    inset-inline-start: 0.875rem;
     width: 1.1rem;
     height: 1.1rem;
     color: var(--c-subtle);
@@ -132,15 +132,15 @@
 .form-control:focus { outline: none; border-color: var(--c-primary); box-shadow: 0 0 0 4px var(--c-focus); }
 .form-control.is-invalid { border-color: var(--c-danger); }
 .form-control.is-invalid:focus { box-shadow: 0 0 0 4px var(--c-danger-soft); }
-.input-wrap > .icon ~ .form-control, .input-wrap > .icon + .form-control { padding-left: 2.6rem; }
-.input-wrap .form-control.has-action { padding-right: 2.9rem; }
+.input-wrap > .icon ~ .form-control, .input-wrap > .icon + .form-control { padding-inline-start: 2.6rem; }
+.input-wrap .form-control.has-action { padding-inline-end: 2.9rem; }
 
 textarea.form-control { height: auto; min-height: 6rem; padding: 0.75rem 0.95rem; resize: vertical; }
-select.form-control { appearance: none; padding-right: 2.25rem; background-image: none; }
+select.form-control { appearance: none; padding-inline-end: 2.25rem; background-image: none; }
 
 .input-action {
     position: absolute;
-    right: 0.35rem;
+    inset-inline-end: 0.35rem;
     width: 2.2rem;
     height: 2.2rem;
     display: grid;
@@ -191,7 +191,7 @@ select.form-control { appearance: none; padding-right: 2.25rem; background-image
     content: '';
     position: absolute;
     top: 0.175rem;
-    left: 0.175rem;
+    inset-inline-start: 0.175rem;
     width: 1.2rem;
     height: 1.2rem;
     border-radius: 999px;
@@ -293,7 +293,7 @@ select.form-control { appearance: none; padding-right: 2.25rem; background-image
 }
 .avatar-status {
     position: absolute;
-    right: 0;
+    inset-inline-end: 0;
     bottom: 0;
     width: calc(var(--size) * 0.28);
     height: calc(var(--size) * 0.28);
@@ -342,7 +342,7 @@ select.form-control { appearance: none; padding-right: 2.25rem; background-image
     height: 1.25rem;
     border-radius: 999px;
     border: 2.5px solid currentColor;
-    border-right-color: transparent;
+    border-inline-end-color: transparent;
     animation: spin 0.75s linear infinite;
     display: inline-block;
 }
@@ -377,8 +377,8 @@ select.form-control { appearance: none; padding-right: 2.25rem; background-image
     transform-origin: top right;
     animation: menu-in 0.18s var(--ease-out);
 }
-.dropdown-menu[data-align='right'] { right: 0; top: calc(100% + 0.4rem); }
-.dropdown-menu[data-align='left'] { left: 0; top: calc(100% + 0.4rem); transform-origin: top left; }
+.dropdown-menu[data-align='right'] { inset-inline-end: 0; top: calc(100% + 0.4rem); }
+.dropdown-menu[data-align='left'] { inset-inline-start: 0; top: calc(100% + 0.4rem); transform-origin: top left; }
 .dropdown-item {
     display: flex;
     align-items: center;
@@ -391,7 +391,7 @@ select.form-control { appearance: none; padding-right: 2.25rem; background-image
     color: var(--c-text);
     font-size: 0.875rem;
     font-weight: 500;
-    text-align: left;
+    text-align: start;
     text-decoration: none;
     cursor: pointer;
     transition: background-color 0.15s ease;
@@ -448,7 +448,7 @@ select.form-control { appearance: none; padding-right: 2.25rem; background-image
     position: fixed;
     z-index: 200;
     top: max(1rem, env(safe-area-inset-top));
-    right: 1rem;
+    inset-inline-end: 1rem;
     display: flex;
     flex-direction: column;
     gap: 0.6rem;
@@ -482,7 +482,7 @@ select.form-control { appearance: none; padding-right: 2.25rem; background-image
 .toast-close { margin: -0.25rem -0.25rem 0 0; }
 
 @media (max-width: 640px) {
-    .toast-stack { left: 1rem; right: 1rem; width: auto; }
+    .toast-stack { inset-inline-start: 1rem; inset-inline-end: 1rem; width: auto; }
 }
 
 /* ---------- Tabs ---------- */

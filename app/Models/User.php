@@ -51,6 +51,7 @@ class User extends Authenticatable
         'notification_sound' => true,
         'wallpaper_dim' => 0,
         'font_size' => 'medium',
+        'locale' => 'en',
         'notification_tone' => 'default',
         'notification_vibrate' => 'default',
         'last_seen_privacy' => 'everyone',
