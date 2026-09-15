@@ -968,3 +968,15 @@ PHPUnit **402 passed**, Vitest **170 passed**, Pint ✅, build ✅, migration ro
 - Tests: `tests/Feature/Auth/EasySignupTest` (5), `tests/Feature/Admin/AppSettingsTest` (3); phone login test updated.
 - Checked in the browser: sign-up page (phone) and App settings (desktop, dark).
 - Verification: PHPUnit **432 passed**, Vitest **179 passed**, Pint ✅, build ✅.
+
+## New look: Indigo Night (no longer WhatsApp-style) ✅
+Chosen style: **Indigo Night**, everywhere (chats, calls, status, groups, settings, sign in / sign up, admin panel), light and dark.
+- **Colours**: indigo `#4F46E5` → violet `#7C3AED` gradients on lavender-tinted surfaces; night theme `#0B0C1D` / `#12132B`. New tokens in `resources/css/theme.css` (`--g-brand`, `--g-header`, `--g-bubble-out`, softer shadows, 12–24px radii).
+- **Chats**: deep indigo side rail with a light indicator (web); pill search and filter chips (active chip in the gradient); rounded list rows with an accent for the open chat; gradient unread badges. On phones: gradient header with the app name, **floating pill bottom navigation** with the active tab in the gradient, gradient new-chat button.
+- **Messages**: rounded 18px bubbles without tails; your own messages in the indigo → violet gradient (quotes, files, voice notes, polls, contact cards and buttons inside turn light automatically); pill date dividers and notices; a dotted chat background; a floating composer card with a gradient send button. The chat header is a gradient on phones.
+- **Welcome screen**: new illustration and gradient title; the start-of-chat notes no longer claim chats are private (admins can open them).
+- **Sign in / sign up**: gradient band with soft light and a floating card. **Settings**: gradient app bars on phones, indigo row icons. **Admin panel**: gradient brand strip, indigo accents, gradient bubbles in the chat viewer.
+- Favicon, browser toolbar colour (`theme-color`), error pages and the account report use the new colours. In the Android app the status bar sits on the indigo gradient with light icons (the app icon was already indigo, so no new APK is needed).
+- Files: `resources/css/skin.css` (replaces `whatsapp.css`), `settings-wa.css` renamed `settings-screens.css`, `theme.css`, `admin.css`, `native.css`, `resources/js/native/app.js`, `public/favicon.svg`, chat welcome art in `chat/index.blade.php`.
+- Checked in the browser: chat list and chat with text, replies, polls, files, voice notes and contact cards (phone, light and dark), web layout with the rail and welcome screen, settings (phone), sign in (phone), admin dashboard.
+- Verification: PHPUnit **432 passed**, Vitest **179 passed**, build ✅.

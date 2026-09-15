@@ -77,8 +77,10 @@ export function initNativeApp(config) {
 
 function syncSystemBars() {
     const dark = document.documentElement.dataset.theme === 'dark';
+    // Chats, settings and sign-in have the indigo gradient behind the status bar.
+    const gradientTop = Boolean(document.querySelector('[data-chat-app], [data-settings], .auth-shell'));
     // "Dark" = light icons for a dark page, "Light" = dark icons for a light page.
-    SystemBars.setStyle({ style: dark ? SystemBarsStyle.Dark : SystemBarsStyle.Light }).catch(() => {});
+    SystemBars.setStyle({ style: dark || gradientTop ? SystemBarsStyle.Dark : SystemBarsStyle.Light }).catch(() => {});
 }
 
 /* ---------------------------------------------------------------------- */

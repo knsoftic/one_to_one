@@ -29,6 +29,13 @@
 
 .is-native-app .chat-app { background: var(--c-surface); }
 
+/* The indigo header continues behind the status bar (light status bar icons). */
+@media (max-width: 767px) {
+    .is-native-app :is(.chat-app, .wa-settings) {
+        background: var(--g-header) top / 100% calc(var(--app-safe-top) + var(--network-bar-h)) no-repeat, var(--c-surface);
+    }
+}
+
 .is-native-app .lightbox-bar { padding-top: calc(0.6rem + var(--app-safe-top)); }
 
 .has-network-bar .toast-stack { top: calc(var(--app-safe-top) + var(--network-bar-h) + 0.6rem); }

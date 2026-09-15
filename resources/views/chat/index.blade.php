@@ -351,21 +351,25 @@
             <div class="chat-welcome" data-chat-welcome @if ($initialConversationId) hidden @endif>
                 <div>
                     <div class="chat-welcome-art" aria-hidden="true">
-                        <svg viewBox="0 0 320 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <ellipse cx="160" cy="176" rx="130" ry="14" fill="currentColor" opacity=".06"/>
-                            <rect x="58" y="34" width="176" height="116" rx="10" fill="var(--c-surface)" stroke="var(--c-border-strong)" stroke-width="3"/>
-                            <rect x="70" y="46" width="152" height="92" rx="4" fill="var(--c-chat-bg)"/>
-                            <path d="M40 150h212a8 8 0 0 1-8 10H48a8 8 0 0 1-8-10z" fill="var(--c-border-strong)"/>
-                            <rect x="80" y="58" width="70" height="16" rx="5" fill="var(--c-surface)"/>
-                            <rect x="132" y="82" width="80" height="16" rx="5" fill="var(--c-bubble-out)"/>
-                            <rect x="80" y="106" width="56" height="16" rx="5" fill="var(--c-surface)"/>
-                            <rect x="226" y="72" width="62" height="104" rx="12" fill="var(--c-surface)" stroke="var(--c-border-strong)" stroke-width="3"/>
-                            <rect x="234" y="86" width="46" height="74" rx="4" fill="var(--c-chat-bg)"/>
-                            <rect x="239" y="94" width="28" height="10" rx="4" fill="var(--c-surface)"/>
-                            <rect x="248" y="110" width="28" height="10" rx="4" fill="var(--c-bubble-out)"/>
-                            <circle cx="257" cy="168" r="3" fill="var(--c-border-strong)"/>
-                            <circle cx="262" cy="46" r="18" fill="var(--c-primary)"/>
-                            <path d="M253 46l6 6 11-12" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <svg viewBox="0 0 320 220" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <defs>
+                                <linearGradient id="welcome-g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4f46e5"/><stop offset="1" stop-color="#7c3aed"/></linearGradient>
+                                <linearGradient id="welcome-g2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a78bfa"/><stop offset="1" stop-color="#6366f1"/></linearGradient>
+                            </defs>
+                            <circle cx="160" cy="110" r="96" fill="url(#welcome-g)" opacity=".08"/>
+                            <circle cx="160" cy="110" r="66" fill="url(#welcome-g)" opacity=".08"/>
+                            <rect x="54" y="52" width="150" height="78" rx="26" fill="var(--c-surface)" stroke="var(--c-border)" stroke-width="2"/>
+                            <path d="M78 130l-8 22 30-22z" fill="var(--c-surface)"/>
+                            <rect x="76" y="76" width="86" height="10" rx="5" fill="var(--c-surface-3)"/>
+                            <rect x="76" y="96" width="56" height="10" rx="5" fill="var(--c-surface-3)"/>
+                            <rect x="128" y="104" width="140" height="70" rx="24" fill="url(#welcome-g)"/>
+                            <path d="M246 174l10 20-30-20z" fill="#7c3aed"/>
+                            <rect x="150" y="126" width="80" height="9" rx="4.5" fill="#fff" opacity=".9"/>
+                            <rect x="150" y="144" width="52" height="9" rx="4.5" fill="#fff" opacity=".6"/>
+                            <circle cx="240" cy="58" r="16" fill="url(#welcome-g2)"/>
+                            <path d="M232 58l5 5 10-11" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M66 184l3-8 3 8 8 3-8 3-3 8-3-8-8-3z" fill="#a78bfa"/>
+                            <path d="M272 118l2-5 2 5 5 2-5 2-2 5-2-5-5-2z" fill="#818cf8"/>
                         </svg>
                     </div>
                     <h1 class="chat-welcome-title">{{ config('app.name') }} Web</h1>
@@ -376,7 +380,7 @@
                         <x-icon name="message-square-plus" /> Start a new chat
                     </button>
                     <p class="chat-welcome-foot">
-                        <x-icon name="lock" class="icon-xs" /> Conversations are private between the people in them.
+                        <x-icon name="shield-check" class="icon-xs" /> Block, report and privacy controls are in Settings.
                     </p>
                 </div>
             </div>

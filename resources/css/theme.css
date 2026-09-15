@@ -6,7 +6,7 @@
    ========================================================================== */
 
 @theme inline {
-    /* System fonts, like WhatsApp (Segoe UI on Windows, Roboto on Android, SF on Apple). */
+    /* System fonts (Segoe UI on Windows, Roboto on Android, SF on Apple). */
     --font-sans: 'Segoe UI', Roboto, -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Helvetica, Arial, ui-sans-serif,
         'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
 
@@ -34,72 +34,79 @@
 :root {
     color-scheme: light;
 
-    /* WhatsApp-style palette (light) */
-    --c-bg: #f0f2f5;
+    /* Indigo Night palette (light) — One2One's own look */
+    --c-bg: #f4f3fb;
     --c-surface: #ffffff;
-    --c-surface-2: #f5f6f6;
-    --c-surface-3: #e9edef;
-    --c-border: #e9edef;
-    --c-border-strong: #d1d7db;
-    --c-text: #111b21;
-    --c-muted: #667781;
-    --c-subtle: #8696a0;
+    --c-surface-2: #f6f5fd;
+    --c-surface-3: #ebe9f7;
+    --c-border: #e8e6f3;
+    --c-border-strong: #d4d1ea;
+    --c-text: #17152e;
+    --c-muted: #69668a;
+    --c-subtle: #9491b0;
 
-    --c-primary: #00a884;
-    --c-primary-hover: #008f6f;
-    --c-primary-soft: #e7fce3;
-    --c-primary-text: #008069;
+    --c-primary: #4f46e5;
+    --c-primary-hover: #4338ca;
+    --c-primary-soft: #eeecff;
+    --c-primary-text: #4f46e5;
     --c-on-primary: #ffffff;
-    --c-focus: rgba(0, 168, 132, 0.28);
+    --c-focus: rgba(79, 70, 229, 0.26);
+    --c-violet: #7c3aed;
 
-    --c-success: #00a884;
-    --c-success-soft: #e7fce3;
-    --c-danger: #ea0038;
-    --c-danger-soft: #fde8ec;
+    --c-success: #10b981;
+    --c-success-soft: #dcfaf0;
+    --c-danger: #e11d48;
+    --c-danger-soft: #ffe4ea;
     --c-warning: #b45309;
-    --c-warning-soft: #fff3c4;
-    --c-online: #25d366;
+    --c-warning-soft: #fff1d6;
+    --c-online: #22c55e;
+
+    /* Brand gradients */
+    --g-brand: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+    --g-brand-soft: linear-gradient(135deg, #eeecff 0%, #f3e8ff 100%);
+    --g-header: linear-gradient(120deg, #3f37c9 0%, #5b3fd9 55%, #7c3aed 100%);
 
     /* App chrome */
-    --c-panel-header: #f0f2f5;
-    --c-rail: #f0f2f5;
-    --c-icon: #54656f;
-    --c-input: #ffffff;
-    --c-list-active: #f0f2f5;
-    --c-unread: #25d366;
+    --c-panel-header: #ffffff;
+    --c-rail: #1c1846;
+    --c-icon: #69668a;
+    --c-input: #f6f5fd;
+    --c-list-active: #eeecff;
+    --c-unread: #7c3aed;
     --c-unread-text: #ffffff;
-    --c-fab: #1daa61;
-    --c-nav-active: #d8fdd2;
-    --c-brand: #1daa61;
+    --c-fab: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+    --c-nav-active: #eeecff;
+    --c-brand: #4f46e5;
 
     /* Chat */
-    --c-chat-bg: #efeae2;
-    --c-chat-doodle: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260' viewBox='0 0 260 260' fill='none' stroke='%234a4a4a' stroke-opacity='0.075' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M22 24h30a6 6 0 0 1 6 6v14a6 6 0 0 1-6 6H36l-8 7v-7h-6a6 6 0 0 1-6-6V30a6 6 0 0 1 6-6z'/%3E%3Cpath d='M110 58s-16-9-16-20a8 8 0 0 1 16-3 8 8 0 0 1 16 3c0 11-16 20-16 20z'/%3E%3Cpath d='M190 18l5 10 11 2-8 8 2 11-10-5-10 5 2-11-8-8 11-2z'/%3E%3Ccircle cx='236' cy='46' r='12'/%3E%3Cpath d='M236 39v7l5 3'/%3E%3Cpath d='M26 96c0 16 12 28 28 28l4-7-8-5-4 4c-5-2-10-7-12-12l4-4-5-8z'/%3E%3Cpath d='M104 124V98l18-4v24'/%3E%3Ccircle cx='99' cy='124' r='5'/%3E%3Ccircle cx='117' cy='118' r='5'/%3E%3Ccircle cx='182' cy='110' r='14'/%3E%3Cpath d='M176 114c3 4 9 4 12 0M177 105h.1M187 105h.1'/%3E%3Cpath d='M214 128l34-16-12 30-7-9-15-5zM229 133l19-21'/%3E%3Crect x='18' y='172' width='34' height='24' rx='5'/%3E%3Ccircle cx='35' cy='184' r='7'/%3E%3Cpath d='M28 172l3-5h8l3 5'/%3E%3Cpath d='M98 200h30a9 9 0 0 0 0-18 13 13 0 0 0-25-3 9 9 0 0 0-5 21z'/%3E%3Cpath d='M178 160l-10 20h9l-5 18 14-24h-9l6-14z'/%3E%3Crect x='212' y='176' width='36' height='24' rx='4'/%3E%3Cpath d='M213 178l17 12 17-12'/%3E%3Cpath d='M20 232l6 6 12-12M32 238l2 2 12-12'/%3E%3Cpath d='M96 252c0-20 14-30 34-30 0 20-14 30-34 30zM96 252l20-18'/%3E%3Cpath d='M190 252s-12-12-12-22a12 12 0 0 1 24 0c0 10-12 22-12 22z'/%3E%3Ccircle cx='190' cy='230' r='4'/%3E%3Ccircle cx='66' cy='70' r='3'/%3E%3Ccircle cx='150' cy='72' r='2.5'/%3E%3Ccircle cx='70' cy='144' r='2'/%3E%3Ccircle cx='148' cy='150' r='3'/%3E%3Ccircle cx='246' cy='214' r='2'/%3E%3Ccircle cx='60' cy='214' r='2.5'/%3E%3C/svg%3E");
-    --c-chat-pattern: rgba(17, 27, 33, 0.05);
+    --c-chat-bg: #f6f5fd;
+    --c-chat-doodle: radial-gradient(rgba(79, 70, 229, 0.075) 1.2px, transparent 1.3px);
+    --c-chat-pattern: rgba(79, 70, 229, 0.05);
     --c-bubble-in: #ffffff;
-    --c-bubble-in-text: #111b21;
-    --c-bubble-out: #d9fdd3;
-    --c-bubble-out-text: #111b21;
-    --c-bubble-out-meta: #667781;
-    --c-bubble-shadow: 0 1px 0.5px rgba(11, 20, 26, 0.13);
-    --c-quote-in: #f5f6f6;
-    --c-quote-out: #d1f4cc;
-    --c-tick-seen: #53bdeb;
-    --c-tick-seen-in: #53bdeb;
-    --c-reply-bar: #06cf9c;
+    --c-bubble-in-text: #17152e;
+    --c-bubble-out: #5b45e8;
+    --c-bubble-out-text: #ffffff;
+    --c-bubble-out-meta: rgba(255, 255, 255, 0.78);
+    --g-bubble-out: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+    --c-bubble-shadow: 0 1px 2px rgba(35, 25, 90, 0.08), 0 2px 8px -4px rgba(35, 25, 90, 0.12);
+    --c-quote-in: #f3f2fb;
+    --c-quote-out: rgba(255, 255, 255, 0.16);
+    --c-tick-seen: #a5f3fc;
+    --c-tick-seen-in: #4f46e5;
+    --c-reply-bar: #7c3aed;
     --c-system-bubble: #ffffff;
-    --c-system-text: #54656f;
-    --c-notice-bubble: #ffeecd;
+    --c-system-text: #69668a;
+    --c-notice-bubble: #fff6e5;
 
-    --shadow-xs: 0 1px 0.5px rgba(11, 20, 26, 0.13);
-    --shadow-sm: 0 1px 3px rgba(11, 20, 26, 0.12);
-    --shadow-md: 0 2px 5px rgba(11, 20, 26, 0.16), 0 2px 10px rgba(11, 20, 26, 0.08);
-    --shadow-lg: 0 17px 50px rgba(11, 20, 26, 0.19), 0 12px 15px rgba(11, 20, 26, 0.12);
+    --shadow-xs: 0 1px 2px rgba(35, 25, 90, 0.08);
+    --shadow-sm: 0 2px 6px rgba(35, 25, 90, 0.08);
+    --shadow-md: 0 6px 18px -6px rgba(35, 25, 90, 0.18), 0 2px 6px rgba(35, 25, 90, 0.06);
+    --shadow-lg: 0 24px 50px -12px rgba(35, 25, 90, 0.28), 0 8px 18px -8px rgba(35, 25, 90, 0.14);
 
-    --radius-sm: 6px;
-    --radius: 8px;
-    --radius-lg: 12px;
-    --radius-xl: 16px;
+    --radius-sm: 8px;
+    --radius: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 22px;
 
     --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
     --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -108,65 +115,71 @@
 [data-theme='dark'] {
     color-scheme: dark;
 
-    /* WhatsApp-style palette (dark) */
-    --c-bg: #0c1317;
-    --c-surface: #111b21;
-    --c-surface-2: #202c33;
-    --c-surface-3: #2a3942;
-    --c-border: #222d34;
-    --c-border-strong: #374248;
-    --c-text: #e9edef;
-    --c-muted: #8696a0;
-    --c-subtle: #667781;
+    /* Indigo Night palette (dark) */
+    --c-bg: #0b0c1d;
+    --c-surface: #12132b;
+    --c-surface-2: #1a1b37;
+    --c-surface-3: #24254a;
+    --c-border: #222343;
+    --c-border-strong: #34355d;
+    --c-text: #eceaff;
+    --c-muted: #a4a2c8;
+    --c-subtle: #7b7aa4;
 
-    --c-primary: #00a884;
-    --c-primary-hover: #06cf9c;
-    --c-primary-soft: #0a332c;
-    --c-primary-text: #00d9a6;
-    --c-on-primary: #111b21;
-    --c-focus: rgba(0, 168, 132, 0.35);
+    --c-primary: #7c73ff;
+    --c-primary-hover: #948cff;
+    --c-primary-soft: rgba(124, 115, 255, 0.16);
+    --c-primary-text: #aaa4ff;
+    --c-on-primary: #ffffff;
+    --c-focus: rgba(124, 115, 255, 0.34);
+    --c-violet: #a78bfa;
 
-    --c-success: #00a884;
-    --c-success-soft: rgba(0, 168, 132, 0.15);
-    --c-danger: #f15c6d;
-    --c-danger-soft: rgba(241, 92, 109, 0.15);
+    --c-success: #34d399;
+    --c-success-soft: rgba(52, 211, 153, 0.15);
+    --c-danger: #fb7185;
+    --c-danger-soft: rgba(251, 113, 133, 0.15);
     --c-warning: #fbbf24;
     --c-warning-soft: rgba(245, 158, 11, 0.14);
-    --c-online: #25d366;
+    --c-online: #22c55e;
 
-    --c-panel-header: #202c33;
-    --c-rail: #202c33;
-    --c-icon: #aebac1;
-    --c-input: #2a3942;
-    --c-list-active: #2a3942;
-    --c-unread: #00a884;
-    --c-unread-text: #111b21;
-    --c-fab: #21c063;
-    --c-nav-active: #103629;
-    --c-brand: #e9edef;
+    --g-brand: linear-gradient(135deg, #5b50f0 0%, #8b5cf6 100%);
+    --g-brand-soft: linear-gradient(135deg, rgba(124, 115, 255, 0.16) 0%, rgba(167, 139, 250, 0.12) 100%);
+    --g-header: linear-gradient(120deg, #1d1a4d 0%, #2a2170 55%, #3b2386 100%);
 
-    --c-chat-bg: #0b141a;
-    --c-chat-doodle: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260' viewBox='0 0 260 260' fill='none' stroke='%23ffffff' stroke-opacity='0.05' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M22 24h30a6 6 0 0 1 6 6v14a6 6 0 0 1-6 6H36l-8 7v-7h-6a6 6 0 0 1-6-6V30a6 6 0 0 1 6-6z'/%3E%3Cpath d='M110 58s-16-9-16-20a8 8 0 0 1 16-3 8 8 0 0 1 16 3c0 11-16 20-16 20z'/%3E%3Cpath d='M190 18l5 10 11 2-8 8 2 11-10-5-10 5 2-11-8-8 11-2z'/%3E%3Ccircle cx='236' cy='46' r='12'/%3E%3Cpath d='M236 39v7l5 3'/%3E%3Cpath d='M26 96c0 16 12 28 28 28l4-7-8-5-4 4c-5-2-10-7-12-12l4-4-5-8z'/%3E%3Cpath d='M104 124V98l18-4v24'/%3E%3Ccircle cx='99' cy='124' r='5'/%3E%3Ccircle cx='117' cy='118' r='5'/%3E%3Ccircle cx='182' cy='110' r='14'/%3E%3Cpath d='M176 114c3 4 9 4 12 0M177 105h.1M187 105h.1'/%3E%3Cpath d='M214 128l34-16-12 30-7-9-15-5zM229 133l19-21'/%3E%3Crect x='18' y='172' width='34' height='24' rx='5'/%3E%3Ccircle cx='35' cy='184' r='7'/%3E%3Cpath d='M28 172l3-5h8l3 5'/%3E%3Cpath d='M98 200h30a9 9 0 0 0 0-18 13 13 0 0 0-25-3 9 9 0 0 0-5 21z'/%3E%3Cpath d='M178 160l-10 20h9l-5 18 14-24h-9l6-14z'/%3E%3Crect x='212' y='176' width='36' height='24' rx='4'/%3E%3Cpath d='M213 178l17 12 17-12'/%3E%3Cpath d='M20 232l6 6 12-12M32 238l2 2 12-12'/%3E%3Cpath d='M96 252c0-20 14-30 34-30 0 20-14 30-34 30zM96 252l20-18'/%3E%3Cpath d='M190 252s-12-12-12-22a12 12 0 0 1 24 0c0 10-12 22-12 22z'/%3E%3Ccircle cx='190' cy='230' r='4'/%3E%3Ccircle cx='66' cy='70' r='3'/%3E%3Ccircle cx='150' cy='72' r='2.5'/%3E%3Ccircle cx='70' cy='144' r='2'/%3E%3Ccircle cx='148' cy='150' r='3'/%3E%3Ccircle cx='246' cy='214' r='2'/%3E%3Ccircle cx='60' cy='214' r='2.5'/%3E%3C/svg%3E");
-    --c-chat-pattern: rgba(233, 237, 239, 0.04);
-    --c-bubble-in: #202c33;
-    --c-bubble-in-text: #e9edef;
-    --c-bubble-out: #005c4b;
-    --c-bubble-out-text: #e9edef;
-    --c-bubble-out-meta: rgba(233, 237, 239, 0.6);
-    --c-bubble-shadow: 0 1px 0.5px rgba(11, 20, 26, 0.13);
-    --c-quote-in: #1d282f;
-    --c-quote-out: #025144;
-    --c-tick-seen: #53bdeb;
-    --c-tick-seen-in: #53bdeb;
-    --c-reply-bar: #06cf9c;
-    --c-system-bubble: #182229;
-    --c-system-text: #8696a0;
-    --c-notice-bubble: #182229;
+    --c-panel-header: #12132b;
+    --c-rail: #08091a;
+    --c-icon: #b4b2d8;
+    --c-input: #1a1b37;
+    --c-list-active: #1f2048;
+    --c-unread: #8b5cf6;
+    --c-unread-text: #ffffff;
+    --c-fab: linear-gradient(135deg, #5b50f0 0%, #8b5cf6 100%);
+    --c-nav-active: rgba(124, 115, 255, 0.2);
+    --c-brand: #eceaff;
 
-    --shadow-xs: 0 1px 0.5px rgba(0, 0, 0, 0.35);
-    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.45);
-    --shadow-md: 0 2px 5px rgba(0, 0, 0, 0.5), 0 2px 10px rgba(0, 0, 0, 0.3);
-    --shadow-lg: 0 17px 50px rgba(0, 0, 0, 0.55), 0 12px 15px rgba(0, 0, 0, 0.4);
+    --c-chat-bg: #0e0f24;
+    --c-chat-doodle: radial-gradient(rgba(170, 164, 255, 0.07) 1.2px, transparent 1.3px);
+    --c-chat-pattern: rgba(170, 164, 255, 0.05);
+    --c-bubble-in: #1d1e3d;
+    --c-bubble-in-text: #eceaff;
+    --c-bubble-out: #5f4ff0;
+    --c-bubble-out-text: #ffffff;
+    --c-bubble-out-meta: rgba(255, 255, 255, 0.72);
+    --g-bubble-out: linear-gradient(135deg, #5046e5 0%, #7c3aed 100%);
+    --c-bubble-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+    --c-quote-in: #16172f;
+    --c-quote-out: rgba(255, 255, 255, 0.14);
+    --c-tick-seen: #a5f3fc;
+    --c-tick-seen-in: #aaa4ff;
+    --c-reply-bar: #a78bfa;
+    --c-system-bubble: #1a1b37;
+    --c-system-text: #a4a2c8;
+    --c-notice-bubble: #2a2442;
+
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.45);
+    --shadow-md: 0 8px 22px -8px rgba(0, 0, 0, 0.6);
+    --shadow-lg: 0 24px 50px -12px rgba(0, 0, 0, 0.7);
 }
 
 /* ==========================================================================

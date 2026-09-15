@@ -26,7 +26,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Account report · {{ $account['name'] }} · {{ $data['report']['app'] }}</title>
     <style>
-        :root { color-scheme: light; --ink: #111b21; --muted: #667781; --line: #e9edef; --band: #008069; --soft: #f0f2f5; }
+        :root { color-scheme: light; --ink: #17152e; --muted: #69668a; --line: #e8e6f3; --band: #4f46e5; --soft: #f4f3fb; }
         * { box-sizing: border-box; }
         body { margin: 0; font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--ink); background: var(--soft); }
         header { padding: 2rem 1.25rem 3.5rem; color: #fff; background: var(--band); }

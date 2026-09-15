@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Admin panel — WhatsApp colours: white / dark panels, green accents.
+   Admin panel — Indigo Night: white / dark panels, indigo → violet accents.
    Phones: the menu slides in from the left (checkbox #admin-nav-toggle, no JS).
    ========================================================================== */
 
@@ -43,9 +43,9 @@
     min-height: 4rem;
     padding: 0.75rem 0.75rem 0.75rem 1.1rem;
     color: #fff;
-    background: var(--c-admin-brand, #008069);
+    background: var(--c-admin-brand, #4f46e5);
 }
-.admin-brand-mark { display: grid; place-items: center; width: 2.4rem; height: 2.4rem; border-radius: 999px; color: var(--c-admin-brand, #008069); background: #fff; flex: none; }
+.admin-brand-mark { display: grid; place-items: center; width: 2.4rem; height: 2.4rem; border-radius: 12px; color: #4f46e5; background: #fff; flex: none; }
 .admin-brand-mark .icon { width: 1.25rem; height: 1.25rem; }
 .admin-brand-text { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.2; }
 .admin-brand-text strong { font-size: 1rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -284,7 +284,7 @@ a.stat-card:hover { border-color: var(--tone); transform: translateY(-1px); }
 .admin-msg:target .admin-bubble { box-shadow: 0 0 0 3px var(--c-primary); }
 .admin-msg-avatar { flex: none; margin-bottom: 0.1rem; }
 .admin-bubble { min-width: 7rem; padding: 0.35rem 0.55rem 0.3rem; border-radius: 8px; color: var(--c-bubble-in-text); background: var(--c-bubble-in); box-shadow: var(--c-bubble-shadow); overflow-wrap: anywhere; }
-.admin-msg.is-right .admin-bubble { color: var(--c-bubble-out-text); background: var(--c-bubble-out); }
+.admin-msg.is-right .admin-bubble { color: var(--c-bubble-out-text); background: var(--g-bubble-out, var(--c-bubble-out)); --c-muted: rgba(255, 255, 255, 0.8); --c-primary-text: #fff; --c-bubble-out-meta: rgba(255, 255, 255, 0.78); }
 .admin-bubble-head { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; margin-bottom: 0.15rem; }
 .admin-bubble-sender { font-size: 0.8rem; font-weight: 600; color: hsl(var(--hue, 200) 55% 38%); }
 [data-theme='dark'] .admin-bubble-sender { color: hsl(var(--hue, 200) 70% 68%); }

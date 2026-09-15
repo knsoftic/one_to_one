@@ -990,12 +990,12 @@ export function conversationIntro(user) {
 
 export function historyStart(type = 'direct') {
     const text = {
-        group: 'Messages are private to the people in this group.',
+        group: 'Messages here go to the people in this group.',
         broadcast: 'Messages sent here reach each person in their own chat with you.',
         channel: "Updates from this channel. Followers can react, but can't reply or see each other.",
-        true: 'Messages are private to the people in this group.',
-    }[String(type)] ?? 'Messages are private between you and this person.';
-    const symbol = { broadcast: 'megaphone', channel: 'rss' }[String(type)] ?? 'lock';
+        true: 'Messages here go to the people in this group.',
+    }[String(type)] ?? 'Messages here go only to you and this person.';
+    const symbol = { broadcast: 'megaphone', channel: 'rss' }[String(type)] ?? 'message-circle';
     return `<div class="history-start" data-history-start>${icon(symbol, 'icon-xs')} ${text}</div>`;
 }
 

@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Settings, WhatsApp style
+   Settings screens (Indigo Night)
    Phones / the app: a list screen, then one full screen per section (back arrow).
    Web (768px and up): the list on the left and the open section on the right.
    ========================================================================== */
@@ -296,3 +296,20 @@ button.wa-field { cursor: pointer; }
 
 /* App lock timeout (inside the Android app): keep its width in the row and show the arrow */
 .wa-settings .wa-row select.setting-select { flex: none; width: auto; min-width: 9.5rem; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23667781' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 0.7rem center; background-size: 1rem; }
+
+/* Indigo Night: gradient app bars on phones, soft rows */
+.wa-row-icon, .wa-menu-row > .icon { color: var(--c-primary-text); }
+.wa-menu-row.is-danger > .icon, .wa-row.is-danger .wa-row-icon { color: var(--c-danger); }
+.wa-me-main:hover, .wa-menu-row:hover { background: var(--c-primary-soft); }
+.wa-group-title { color: var(--c-primary-text); font-size: 0.75rem; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; }
+.wa-profile-avatar { box-shadow: 0 0 0 4px var(--c-surface), 0 0 0 6px var(--c-primary-soft); }
+@media (max-width: 767px) {
+    .wa-settings .wa-appbar { background: var(--g-header); color: #fff; }
+    .wa-settings .wa-appbar .btn-icon { color: #fff; }
+    .wa-settings .wa-appbar .btn-icon:hover:not(:disabled) { background: rgba(255, 255, 255, 0.16); }
+    .wa-settings .wa-me-qr.btn-icon { color: var(--c-primary-text); }
+}
+@media (min-width: 768px) {
+    .wa-settings-detail .wa-appbar { background: var(--c-surface); border-bottom: 1px solid var(--c-border); }
+    .wa-menu-row[aria-current='page'], .wa-me-main[aria-current='page'] { background: var(--c-list-active); box-shadow: inset 3px 0 0 var(--c-primary); }
+}

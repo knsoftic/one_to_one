@@ -8,8 +8,8 @@
     <link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml">
     {{-- Self-contained styles: error pages must render even when the app is unhealthy. --}}
     <style>
-        :root { color-scheme: light dark; --bg: #f0f2f5; --card: #fff; --text: #111b21; --muted: #667781; --border: #e9edef; --primary: #00a884; }
-        @media (prefers-color-scheme: dark) { :root { --bg: #0c1317; --card: #111b21; --text: #e9edef; --muted: #8696a0; --border: #222d34; --primary: #00a884; } }
+        :root { color-scheme: light dark; --bg: #f4f3fb; --card: #fff; --text: #17152e; --muted: #69668a; --border: #e8e6f3; --primary: #4f46e5; }
+        @media (prefers-color-scheme: dark) { :root { --bg: #0b0c1d; --card: #12132b; --text: #eceaff; --muted: #a4a2c8; --border: #222343; --primary: #7c73ff; } }
         * { box-sizing: border-box; }
         body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 1.5rem; background: var(--bg); color: var(--text);
                font-family: 'Inter Variable', Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
