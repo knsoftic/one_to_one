@@ -9,6 +9,7 @@ import { icon } from '../lib/icons';
 import { formatDayLabel, formatListTime, formatTime } from './format';
 import { formatMessageText, stripFormatting } from './formatting';
 import { speedLabel, voiceSpeed } from './voice';
+import { labelDots } from './business';
 
 /* ------------------------------------------------------------------ */
 /* Avatars                                                             */
@@ -53,7 +54,7 @@ export function statusTicks(status, { pop = false } = {}) {
 /* Sidebar                                                             */
 /* ------------------------------------------------------------------ */
 
-export function conversationItem(conversation, { active = false, typing = false, draft = '' } = {}) {
+export function conversationItem(conversation, { active = false, typing = false, draft = '', labels = [] } = {}) {
     const user = conversation.participant ?? {};
     const last = conversation.last_message;
     const unread = conversation.unread_count || 0;
@@ -103,6 +104,7 @@ export function conversationItem(conversation, { active = false, typing = false,
                     <span class="conversation-row">
                         <span class="conversation-preview">${raw(preview)}</span>
                         <span class="conversation-badges">
+                            ${raw(labelDots(labels))}
                             ${raw(conversation.blocked_by_me ? `<span class="badge badge-danger" title="Blocked">${icon('ban', 'icon-xs')}</span>` : '')}
                             ${raw(muted ? `<span class="conversation-flag" title="Muted">${icon('bell-off')}</span>` : '')}
                             ${raw(settings.pinned ? `<span class="conversation-flag" title="Pinned">${icon('pin')}</span>` : '')}
@@ -739,7 +741,9 @@ function messageContent(message) {
 
     const forwarded = message.forwarded
         ? `<span class="message-forwarded">${icon('forward')}${message.forwarded_many ? 'Forwarded many times' : 'Forwarded'}</span>`
-        : '';
+        : message.auto_reply
+            ? `<span class="message-forwarded message-auto-reply">${icon('message-square-reply')}${message.auto_reply === 'greeting' ? 'Greeting message' : 'Away message'}</span>`
+            : '';
 
     return forwarded + statusQuote(message) + replyQuote(message) + attachment + card + text;
 }

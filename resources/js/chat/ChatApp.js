@@ -36,6 +36,7 @@ import { Groups, groupSummary } from './groups';
 import { InviteFriends } from './invite';
 import { LocationSharing } from './location';
 import { Mentions } from './mentions';
+import { QuickReplies } from './business';
 import { ContactSharing } from './contact-share';
 import { Polls } from './poll';
 import { DisappearingMessages } from './disappearing';
@@ -207,6 +208,7 @@ export class ChatApp {
         this.profileQr = new ProfileQr(this);
         this.groupInvites = new GroupInvites(this);
         this.mentions = new Mentions(this);
+        this.quickReplies = new QuickReplies(this);
         this.pins = new PinnedMessages(this);
         this.linkPreviews = new LinkPreviewComposer(this);
         this.chatLock = new ChatLock(this);
@@ -599,6 +601,7 @@ export class ChatApp {
                             active: conversation.id === this.active?.id,
                             typing: this.typingLabel(conversation),
                             draft: conversation.id === this.active?.id ? '' : this.drafts.get(conversation.id),
+                            labels: this.chatLists?.labelsFor(conversation.id) ?? [],
                         },
                     ),
                 )

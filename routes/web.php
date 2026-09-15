@@ -18,6 +18,7 @@ use App\Http\Controllers\Auth\TwoStepController;
 use App\Http\Controllers\BackupController;
 use App\Http\Controllers\BlockController;
 use App\Http\Controllers\BroadcastController;
+use App\Http\Controllers\BusinessController;
 use App\Http\Controllers\CallController;
 use App\Http\Controllers\CallLinkController;
 use App\Http\Controllers\CallLogController;
@@ -551,6 +552,16 @@ Route::middleware(['auth', 'active'])->group(function () {
     // Wallpaper for all chats (D2)
     Route::post('/settings/wallpaper', [ChatPreferencesController::class, 'updateWallpaper'])->middleware('throttle:chat-actions')->name('settings.wallpaper.update');
     Route::get('/settings/wallpaper', [ChatPreferencesController::class, 'showWallpaper'])->name('settings.wallpaper.show');
+    // Business tools (X8)
+    Route::put('/settings/business', [BusinessController::class, 'saveProfile'])->name('business.profile');
+    Route::put('/settings/business/messages', [BusinessController::class, 'saveMessages'])->name('business.messages');
+    Route::delete('/settings/business', [BusinessController::class, 'destroy'])->name('business.destroy');
+    Route::get('/quick-replies', [BusinessController::class, 'quickReplies'])->name('quick-replies.index');
+    Route::post('/quick-replies', [BusinessController::class, 'storeQuickReply'])->middleware('throttle:chat-actions')->name('quick-replies.store');
+    Route::put('/quick-replies/{quickReply}', [BusinessController::class, 'updateQuickReply'])->whereNumber('quickReply')->name('quick-replies.update');
+    Route::delete('/quick-replies/{quickReply}', [BusinessController::class, 'destroyQuickReply'])->whereNumber('quickReply')->name('quick-replies.destroy');
+    Route::get('/users/{user}/business', [BusinessController::class, 'show'])->whereNumber('user')->name('users.business');
+
     // Manage storage (D6)
     Route::get('/settings/storage', [StorageController::class, 'summary'])->middleware('throttle:chat-search')->name('storage.summary');
     Route::get('/settings/storage/files', [StorageController::class, 'files'])->middleware('throttle:chat-search')->name('storage.files');

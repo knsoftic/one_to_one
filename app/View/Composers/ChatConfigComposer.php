@@ -55,6 +55,8 @@ class ChatConfigComposer
             'conversationSettings' => ['conversations.settings', ['conversation' => $id]],
             'conversationWallpaper' => ['conversations.wallpaper.update', ['conversation' => $id]],
             'conversationExport' => ['conversations.export', ['conversation' => $id]],
+            'quickReplies' => ['quick-replies.index', []],
+            'userBusiness' => ['users.business', ['user' => $id]],
             'chatLockPin' => ['chat-lock.pin.store', []],
             'chatLockPinDestroy' => ['chat-lock.pin.destroy', []],
             'chatLockUnlock' => ['chat-lock.unlock', []],
@@ -199,6 +201,8 @@ class ChatConfigComposer
             'linkDevice' => $view->getData()['linkDevice'] ?? null,
             // Opened from someone's profile QR code (A4).
             'profileQr' => $view->getData()['profileQr'] ?? null,
+            // X8: quick replies ("/" in the typing box) for business accounts.
+            'business' => $user ? ['enabled' => $user->businessProfile()->exists()] : null,
             // Export chat (D7): a ZIP with media needs PHP's zip extension.
             'export' => ['media' => class_exists(\ZipArchive::class)],
             // Status (Phase 5).

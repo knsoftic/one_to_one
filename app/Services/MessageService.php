@@ -150,6 +150,23 @@ class MessageService
     }
 
     /**
+     * X8 — a business's automatic away message or greeting.
+     */
+    public function sendAutoReply(User $business, Conversation $conversation, string $text, string $kind): Message
+    {
+        $text = $this->cleanText($text);
+        if (trim($text) === '') {
+            throw new HttpException(422, 'The automatic message is empty.');
+        }
+
+        return $this->create($business, $conversation, [
+            'message' => $text,
+            'message_type' => Message::TYPE_TEXT,
+            'attachment_meta' => ['auto_reply' => $kind],
+        ]);
+    }
+
+    /**
      * A reply or reaction to someone's status update (S4), quoting the update.
      *
      * @param  array<string, mixed>  $quote

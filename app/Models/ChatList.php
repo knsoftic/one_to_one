@@ -15,7 +15,10 @@ class ChatList extends Model
 
     public const MAX_NAME = 30;
 
-    protected $fillable = ['user_id', 'name', 'position'];
+    /** X8 — colours that turn lists into labels. */
+    public const COLORS = ['indigo', 'green', 'amber', 'red', 'pink', 'sky', 'teal', 'slate'];
+
+    protected $fillable = ['user_id', 'name', 'color', 'position'];
 
     public function user(): BelongsTo
     {
@@ -35,6 +38,7 @@ class ChatList extends Model
         return [
             'id' => $this->id,
             'name' => $this->name,
+            'color' => $this->color,
             'conversation_ids' => $this->conversations->modelKeys(),
         ];
     }

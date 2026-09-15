@@ -1,6 +1,7 @@
 import { html, raw } from '../lib/dom';
 import { icon } from '../lib/icons';
 import { formatLastSeen } from './format';
+import { businessSection } from './business';
 import * as T from './templates';
 
 /**
@@ -13,6 +14,8 @@ export class ContactInfo {
         this.chat = chat;
         this.panel = null;
         this.conversationId = null;
+        /** X8: business details by user id (null = normal account). */
+        this.businesses = new Map();
 
         chat.el.headerUser?.addEventListener('click', () => {
             const conversation = chat.activeConversation();
@@ -59,10 +62,23 @@ export class ContactInfo {
 
         this.render(conversation);
         overlay.querySelector('[data-info-close].btn-icon')?.focus();
+        this.loadBusiness(conversation, overlay);
 
         // Fresh details (About or photo may have changed).
         conversation = (await this.chat.refreshConversation?.(Number(conversationId))) ?? conversation;
         if (this.panel === overlay && conversation) this.render(conversation);
+    }
+
+    async loadBusiness(conversation, overlay) {
+        const userId = Number(conversation.participant?.id);
+        if (!userId || !this.chat.api.has('userBusiness') || this.businesses.has(userId)) return;
+        try {
+            this.businesses.set(userId, (await this.chat.api.userBusiness(userId)).business ?? null);
+        } catch {
+            return;
+        }
+        const current = this.chat.conversations.get(this.conversationId);
+        if (this.panel === overlay && current && this.businesses.get(userId)) this.render(current);
     }
 
     close() {
@@ -71,6 +87,8 @@ export class ContactInfo {
         this.panel.remove();
         this.panel = null;
         this.conversationId = null;
+        /** X8: business details by user id (null = normal account). */
+        this.businesses = new Map();
         this.previousFocus?.focus?.();
     }
 
@@ -95,6 +113,7 @@ export class ContactInfo {
                     <p class="group-info-count">@${profile.username ?? ''}${savedName ? ` · ~${savedName}` : ''}</p>
                     ${raw(presence ? html`<p class="contact-info-presence">${presence}</p>` : '')}
                 </section>
+                ${raw(businessSection(this.businesses.get(Number(profile.id))))}
                 ${raw(profile.about ? html`
                     <section class="group-info-section">
                         <span class="group-info-label">About</span>

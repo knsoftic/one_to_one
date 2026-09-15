@@ -1070,3 +1070,11 @@ Ctrl/⌘+K search chats · Alt+↑/↓ previous/next chat · Ctrl+Shift+F search
 - **`docs/PLAY-STORE.md`**: developer account, upload key and `keystore.properties` (already wired in `build.gradle`), `bundleRelease`, store listing texts (short and full description), graphics, every App content answer (app access, rating, audience, child safety, account deletion, foreground service and full-screen intent declarations), a filled **Data safety** table, closed testing rule for new personal accounts, release and update checklist.
 - Tests: `tests/Feature/LegalPagesTest`.
 - You still need to: create the Play developer account, the upload key, and the store listing graphics/screenshots, then follow the guide.
+
+### X8 — Business tools ✅
+- **Settings → Business tools**: turn on a business account with a category, description, address, business email, website and **business hours** (set hours per day incl. past midnight, open 24 hours, or by appointment). Turning it off keeps quick replies and lists.
+- **Away message**: always, outside business hours, or between two dates; to everyone or only people not in your contacts; at most once a day per chat. **Greeting message**: for people writing for the first time or after 14 quiet days. Sent automatically after the customer's message (after the response), marked "Away message" / "Greeting message" in the chat; two businesses never answer each other in a loop; blocked people get nothing.
+- **Quick replies** (up to 50): saved in settings; in any chat type `/` (or `/shortcut`) for suggestions — arrow keys + Enter/Tab or a tap puts the saved text in the typing box.
+- **Labels**: chat lists can have a colour; coloured lists show as dots on the chat rows, in the filter chips and in "Add to list".
+- **Contact info** of a business shows its category, description, address, "Open now / Closed now" with the week's hours, email and website (http/https links only).
+- Files: migration `2026_09_29_000001_create_business_tools`, `BusinessProfile`, `QuickReply`, `BusinessService`, `SendBusinessAutoReply`, `QueueBusinessAutoReply`, `BusinessController`, `profile/sections/business.blade.php`, `resources/js/chat/business.js`, chat-lists/contact-info/templates changes. Tests: `tests/Feature/Chat/BusinessToolsTest`, `resources/js/chat/__tests__/business.test.js`.

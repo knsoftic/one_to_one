@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Str;
@@ -183,13 +184,24 @@ class User extends Authenticatable
         return $this->hasMany(ChatList::class);
     }
 
-    /** Mobile app installs that receive push notifications for this user. */
+    /** X8 — business profile (null for a normal account). */
+    public function businessProfile(): HasOne
+    {
+        return $this->hasOne(BusinessProfile::class);
+    }
+
+    public function quickReplies(): HasMany
+    {
+        return $this->hasMany(QuickReply::class);
+    }
+
     /** X3 — browsers that receive push notifications. */
     public function webPushSubscriptions(): HasMany
     {
         return $this->hasMany(WebPushSubscription::class);
     }
 
+    /** Mobile app installs that receive push notifications for this user. */
     public function deviceTokens(): HasMany
     {
         return $this->hasMany(DeviceToken::class);

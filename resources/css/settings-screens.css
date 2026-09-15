@@ -342,3 +342,44 @@ button.wa-field { cursor: pointer; }
 .auth-legal a:hover, .wa-legal a:hover { color: var(--c-primary-text); text-decoration: underline; }
 .wa-legal { margin: 1.25rem 1rem 0; }
 .auth-hero-footer a { color: inherit; }
+
+/* X8 — Settings → Business tools */
+.business-intro { display: grid; justify-items: center; gap: 0.6rem; padding: 1.4rem var(--wa-pad) 0.9rem; text-align: center; }
+.business-intro-art { display: grid; place-items: center; width: 4rem; height: 4rem; border-radius: 1.3rem; color: #fff; background: var(--g-brand); box-shadow: 0 14px 30px -18px rgba(79, 70, 229, 0.9); }
+.business-intro-art .icon { width: 1.9rem; height: 1.9rem; }
+.business-intro-title { margin: 0.2rem 0 0; font-size: 1.1rem; text-wrap: balance; }
+.business-intro-list { display: grid; gap: 0.55rem; max-width: 30rem; margin: 0.3rem 0 0; padding: 0; list-style: none; text-align: left; font-size: 0.9rem; line-height: 1.45; }
+.business-intro-list li { display: flex; gap: 0.65rem; }
+.business-intro-list .icon { flex: none; width: 1.15rem; height: 1.15rem; margin-top: 0.1rem; color: var(--c-primary-text); }
+.business-form .form-group { margin: 0; }
+.business-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: 1rem; }
+.business-hours { display: grid; gap: 0.7rem; min-width: 0; margin: 0; padding: 0; border: 0; }
+.business-hours legend { margin-bottom: 0.5rem; }
+.business-days { display: grid; gap: 0.35rem; }
+.business-hours:has([data-hours-mode][value="custom"]:not(:checked)) .business-days { display: none; }
+.business-day { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.4rem 1rem; padding: 0.35rem 0; border-bottom: 1px dashed var(--c-border); }
+.business-day:last-child { border-bottom: 0; }
+.business-day-name { min-width: 7.5rem; color: var(--c-text); }
+.business-day-times { display: inline-flex; align-items: center; gap: 0.45rem; color: var(--c-muted); }
+.business-day-times .form-control { width: 8.6rem; padding-block: 0.4rem; font-variant-numeric: tabular-nums; }
+.business-day:has([data-day-open]:not(:checked)) .business-day-times { opacity: 0.4; }
+.business-switch { display: flex; align-items: center; justify-content: space-between; gap: 1rem; cursor: pointer; }
+.business-switch > span:first-child { display: grid; gap: 0.15rem; }
+.business-switch strong { font-size: 0.98rem; font-weight: 600; }
+.business-switch small { font-size: 0.82rem; line-height: 1.4; color: var(--c-muted); }
+.business-form:has([data-away-schedule] option[value="custom"]:not(:checked)) [data-away-custom] { display: none; }
+.quick-reply-list { display: grid; }
+.quick-reply { border-bottom: 1px solid var(--c-border); }
+.quick-reply summary { display: flex; align-items: center; gap: 0.75rem; padding: 0.7rem var(--wa-pad); cursor: pointer; list-style: none; }
+.quick-reply summary::-webkit-details-marker { display: none; }
+.quick-reply summary:hover { background: var(--c-surface-2); }
+.quick-reply-shortcut { flex: none; padding: 0.15rem 0.55rem; border-radius: 999px; font-size: 0.82rem; font-weight: 700; color: var(--c-primary-text); background: var(--c-primary-soft); }
+.quick-reply-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.9rem; color: var(--c-muted); }
+.quick-reply-edit { flex: none; width: 1rem; height: 1rem; color: var(--c-subtle); }
+.quick-reply[open] .quick-reply-text { white-space: normal; }
+.quick-reply-form { gap: 0.6rem; padding-top: 0; }
+.quick-reply-new { gap: 0.6rem; padding-top: 0.9rem; }
+.quick-reply-shortcut-input { position: relative; }
+.quick-reply-slash { position: absolute; top: 50%; left: 0.85rem; transform: translateY(-50%); font-weight: 700; color: var(--c-primary-text); pointer-events: none; }
+.quick-reply-shortcut-input .form-control { padding-left: 1.6rem; }
+.wa-settings .btn.is-danger { color: var(--c-danger); }

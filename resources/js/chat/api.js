@@ -118,6 +118,9 @@ export function createApi(routes) {
         unlockChats: (pin) => data(axios.post(url('chatLockUnlock'), { pin })),
         lockChats: () => data(axios.post(url('chatLockLock'))),
         chatLists: () => data(axios.get(url('chatLists'))),
+        // X8: business tools.
+        quickReplies: () => data(axios.get(url('quickReplies'))),
+        userBusiness: (userId) => data(axios.get(url('userBusiness', userId))),
         createChatList: (payload) => data(axios.post(url('chatListsStore'), payload)),
         updateChatList: (id, payload) => data(axios.patch(url('chatListUpdate', id), payload)),
         deleteChatList: (id) => data(axios.delete(url('chatListDestroy', id))),

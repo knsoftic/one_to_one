@@ -75,6 +75,8 @@ class MessageResource extends JsonResource
                 'opened_at' => $this->attachment_meta['opened_at'] ?? null,
                 'available' => $this->attachment !== null && empty($this->attachment_meta['opened_at']),
             ]),
+            // X8: sent automatically by a business (away message or greeting).
+            'auto_reply' => $this->when(! $deleted && ! empty($this->attachment_meta['auto_reply']), fn () => (string) $this->attachment_meta['auto_reply']),
             'forwarded' => ! $deleted && $this->forward_count > 0,
             'forwarded_many' => ! $deleted && $this->forward_count >= 5,
             'edited_at' => $this->edited_at?->toIso8601String(),

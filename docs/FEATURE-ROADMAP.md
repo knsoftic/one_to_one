@@ -155,7 +155,7 @@ light/dark theme · admin panel.
 | X5 | **Play Store release** | Signed release, store listing, privacy policy page | 🟡 | [x] |
 | X6 | **Desktop keyboard shortcuts** | Ctrl+K search, Esc, Alt+↑/↓ chat badalna | 🟢 | [x] |
 | X7 | **iPhone app** | iOS build (Mac + Apple Developer $99/saal chahiye) | 🟠 | [ ] |
-| X8 | **Business tools** (optional) | Business profile, quick replies, away message, labels | 🟠 | [ ] |
+| X8 | **Business tools** (optional) | Business profile, quick replies, away message, labels | 🟠 | [x] |
 
 ---
 

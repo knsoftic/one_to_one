@@ -497,3 +497,66 @@ kbd {
 @media (prefers-reduced-motion: reduce) {
     .app-update-notice { animation: none; }
 }
+
+/* ==========================================================================
+   X8 — Business tools
+   ========================================================================== */
+
+/* Label colours (chat lists with a colour). */
+:root {
+    --label-indigo: #6366f1; --label-green: #16a34a; --label-amber: #d97706; --label-red: #dc2626;
+    --label-pink: #db2777; --label-sky: #0284c7; --label-teal: #0d9488; --label-slate: #64748b;
+}
+.label-dot, .label-swatch { --label: var(--label-slate); background: var(--label); }
+:is(.label-dot, .label-swatch).is-indigo { --label: var(--label-indigo); }
+:is(.label-dot, .label-swatch).is-green { --label: var(--label-green); }
+:is(.label-dot, .label-swatch).is-amber { --label: var(--label-amber); }
+:is(.label-dot, .label-swatch).is-red { --label: var(--label-red); }
+:is(.label-dot, .label-swatch).is-pink { --label: var(--label-pink); }
+:is(.label-dot, .label-swatch).is-sky { --label: var(--label-sky); }
+:is(.label-dot, .label-swatch).is-teal { --label: var(--label-teal); }
+.label-dot { display: inline-block; flex: none; width: 0.55rem; height: 0.55rem; border-radius: 999px; }
+.label-dots { display: inline-flex; align-items: center; }
+.label-dots .label-dot { box-shadow: 0 0 0 2px var(--c-surface); }
+.label-dots .label-dot + .label-dot { margin-left: -0.15rem; }
+.chip .label-dot { margin-right: 0.4rem; }
+.chip.is-active .label-dot { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85); }
+.label-colors { display: flex; flex-wrap: wrap; align-items: center; gap: 0.45rem; margin: 0.15rem 0 0.25rem; padding: 0; border: 0; }
+.label-colors legend { margin-bottom: 0.35rem; }
+.label-color { position: relative; cursor: pointer; }
+.label-color input { position: absolute; opacity: 0; pointer-events: none; }
+.label-swatch { display: grid; place-items: center; width: 1.7rem; height: 1.7rem; border-radius: 999px; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08); transition: transform 0.12s ease; }
+.label-swatch.is-none { color: var(--c-muted); background: var(--c-surface-2); }
+.label-swatch .icon { width: 0.9rem; height: 0.9rem; }
+.label-color:hover .label-swatch { transform: scale(1.08); }
+.label-color input:checked + .label-swatch { box-shadow: 0 0 0 2px var(--c-surface), 0 0 0 4px var(--label); }
+.label-color input:checked + .label-swatch.is-none { box-shadow: 0 0 0 2px var(--c-surface), 0 0 0 4px var(--c-border-strong); }
+.label-color input:focus-visible + .label-swatch { outline: 2px solid var(--c-primary); outline-offset: 4px; }
+
+/* Quick replies popup ("/" in the typing box). */
+.quick-reply-popup { max-height: min(20rem, 50vh); overflow-y: auto; }
+.quick-reply-option { flex-direction: column; align-items: flex-start; gap: 0.1rem; width: 100%; }
+.quick-reply-option-shortcut { font-size: 0.82rem; font-weight: 700; color: var(--c-primary-text); }
+.quick-reply-option-text { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 0.86rem; line-height: 1.35; color: var(--c-muted); white-space: pre-line; }
+.quick-reply-empty { display: flex; align-items: center; gap: 0.45rem; margin: 0; padding: 0.55rem 0.5rem; font-size: 0.86rem; color: var(--c-muted); }
+.quick-reply-empty .icon { width: 1rem; height: 1rem; color: var(--c-primary-text); }
+.quick-reply-manage { display: flex; align-items: center; gap: 0.45rem; margin-top: 0.2rem; padding: 0.5rem; border-top: 1px solid var(--c-border); font-size: 0.82rem; font-weight: 600; text-decoration: none; color: var(--c-primary-text); }
+.quick-reply-manage .icon { width: 0.9rem; height: 0.9rem; }
+
+/* Business details in the contact info. */
+.business-info { gap: 0.55rem; }
+.business-info-badge { display: inline-flex; align-self: flex-start; align-items: center; gap: 0.4rem; padding: 0.25rem 0.6rem; border-radius: 999px; font-size: 0.78rem; font-weight: 600; color: var(--c-primary-text); background: var(--c-primary-soft); }
+.business-info-badge .icon { width: 0.9rem; height: 0.9rem; }
+.business-info-row { display: flex; align-items: center; gap: 0.7rem; margin: 0; font-size: 0.9rem; color: var(--c-text); text-decoration: none; overflow-wrap: anywhere; list-style: none; }
+.business-info-row::-webkit-details-marker { display: none; }
+.business-info-row > .icon { flex: none; width: 1.1rem; height: 1.1rem; color: var(--c-muted); }
+a.business-info-row, summary.business-info-row { cursor: pointer; }
+a.business-info-row span { color: var(--c-primary-text); }
+a.business-info-row:hover span { text-decoration: underline; }
+.business-open { font-weight: 600; }
+.business-open.is-open { color: var(--c-success, #16a34a); }
+.business-open.is-closed { color: var(--c-danger); }
+.business-info-more { width: 1rem; height: 1rem; margin-left: auto; color: var(--c-muted); transition: transform 0.15s ease; }
+.business-info-hours[open] .business-info-more { transform: rotate(180deg); }
+.business-hours-list { display: grid; gap: 0.2rem; margin: 0.4rem 0 0 1.8rem; padding: 0; list-style: none; font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+.business-hours-list li { display: flex; justify-content: space-between; gap: 1rem; color: var(--c-muted); }

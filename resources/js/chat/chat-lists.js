@@ -2,6 +2,7 @@ import { errorMessage, html, raw } from '../lib/dom';
 import { icon } from '../lib/icons';
 import { confirmDialog } from '../lib/modal';
 import { toast } from '../lib/toast';
+import { LABEL_COLORS, labelsFor } from './business';
 
 /**
  * C6 — Favourites and your own chat lists ("Family", "Work"…) as filters above the chat list.
@@ -68,9 +69,15 @@ export class ChatLists {
         this.chips.innerHTML = this.lists
             .map((list) => {
                 const active = this.chat.filter === `list:${list.id}`;
-                return html`<button type="button" class="chip${active ? ' is-active' : ''}" data-filter="list:${list.id}" role="tab" aria-selected="${active ? 'true' : 'false'}" title="Right-click to edit">${list.name}</button>`;
+                const dot = list.color ? `<span class="label-dot is-${list.color}" aria-hidden="true"></span>` : '';
+                return html`<button type="button" class="chip${active ? ' is-active' : ''}" data-filter="list:${list.id}" role="tab" aria-selected="${active ? 'true' : 'false'}" title="Right-click to edit">${raw(dot)}${list.name}</button>`;
             })
             .join('');
+    }
+
+    /** X8: coloured lists work as labels on the chat rows. */
+    labelsFor(conversationId) {
+        return labelsFor(conversationId, this.lists);
     }
 
     byFilter(filter) {
@@ -128,6 +135,11 @@ export class ChatLists {
                 <h2 class="modal-title" id="chat-list-title">${list ? 'Edit list' : 'New list'}</h2>
                 <label class="form-label" for="chat-list-name">List name</label>
                 <input class="form-control" id="chat-list-name" name="name" maxlength="${MAX_LIST_NAME}" placeholder="e.g. Family, Work" value="${list?.name ?? ''}" autocomplete="off" required>
+                <fieldset class="label-colors">
+                    <legend class="form-label">Label colour <span class="optional">(shows on the chats)</span></legend>
+                    <label class="label-color" title="No colour"><input type="radio" name="color" value="" aria-label="No colour" ${raw(list?.color ? '' : 'checked')}><span class="label-swatch is-none">${raw(icon('x'))}</span></label>
+                    ${raw(LABEL_COLORS.map((color) => html`<label class="label-color" title="${color}"><input type="radio" name="color" value="${color}" aria-label="${color}" ${raw(list?.color === color ? 'checked' : '')}><span class="label-swatch is-${color}"></span></label>`).join(''))}
+                </fieldset>
                 <div class="input-wrap">
                     ${raw(icon('search'))}
                     <input type="search" class="form-control" placeholder="Search chats" data-list-search aria-label="Search chats">
@@ -174,6 +186,7 @@ export class ChatLists {
             const form = event.target;
             const name = form.name.value.replace(/\s+/g, ' ').trim();
             const ids = [...overlay.querySelectorAll('.chat-list-choice input:checked')].map((input) => Number(input.value));
+            const color = form.querySelector('input[name="color"]:checked')?.value || null;
             const error = overlay.querySelector('[data-list-error]');
 
             if (!name) {
@@ -184,8 +197,8 @@ export class ChatLists {
 
             try {
                 const saved = list
-                    ? await this.chat.api.updateChatList(list.id, { name, conversation_ids: ids })
-                    : await this.chat.api.createChatList({ name, conversation_ids: ids });
+                    ? await this.chat.api.updateChatList(list.id, { name, color, conversation_ids: ids })
+                    : await this.chat.api.createChatList({ name, color, conversation_ids: ids });
                 this.lists = list ? this.lists.map((entry) => (entry.id === saved.id ? saved : entry)) : [...this.lists, saved];
                 close();
                 this.renderChips();
@@ -225,6 +238,7 @@ export class ChatLists {
                     ${raw(this.lists.map((list) => html`
                         <label class="chat-list-choice">
                             <input type="checkbox" value="${list.id}" ${raw(list.conversation_ids.includes(conversation.id) ? 'checked' : '')}>
+                            ${raw(list.color ? `<span class="label-dot is-${list.color}" aria-hidden="true"></span>` : '')}
                             <span>${list.name}</span>
                         </label>`).join(''))}
                 </div>

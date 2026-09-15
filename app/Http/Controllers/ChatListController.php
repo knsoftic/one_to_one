@@ -34,6 +34,7 @@ class ChatListController extends Controller
         $list = DB::transaction(function () use ($user, $validated) {
             $list = $user->chatLists()->create([
                 'name' => $validated['name'],
+                'color' => $validated['color'] ?? null,
                 'position' => (int) $user->chatLists()->max('position') + 1,
             ]);
             $this->syncChats($list, $validated['conversation_ids'] ?? []);
@@ -52,6 +53,9 @@ class ChatListController extends Controller
         DB::transaction(function () use ($chatList, $validated) {
             if (isset($validated['name'])) {
                 $chatList->update(['name' => $validated['name']]);
+            }
+            if (array_key_exists('color', $validated)) {
+                $chatList->update(['color' => $validated['color']]);
             }
             if (array_key_exists('conversation_ids', $validated)) {
                 $this->syncChats($chatList, $validated['conversation_ids'] ?? []);
@@ -79,6 +83,7 @@ class ChatListController extends Controller
                 $partial ? 'sometimes' : 'required', 'string', 'max:'.ChatList::MAX_NAME,
                 Rule::unique('chat_lists', 'name')->where('user_id', $user->getKey())->ignore($list?->id),
             ],
+            'color' => ['sometimes', 'nullable', Rule::in(ChatList::COLORS)],
             'conversation_ids' => ['sometimes', 'array', 'max:500'],
             'conversation_ids.*' => ['integer', 'distinct'],
         ], ['name.unique' => 'You already have a list with this name.']);
