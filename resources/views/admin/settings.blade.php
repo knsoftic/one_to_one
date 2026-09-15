@@ -165,6 +165,7 @@
         <div class="card-body">
             <h3 class="admin-section-title"><x-icon name="smartphone" /> Android app</h3>
             <p class="admin-muted">When you publish a newer version, the app shows "Update available" with what's new. Phones older than the oldest allowed version can't continue until they update.</p>
+            <p class="admin-muted"><x-icon name="store" class="icon-xs" /> Publishing on Google Play? Follow the <a href="{{ route('admin.docs.show', 'play-store') }}">Google Play release guide</a>.</p>
             <form method="POST" action="{{ route('admin.app-release.update') }}" enctype="multipart/form-data" class="admin-form mt-3" data-loading-form novalidate>
                 @csrf
                 @method('PUT')

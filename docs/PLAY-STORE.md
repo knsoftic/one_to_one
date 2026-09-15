@@ -4,6 +4,8 @@ Everything needed to publish the Android app on Google Play. The app project is 
 (package `com.hunario.chat`, target SDK 36, release signing from `keystore.properties`);
 the steps marked **You** need your own accounts and can't be done from the code.
 
+> Live copy with contents and copy buttons: **Admin panel → Guides → Google Play release guide** (<https://chat.hunario.com/admin/docs/play-store>, admins only).
+
 ---
 
 ## 1. Before you start (You)

@@ -4,6 +4,7 @@ use App\Http\Controllers\AccountController;
 use App\Http\Controllers\Admin\AppReleaseController;
 use App\Http\Controllers\Admin\BackupController as AdminBackupController;
 use App\Http\Controllers\Admin\ChatController as AdminChatController;
+use App\Http\Controllers\Admin\DocsController;
 use App\Http\Controllers\Admin\SpaceController;
 use App\Http\Controllers\Admin\SystemController;
 use App\Http\Controllers\Admin\UserDataController;
@@ -64,6 +65,7 @@ use App\Http\Controllers\SyncController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\ViewOnceController;
 use App\Http\Controllers\WebPushController;
+use App\Services\DocsService;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -531,6 +533,10 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('/backups', [AdminBackupController::class, 'store'])->middleware('throttle:chat-export')->name('backups.store');
         Route::get('/backups/{backup}/download', [AdminBackupController::class, 'download'])->whereNumber('backup')->name('backups.download');
         Route::delete('/backups/{backup}', [AdminBackupController::class, 'destroy'])->whereNumber('backup')->name('backups.destroy');
+        // Guides from docs/, live (Play Store, deployment, roadmap)
+        Route::get('/docs', [DocsController::class, 'index'])->name('docs');
+        Route::get('/docs/{doc}', [DocsController::class, 'show'])->whereIn('doc', array_keys(DocsService::DOCS))->name('docs.show');
+        Route::get('/docs/{doc}/download', [DocsController::class, 'download'])->whereIn('doc', array_keys(DocsService::DOCS))->name('docs.download');
         Route::get('/settings', [SystemController::class, 'settings'])->name('settings');
         Route::put('/settings', [SystemController::class, 'updateSettings'])->name('settings.update');
         Route::put('/app-release', [AppReleaseController::class, 'update'])->name('app-release.update');

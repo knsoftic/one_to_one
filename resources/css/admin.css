@@ -457,3 +457,71 @@ a.mini-stat[href]:hover { background: var(--c-primary-soft); }
     .card-header.admin-card-head { flex-wrap: wrap; }
     .admin-user-strip { flex-wrap: wrap; }
 }
+
+/* ==========================================================================
+   Admin → Guides (docs/ files, live)
+   ========================================================================== */
+.doc-index { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr)); gap: 1.1rem; align-items: start; }
+.doc-card .card-body { display: flex; flex-direction: column; gap: 0.8rem; }
+.doc-card-head { display: flex; align-items: center; gap: 0.85rem; color: inherit; text-decoration: none; }
+.doc-card-head:hover .doc-card-title { color: var(--c-primary-text); }
+.doc-card-icon { flex: none; display: grid; place-items: center; width: 2.75rem; height: 2.75rem; border-radius: 0.9rem; color: #fff; background: var(--g-brand); }
+.doc-card-icon .icon { width: 1.3rem; height: 1.3rem; }
+.doc-card-title { display: block; font-size: 1.02rem; }
+.doc-card-meta { display: block; margin-top: 0.1rem; font-size: 0.78rem; color: var(--c-muted); }
+.doc-card-text { margin: 0; font-size: 0.88rem; line-height: 1.5; color: var(--c-muted); }
+.doc-card-sections { display: grid; gap: 0.15rem; margin: 0; padding: 0.6rem 0 0 1.2rem; border-top: 1px solid var(--c-border); font-size: 0.86rem; }
+.doc-card-sections a { color: var(--c-text); text-decoration: none; }
+.doc-card-sections a:hover { color: var(--c-primary-text); text-decoration: underline; }
+.doc-card-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+
+.doc-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.1rem; align-items: start; }
+@media (min-width: 1024px) {
+    .doc-layout { grid-template-columns: 16.5rem minmax(0, 1fr); }
+    .doc-aside { position: sticky; top: 4.75rem; max-height: calc(100dvh - 6rem); overflow-y: auto; }
+}
+.doc-aside { display: flex; flex-direction: column; gap: 0.9rem; min-width: 0; }
+.doc-toc, .doc-others { padding: 0.9rem 1rem; }
+.doc-toc-title { display: flex; align-items: center; gap: 0.5rem; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--c-muted); cursor: pointer; list-style: none; }
+.doc-toc-title::-webkit-details-marker { display: none; }
+.doc-toc-title .icon { width: 1rem; height: 1rem; }
+.doc-toc nav ol { display: grid; gap: 0.1rem; margin: 0.6rem 0 0; padding: 0; list-style: none; }
+.doc-toc a { display: block; padding: 0.3rem 0.55rem; border-radius: 8px; font-size: 0.85rem; line-height: 1.35; color: var(--c-text); text-decoration: none; }
+.doc-toc .doc-toc-level-3 a, .doc-toc .doc-toc-level-4 a { padding-inline-start: 1.3rem; font-size: 0.8rem; color: var(--c-muted); }
+.doc-toc a:hover { background: var(--c-surface-2); }
+.doc-toc a.is-active { color: var(--c-primary-text); font-weight: 600; background: var(--c-primary-soft); }
+.doc-toc-actions { margin-top: 0.7rem; padding-top: 0.7rem; border-top: 1px solid var(--c-border); }
+.doc-others { display: flex; flex-direction: column; gap: 0.35rem; }
+.doc-others a { display: flex; align-items: center; gap: 0.5rem; font-size: 0.86rem; color: var(--c-text); text-decoration: none; }
+.doc-others a:hover { color: var(--c-primary-text); }
+.doc-others .icon { width: 1rem; height: 1rem; color: var(--c-muted); }
+
+.doc-article { min-width: 0; }
+.doc-prose { max-width: 52rem; font-size: 0.95rem; line-height: 1.7; color: var(--c-text); overflow-wrap: anywhere; }
+.doc-prose > :first-child { margin-top: 0; }
+.doc-prose :is(h2, h3, h4) { position: relative; scroll-margin-top: 5rem; line-height: 1.3; text-wrap: balance; }
+.doc-prose h2 { margin: 2.2rem 0 0.8rem; padding-top: 1.4rem; border-top: 1px solid var(--c-border); font-size: 1.3rem; }
+.doc-prose h3 { margin: 1.6rem 0 0.6rem; font-size: 1.08rem; }
+.doc-prose h4 { margin: 1.2rem 0 0.5rem; font-size: 0.98rem; }
+.doc-anchor { margin-inline-start: 0.35rem; font-weight: 400; color: var(--c-subtle); text-decoration: none; opacity: 0; transition: opacity 0.15s ease; }
+.doc-prose :is(h2, h3, h4):hover .doc-anchor, .doc-anchor:focus-visible { opacity: 1; }
+.doc-prose p, .doc-prose ul, .doc-prose ol, .doc-prose blockquote { margin: 0 0 0.9rem; }
+.doc-prose :is(ul, ol) { padding-inline-start: 1.4rem; }
+.doc-prose li + li { margin-top: 0.25rem; }
+.doc-prose li > :is(ul, ol) { margin: 0.25rem 0 0; }
+.doc-prose a { color: var(--c-primary-text); text-decoration: underline; text-underline-offset: 2px; }
+.doc-prose hr { margin: 1.6rem 0; border: 0; border-top: 1px solid var(--c-border); }
+.doc-prose hr + h2 { margin-top: 0; padding-top: 0; border-top: 0; }
+.doc-prose blockquote { padding: 0.6rem 0.9rem; border-inline-start: 3px solid var(--c-primary); border-radius: 0 10px 10px 0; color: var(--c-muted); background: var(--c-surface-2); }
+.doc-prose :not(pre) > code { padding: 0.1rem 0.35rem; border-radius: 6px; font-size: 0.86em; background: var(--c-surface-2); }
+.doc-prose pre { position: relative; margin: 0 0 1rem; padding: 0.9rem 1rem; border: 1px solid var(--c-border); border-radius: 12px; overflow-x: auto; font-size: 0.84rem; line-height: 1.55; background: var(--c-surface-2); }
+.doc-prose pre.has-copy { padding-inline-end: 5.5rem; }
+.doc-prose pre code { font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace; white-space: pre; }
+.doc-copy { position: absolute; top: 0.5rem; inset-inline-end: 0.5rem; display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.25rem 0.55rem; border: 1px solid var(--c-border); border-radius: 8px; font: inherit; font-size: 0.75rem; font-weight: 600; color: var(--c-text); background: var(--c-surface); cursor: pointer; }
+.doc-copy:hover { color: var(--c-primary-text); border-color: var(--c-primary); }
+.doc-copy .icon { width: 0.85rem; height: 0.85rem; }
+.doc-table { margin: 0 0 1rem; border: 1px solid var(--c-border); border-radius: 12px; overflow-x: auto; }
+.doc-table table { width: 100%; border-collapse: collapse; font-size: 0.86rem; line-height: 1.5; }
+.doc-table :is(th, td) { padding: 0.55rem 0.75rem; border-bottom: 1px solid var(--c-border); text-align: start; vertical-align: top; }
+.doc-table th { font-weight: 600; white-space: nowrap; background: var(--c-surface-2); }
+.doc-table tr:last-child td { border-bottom: 0; }

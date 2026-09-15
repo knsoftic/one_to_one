@@ -1087,3 +1087,9 @@ Ctrl/⌘+K search chats · Alt+↑/↓ previous/next chat · Ctrl+Shift+F search
 - **Stays English**: the admin panel and the legal pages (privacy, terms…), and push notification texts sent by the server.
 - Adding a new string later: add `"English text": "اردو ترجمہ"` to `lang/ur.json` (`{0}`, `{1}` for names and numbers).
 - Files: migration `2026_09_30_000001_add_locale_to_users`, `App\Support\Locales`, `SetLocale` middleware, `LocaleController` (`POST /language`), `resources/js/lib/i18n.js`, `resources/css/rtl.css`, logical properties in all app CSS, `lang/ur.json`. Tests: `tests/Feature/LocaleTest`, `resources/js/lib/__tests__/i18n.test.js`.
+
+### Admin → Guides (docs live in the admin panel) ✅
+- **Admin panel → System → Guides** (`/admin/docs`): an index of the guides in `docs/` — Google Play release guide, server deployment (aaPanel) and feature roadmap — with their sections, reading time and last change.
+- Each guide (`/admin/docs/play-store` …) is rendered from the Markdown file in the deployed code, with an "On this page" table of contents (highlights the section you read, collapses on phones), heading links, scrollable tables, **Copy** buttons on commands and a **Download .md** button. Admin → App settings → Android app links to the Play Store guide.
+- Admins only; only the listed files can be opened; HTML inside Markdown is escaped and unsafe links dropped.
+- Files: `DocsService`, `Admin\DocsController`, `admin/docs/{index,show}.blade.php`, `resources/js/ui/admin-docs.js`. Tests: `tests/Feature/Admin/AdminDocsTest`, `resources/js/ui/__tests__/admin-docs.test.js`.

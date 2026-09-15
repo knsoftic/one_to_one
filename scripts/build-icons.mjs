@@ -46,6 +46,8 @@ const ICONS = [
     'images', 'hard-drive', 'database', 'vibrate', 'music', 'a-large-small', 'wallpaper', 'rotate-ccw', 'cloud-download', 'server', 'folder-archive', 'square-play', 'wifi-high',
     // Phase 9 — platform, business tools and languages
     'keyboard', 'languages', 'share', 'download-cloud', 'briefcase-business', 'store', 'map-pinned', 'globe-lock', 'tags', 'tag', 'zap', 'message-square-reply', 'clock-8', 'hand', 'bell-dot', 'app-window', 'shield-alert', 'file-lock', 'scale', 'badge-info',
+    // Admin guides
+    'book-open', 'list-tree', 'route',
 ];
 
 const pascal = (name) => name.replace(/(^|-)([a-z0-9])/g, (_, __, c) => c.toUpperCase());

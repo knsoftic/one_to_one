@@ -23,6 +23,7 @@
             ['admin.audit', [], 'scroll-text', 'Audit log', 'admin.audit*', null],
             ['admin.settings', [], 'sliders-horizontal', 'App settings', 'admin.settings*', null],
             ['admin.backups', [], 'database', 'Backups', 'admin.backups*', null],
+            ['admin.docs', [], 'book-open', 'Guides', 'admin.docs*', null],
         ],
     ];
     $bannedFilter = request()->routeIs('admin.users') && request('status') === 'banned';
