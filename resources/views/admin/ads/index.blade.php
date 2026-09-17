@@ -1,4 +1,4 @@
-<x-layouts.admin title="Ads" heading="Ads" subheading="Your own sponsored cards, shown in the chat list.">
+<x-layouts.admin title="Ads" heading="Ads" subheading="Your own sponsored cards, and where they appear.">
     @php
         $statusBadge = ['active' => ['badge-success', 'Live'], 'paused' => ['badge-warning', 'Paused'], 'draft' => ['badge-muted', 'Draft']];
     @endphp
@@ -18,7 +18,7 @@
                 <div class="empty-state">
                     <div class="empty-state-icon"><x-icon name="badge-dollar-sign" /></div>
                     <div class="empty-state-title">No ad campaigns yet</div>
-                    <div class="empty-state-text">Create an ad to show a sponsored card in the chat list.</div>
+                    <div class="empty-state-text">Create an ad to show a sponsored card in the app.</div>
                     <a href="{{ route('admin.ads.create') }}" class="btn btn-primary btn-sm mt-3"><x-icon name="plus" /> New ad</a>
                 </div>
             </div>
@@ -26,7 +26,7 @@
             <div class="admin-table-wrap">
                 <table class="admin-table">
                     <thead>
-                        <tr><th>Campaign</th><th>Status</th><th>Targeting</th><th class="admin-num-cell">Views</th><th class="admin-num-cell">Clicks</th><th class="admin-num-cell">CTR</th></tr>
+                        <tr><th>Campaign</th><th>Status</th><th>Targeting</th><th>Placements</th><th class="admin-num-cell">Views</th><th class="admin-num-cell">Clicks</th><th class="admin-num-cell">CTR</th></tr>
                     </thead>
                     <tbody>
                         @foreach ($campaigns as $ad)
@@ -48,9 +48,17 @@
                                 <td><span class="badge {{ $badge }}">{{ $label }}</span></td>
                                 <td>
                                     <span class="admin-list-text">
-                                        @if ($ad->needsConsent())<span class="badge badge-muted"><x-icon name="target" class="icon-xs" /> Personalised</span>@endif
                                         {{ $ad->countries ? implode(', ', $ad->countries) : 'All countries' }}
-                                        @if ($ad->interests){{ ' · '.count($ad->interests).' segments' }}@endif
+                                        @if ($ad->segments){{ ' · '.count($ad->segments).' segments' }}@endif
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="admin-list-text">
+                                        @forelse ($ad->placementList() as $placement)
+                                            <span class="badge badge-muted">{{ \App\Support\AdPlacement::label($placement) }}</span>
+                                        @empty
+                                            <span class="badge badge-warning"><x-icon name="triangle-alert" class="icon-xs" /> Nowhere</span>
+                                        @endforelse
                                     </span>
                                 </td>
                                 <td class="admin-num-cell tabular-nums">{{ number_format($ad->impressions) }}</td>

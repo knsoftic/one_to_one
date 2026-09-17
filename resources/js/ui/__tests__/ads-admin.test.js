@@ -49,52 +49,50 @@ describe('Admin ads editor preview', () => {
     });
 });
 
-describe('Settings → Privacy → Ads', () => {
-    const render = (on = false) => {
+describe('Settings > Privacy > Ads', () => {
+    const render = (allowed = false) => {
         document.body.innerHTML = `
-            <div data-ads-settings data-route-consent="/ads/consent" data-route-profile="/ads/profile">
-                <input type="checkbox" data-ads-personalised ${on ? 'checked' : ''}>
-                <div data-ads-details ${on ? '' : 'hidden'}>
-                    <input type="checkbox" data-ads-location>
-                    <select data-ads-gender><option value="">-</option><option value="female">F</option></select>
-                    <input type="number" data-ads-birth-year>
-                    <dl data-ads-data></dl>
-                </div>
+            <div data-ads-settings data-route-profile="/ads/profile">
+                <input type="checkbox" data-ads-location ${allowed ? 'checked' : ''}>
+                <dl data-ads-data></dl>
             </div>`;
         return document.querySelector('[data-ads-settings]');
     };
 
-    it('turns personalised ads on and reveals the options', async () => {
-        axios.post.mockResolvedValue({ data: { data: { Country: 'PK' } } });
+    it('turning the area on asks the device, then saves the rounded position', async () => {
+        vi.spyOn(navigator, 'geolocation', 'get').mockReturnValue({ getCurrentPosition: (ok) => ok({ coords: { latitude: 24.86, longitude: 67.01 } }) });
+        axios.patch.mockResolvedValue({ data: { data: { Country: 'PK', 'Approximate location': '24.86,67.01' } } });
         initAdsSettings(render(false));
 
-        const toggle = document.querySelector('[data-ads-personalised]');
+        const toggle = document.querySelector('[data-ads-location]');
         toggle.checked = true;
         toggle.dispatchEvent(new Event('change'));
         await Promise.resolve();
         await Promise.resolve();
+        await Promise.resolve();
 
-        expect(axios.post).toHaveBeenCalledWith('/ads/consent', expect.objectContaining({ personalised: true }));
-        expect(document.querySelector('[data-ads-details]').hidden).toBe(false);
-        expect(document.querySelector('[data-ads-data]').textContent).toContain('PK');
+        expect(axios.patch).toHaveBeenCalledWith('/ads/profile', { location_allowed: true, lat: 24.86, lng: 67.01 });
+        expect(document.querySelector('[data-ads-data]').textContent).toContain('24.86,67.01');
     });
 
-    it('saves the optional gender and reverts the toggle on failure', async () => {
-        axios.patch.mockResolvedValue({ data: { data: { Gender: 'female' } } });
+    it('turning it off saves that, and a refused device puts the switch back', async () => {
+        axios.patch.mockResolvedValue({ data: { data: {} } });
         initAdsSettings(render(true));
-        const gender = document.querySelector('[data-ads-gender]');
-        gender.value = 'female';
-        gender.dispatchEvent(new Event('change'));
-        await Promise.resolve();
-        expect(axios.patch).toHaveBeenCalledWith('/ads/profile', { gender: 'female' });
+        const toggle = document.querySelector('[data-ads-location]');
 
-        axios.post.mockRejectedValueOnce(new Error('nope'));
-        const toggle = document.querySelector('[data-ads-personalised]');
         toggle.checked = false;
         toggle.dispatchEvent(new Event('change'));
         await Promise.resolve();
+        expect(axios.patch).toHaveBeenCalledWith('/ads/profile', { location_allowed: false });
+
+        vi.spyOn(navigator, 'geolocation', 'get').mockReturnValue({ getCurrentPosition: (_ok, fail) => fail(new Error('denied')) });
+        toggle.checked = true;
+        toggle.dispatchEvent(new Event('change'));
         await Promise.resolve();
-        expect(toggle.checked).toBe(true); // reverted
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(toggle.checked).toBe(false); // put back
         expect(toast).toHaveBeenCalled();
     });
 });

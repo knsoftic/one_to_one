@@ -50,6 +50,36 @@
             </label>
         @endforeach
 
+        {{-- Y1: optional, kept private, and used to keep what you see relevant. --}}
+        <label class="wa-field" for="profile-gender">
+            <x-icon name="user-round" class="wa-field-icon" />
+            <span class="wa-field-body">
+                <span class="wa-field-label">Gender <span class="optional">(optional)</span></span>
+                <select id="profile-gender" name="gender" class="wa-field-input" data-profile-input>
+                    <option value="">Prefer not to say</option>
+                    @foreach (['male' => 'Male', 'female' => 'Female', 'other' => 'Other'] as $value => $label)
+                        <option value="{{ $value }}" @selected(old('gender', $user->gender) === $value)>{{ $label }}</option>
+                    @endforeach
+                </select>
+            </span>
+        </label>
+
+        @php($dobInvalid = $errors->getBag('profile')->has('birth_date'))
+        <label class="wa-field" for="profile-birth-date">
+            <x-icon name="calendar" class="wa-field-icon" />
+            <span class="wa-field-body">
+                <span class="wa-field-label">Date of birth <span class="optional">(optional)</span></span>
+                <input id="profile-birth-date" name="birth_date" type="date" max="{{ now()->subYears(13)->toDateString() }}"
+                       value="{{ old('birth_date', $user->birth_date?->toDateString()) }}"
+                       @class(['wa-field-input', 'is-invalid' => $dobInvalid]) data-profile-input>
+                @if ($dobInvalid)
+                    <span class="form-error"><x-icon name="circle-alert" />{{ $errors->getBag('profile')->first('birth_date') }}</span>
+                @else
+                    <span class="wa-field-hint">Never shown to anyone. Only your age is used, to keep what you see relevant.</span>
+                @endif
+            </span>
+        </label>
+
         {{-- Changing the email asks for the password (shown once the email is edited). --}}
         @php($passwordInvalid = $errors->getBag('profile')->has('current_password'))
         <label class="wa-field" for="profile-current-password" data-email-password @unless ($passwordInvalid) hidden @endunless>

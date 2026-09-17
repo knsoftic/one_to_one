@@ -1,5 +1,5 @@
 @php $editing = $campaign->exists; @endphp
-<x-layouts.admin :title="$editing ? $campaign->name : 'New ad'" :heading="$editing ? $campaign->name : 'New ad'" subheading="A sponsored card shown in the chat list." :back="route('admin.ads')">
+<x-layouts.admin :title="$editing ? $campaign->name : 'New ad'" :heading="$editing ? $campaign->name : 'New ad'" subheading="A sponsored card shown in the app." :back="route('admin.ads')">
     <form method="POST" action="{{ $editing ? route('admin.ads.update', $campaign) : route('admin.ads.store') }}" enctype="multipart/form-data" class="admin-ad-editor" data-ad-editor data-loading-form novalidate>
         @csrf
         @if ($editing) @method('PUT') @endif
@@ -58,7 +58,7 @@
                 <section class="card">
                     <div class="card-body">
                         <h3 class="admin-section-title"><x-icon name="target" /> Who sees this ad</h3>
-                        <p class="admin-muted">Leave a target empty to reach everyone. Interests, age and gender only reach people who turned <strong>Personalised ads</strong> on.</p>
+                        <p class="admin-muted">Leave a target empty to reach everyone. Country comes from the person's own number; segments from what they do in the app; age and gender from what they set in their own profile.</p>
                         <div class="admin-form">
                             <div class="form-group">
                                 <span class="form-label">Countries</span>
@@ -73,27 +73,27 @@
                                 </details>
                             </div>
                             <div class="form-group">
-                                <span class="form-label">Audience segments <span class="optional">(personalised)</span></span>
+                                <span class="form-label">Audience segments</span>
                                 <div class="admin-chips is-wrap">
-                                    @php($segs = old('interests', $campaign->interests ?? []))
+                                    @php($segs = old('segments', $campaign->segments ?? []))
                                     @foreach (\App\Models\AdCampaign::SEGMENTS as $key => $label)
-                                        <label class="admin-chip is-check"><input type="checkbox" name="interests[]" value="{{ $key }}" @checked(in_array($key, $segs, true))><span>{{ $label }}</span></label>
+                                        <label class="admin-chip is-check"><input type="checkbox" name="segments[]" value="{{ $key }}" @checked(in_array($key, $segs, true))><span>{{ $label }}</span></label>
                                     @endforeach
                                 </div>
                             </div>
                             <div class="business-grid">
                                 <div class="form-group">
-                                    <label for="ad-min-age" class="form-label">Min age <span class="optional">(personalised)</span></label>
+                                    <label for="ad-min-age" class="form-label">Min age</label>
                                     <input id="ad-min-age" type="number" name="min_age" min="13" max="100" class="form-control @error('min_age') is-invalid @enderror" value="{{ old('min_age', $campaign->min_age) }}">
                                     @error('min_age')<p class="form-error"><x-icon name="circle-alert" />{{ $message }}</p>@enderror
                                 </div>
                                 <div class="form-group">
-                                    <label for="ad-max-age" class="form-label">Max age <span class="optional">(personalised)</span></label>
+                                    <label for="ad-max-age" class="form-label">Max age</label>
                                     <input id="ad-max-age" type="number" name="max_age" min="13" max="100" class="form-control @error('max_age') is-invalid @enderror" value="{{ old('max_age', $campaign->max_age) }}">
                                     @error('max_age')<p class="form-error"><x-icon name="circle-alert" />{{ $message }}</p>@enderror
                                 </div>
                                 <div class="form-group">
-                                    <label for="ad-gender" class="form-label">Gender <span class="optional">(personalised)</span></label>
+                                    <label for="ad-gender" class="form-label">Gender</label>
                                     <select id="ad-gender" name="gender" class="form-control">
                                         <option value="">Everyone</option>
                                         @foreach (\App\Models\AdCampaign::GENDERS as $key => $label)
@@ -102,12 +102,40 @@
                                     </select>
                                 </div>
                             </div>
-                            <label class="checkbox">
-                                <input type="hidden" name="personalised_only" value="0">
-                                <input type="checkbox" name="personalised_only" value="1" @checked(old('personalised_only', $campaign->personalised_only))>
-                                Only show to people who turned personalised ads on
-                            </label>
+                            <p class="form-hint">Age and gender come from what the person set in their own profile — leave them empty to reach everyone, including people who never filled them in.</p>
                         </div>
+                    </div>
+                </section>
+
+                <section class="card">
+                    <div class="card-body">
+                        <h3 class="admin-section-title"><x-icon name="list-tree" /> Placements</h3>
+                        <p class="admin-muted">Where this ad may appear. Tick none to use every screen that is switched on in <a class="admin-link" href="{{ route('admin.settings') }}#ads">App settings → Ads</a>.</p>
+                        @php($chosen = old('placements', $campaign->placements ?? []))
+                        <div class="admin-placements">
+                            @foreach (\App\Support\AdPlacement::ALL as $key => $placement)
+                                @php($stat = ($byPlacement ?? collect())->get($key))
+                                <label class="admin-setting-row">
+                                    <span>
+                                        <strong>{{ $placement['label'] }}</strong>
+                                        <small>
+                                            {{ $placement['text'] }}
+                                            @unless (\App\Support\AdPlacement::isEnabled($key))
+                                                <em class="admin-warn-inline">Switched off for the whole app.</em>
+                                            @endunless
+                                        </small>
+                                        @if ($stat)
+                                            <small class="admin-placement-stat">{{ number_format($stat->impressions) }} views · {{ number_format($stat->clicks) }} clicks</small>
+                                        @endif
+                                    </span>
+                                    <span class="switch">
+                                        <input type="checkbox" name="placements[]" value="{{ $key }}" @checked(in_array($key, $chosen, true)) aria-label="Run in {{ $placement['label'] }}">
+                                        <span class="switch-track"></span>
+                                    </span>
+                                </label>
+                            @endforeach
+                        </div>
+                        @error('placements.*')<p class="form-error"><x-icon name="circle-alert" />{{ $message }}</p>@enderror
                     </div>
                 </section>
             </div>
@@ -117,15 +145,34 @@
                 <section class="card">
                     <div class="card-body">
                         <h3 class="admin-section-title"><x-icon name="badge-info" /> Preview</h3>
-                        <div class="ad-card admin-ad-preview" data-ad-preview>
-                            <div class="ad-card-media" data-ad-preview-media @if ($campaign->imageUrl()) style="background-image:url('{{ $campaign->imageUrl() }}')" @endif></div>
-                            <div class="ad-card-body">
-                                <span class="ad-card-tag" data-ad-preview-tag>Sponsored{{ $campaign->sponsor ? ' · '.$campaign->sponsor : '' }}</span>
-                                <span class="ad-card-title" data-ad-preview-title>{{ $campaign->title ?: 'Your headline' }}</span>
-                                <span class="ad-card-text" data-ad-preview-body>{{ $campaign->body }}</span>
-                                <span class="ad-card-cta" data-ad-preview-cta>{{ $campaign->cta_label ?: 'Learn more' }} <x-icon name="square-arrow-out-up-right" /></span>
-                            </div>
+                        <p class="admin-muted">How the card looks on each screen it is booked for.</p>
+
+                        <div class="admin-preview-tabs" role="tablist" data-ad-preview-tabs>
+                            @foreach (\App\Support\AdPlacement::ALL as $key => $placement)
+                                <button type="button" class="chip @if ($loop->first) is-active @endif" role="tab"
+                                    aria-selected="{{ $loop->first ? 'true' : 'false' }}" data-preview-tab="{{ $key }}">{{ $placement['label'] }}</button>
+                            @endforeach
                         </div>
+
+                        @foreach (\App\Support\AdPlacement::ALL as $key => $placement)
+                            <div class="admin-ad-stage admin-ad-stage-{{ $placement['format'] }}" data-preview-pane="{{ $key }}" @unless ($loop->first) hidden @endunless>
+                                @if ($placement['format'] === 'row')
+                                    <div class="admin-ad-ghost-row" aria-hidden="true"></div>
+                                @endif
+                                <div class="ad-card ad-card-{{ $placement['format'] }} admin-ad-preview" data-ad-preview>
+                                    <div class="ad-card-media" data-ad-preview-media @if ($campaign->imageUrl()) style="background-image:url('{{ $campaign->imageUrl() }}')" @endif></div>
+                                    <div class="ad-card-body">
+                                        <span class="ad-card-tag" data-ad-preview-tag>Sponsored{{ $campaign->sponsor ? ' · '.$campaign->sponsor : '' }}</span>
+                                        <span class="ad-card-title" data-ad-preview-title>{{ $campaign->title ?: 'Your headline' }}</span>
+                                        <span class="ad-card-text" data-ad-preview-body>{{ $campaign->body }}</span>
+                                        <span class="ad-card-cta" data-ad-preview-cta>{{ $campaign->cta_label ?: 'Learn more' }} <x-icon name="square-arrow-out-up-right" /></span>
+                                    </div>
+                                </div>
+                                @if ($placement['format'] === 'row')
+                                    <div class="admin-ad-ghost-row" aria-hidden="true"></div>
+                                @endif
+                            </div>
+                        @endforeach
                     </div>
                 </section>
 

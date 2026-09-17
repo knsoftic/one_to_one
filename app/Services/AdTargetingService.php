@@ -9,11 +9,17 @@ use App\Models\ConversationMember;
 use App\Models\Message;
 use App\Models\User;
 use App\Support\DialCode;
+use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 
 /**
- * Ads (Y1): the user's consent for personalised ads, and the broad, non-sensitive profile built
- * from what they already do in the app — only ever for users who turned personalised ads on.
+ * Ads (Y1): the broad profile used to choose which ad a person sees.
+ *
+ * Everything here is either the app's own data (the country of their own number, what they do in
+ * the app, the gender and date of birth they set in Settings → Profile) or something the phone
+ * hands over — the connection's IP address, and a rounded location only once the person has
+ * granted the location permission, exactly like contacts and camera. No contacts, no messages and
+ * no precise position are ever read.
  */
 class AdTargetingService
 {
@@ -21,39 +27,11 @@ class AdTargetingService
     private const LOCATION_DECIMALS = 2;
 
     /**
-     * Record the user's choice. Turning it off deletes the profile straight away.
+     * Build or refresh the profile. Called when the app opens and whenever the device sends
+     * something new; missing values keep whatever was stored before.
      */
-    public function setConsent(User $user, bool $personalised, array $device = []): void
+    public function rebuild(User $user, array $device = [], ?Request $request = null): AdProfile
     {
-        $user->forceFill([
-            'ads_personalised' => $personalised,
-            'ads_consent_at' => now(),
-        ])->save();
-
-        if ($personalised) {
-            $this->rebuild($user, $device);
-        } else {
-            $this->forget($user);
-        }
-    }
-
-    /** Remove everything we keep for ad targeting about this user. */
-    public function forget(User $user): void
-    {
-        AdProfile::query()->whereKey($user->getKey())->delete();
-    }
-
-    /**
-     * Build or refresh the profile from app data plus what the device reports (time zone, locale,
-     * platform, app version, and — only if allowed — a coarse location). Keeps the gender/birth
-     * year the user typed. No-op unless personalised ads are on.
-     */
-    public function rebuild(User $user, array $device = []): ?AdProfile
-    {
-        if (! $user->ads_personalised) {
-            return null;
-        }
-
         $existing = AdProfile::query()->find($user->getKey());
         $timezone = $this->cleanTimezone($device['timezone'] ?? $existing?->timezone);
 
@@ -62,26 +40,50 @@ class AdTargetingService
             'country' => DialCode::country($user->phone),
             'timezone' => $timezone,
             'region' => $timezone ? $this->regionFromTimezone($timezone) : $existing?->region,
+            'city' => $this->clean($device['city'] ?? $existing?->city, 64),
             'locale' => $this->clean($device['locale'] ?? $existing?->locale, 12),
             'platform' => $this->platform($device['platform'] ?? $existing?->platform),
             'os_version' => $this->clean($device['os_version'] ?? $existing?->os_version, 24),
+            'device_model' => $this->clean($device['device_model'] ?? $existing?->device_model, 64),
             'app_version' => $this->clean($device['app_version'] ?? $existing?->app_version, 24),
-            'interests' => $this->segments($user),
+            'segments' => $this->segments($user),
             'updated_at' => now(),
         ];
 
-        // Coarse location only when the user allows it and the device sends coordinates.
-        $allowed = array_key_exists('location_allowed', $device) ? (bool) $device['location_allowed'] : (bool) $existing?->location_allowed;
-        $data['location_allowed'] = $allowed;
-        $data['coarse_location'] = $allowed
-            ? ($this->coarse($device['lat'] ?? null, $device['lng'] ?? null) ?? $existing?->coarse_location)
-            : null;
+        // The connection's own address, as every web server sees it.
+        if ($request) {
+            $data['ip'] = $this->clean($request->ip(), 45);
+            $data['ip_country'] = $this->ipCountry($request) ?? $existing?->ip_country;
+        }
 
-        // User-entered, kept unless a new value is given.
-        $data['gender'] = array_key_exists('gender', $device) ? $this->gender($device['gender']) : $existing?->gender;
-        $data['birth_year'] = array_key_exists('birth_year', $device) ? $this->birthYear($device['birth_year']) : $existing?->birth_year;
+        // Coarse location: only while the phone's location permission is granted.
+        $allowed = array_key_exists('location_allowed', $device) ? (bool) $device['location_allowed'] : (bool) $existing?->location_allowed;
+        $coarse = $allowed ? $this->coarse($device['lat'] ?? null, $device['lng'] ?? null) : null;
+
+        $data['location_allowed'] = $allowed;
+        $data['coarse_location'] = $allowed ? ($coarse ?? $existing?->coarse_location) : null;
+        $data['location_at'] = $coarse ? now() : ($allowed ? $existing?->location_at : null);
 
         return AdProfile::query()->updateOrCreate(['user_id' => $user->getKey()], $data);
+    }
+
+    /** Count an app open, so we know how often someone uses the app. */
+    public function recordOpen(User $user, array $device = [], ?Request $request = null): AdProfile
+    {
+        $profile = $this->rebuild($user, $device, $request);
+
+        $profile->forceFill([
+            'opens' => (int) $profile->opens + 1,
+            'last_open_at' => now(),
+        ])->save();
+
+        return $profile;
+    }
+
+    /** Remove everything we keep for choosing ads for this person. */
+    public function forget(User $user): void
+    {
+        AdProfile::query()->whereKey($user->getKey())->delete();
     }
 
     /**
@@ -119,6 +121,14 @@ class AdTargetingService
         return array_values(array_intersect(array_keys(AdCampaign::SEGMENTS), $segments));
     }
 
+    /** Country of the connection, when the host (e.g. Cloudflare) tells us. Never guessed. */
+    private function ipCountry(Request $request): ?string
+    {
+        $code = strtoupper(trim((string) $request->header('CF-IPCountry')));
+
+        return preg_match('/^[A-Z]{2}$/', $code) && $code !== 'XX' ? $code : null;
+    }
+
     private function coarse(mixed $lat, mixed $lng): ?string
     {
         if (! is_numeric($lat) || ! is_numeric($lng) || abs((float) $lat) > 90 || abs((float) $lng) > 180) {
@@ -147,18 +157,6 @@ class AdTargetingService
         $value = is_string($value) ? strtolower(trim($value)) : '';
 
         return in_array($value, ['android', 'ios', 'web'], true) ? $value : ($value === '' ? null : 'web');
-    }
-
-    private function gender(mixed $value): ?string
-    {
-        return in_array($value, ['male', 'female'], true) ? $value : null;
-    }
-
-    private function birthYear(mixed $value): ?int
-    {
-        $year = (int) $value;
-
-        return $year >= (int) date('Y') - 100 && $year <= (int) date('Y') - 13 ? $year : null;
     }
 
     private function clean(mixed $value, int $max): ?string

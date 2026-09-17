@@ -191,15 +191,34 @@
                         <label class="admin-setting-row">
                             <span>
                                 <strong>Show ads in the app</strong>
-                                <small>A "sponsored" card appears in the chat list. Off by default. Manage your own campaigns in <a class="admin-link" href="{{ route('admin.ads') }}">Ads</a>.</small>
+                                <small>The master switch. Off by default. Manage your own campaigns in <a class="admin-link" href="{{ route('admin.ads') }}">Ads</a>.</small>
                             </span>
                             <span class="switch">
+                                <input type="hidden" name="ads_section" value="1">
                                 <input type="hidden" name="ads_enabled" value="0">
                                 <input type="checkbox" name="ads_enabled" value="1" @checked($ads['enabled']) aria-label="Show ads in the app">
                                 <span class="switch-track"></span>
                             </span>
                         </label>
-                        <p class="admin-backup-note"><x-icon name="shield-check" /> Ads always respect the user's choice. Personalised targeting (interests, age, gender) is used only for people who turned <strong>Personalised ads</strong> on in their own settings. Everyone else gets non-personalised ads. Keep your <a class="admin-link" href="#legal">privacy policy</a> up to date, and fill in the Data safety form on Google Play.</p>
+
+                        <h4 class="admin-subtitle-row">Where ads may appear</h4>
+                        <p class="admin-muted">Switch a screen off and no ad is ever asked for there — not even by a campaign that is booked for it.</p>
+                        <div class="admin-placements">
+                            @foreach (\App\Support\AdPlacement::ALL as $key => $placement)
+                                <label class="admin-setting-row">
+                                    <span>
+                                        <strong>{{ $placement['label'] }}</strong>
+                                        <small>{{ $placement['text'] }}</small>
+                                    </span>
+                                    <span class="switch">
+                                        <input type="checkbox" name="ad_placements[]" value="{{ $key }}" @checked(in_array($key, old('ad_placements', $ads['placements']), true)) aria-label="Show ads in {{ $placement['label'] }}">
+                                        <span class="switch-track"></span>
+                                    </span>
+                                </label>
+                            @endforeach
+                        </div>
+
+                        <p class="admin-backup-note"><x-icon name="shield-check" /> <span>Ads are chosen from the person's own country, what they do in the app, their device, and the gender and date of birth they set in their profile. A rounded location is used only while they have granted the phone's <strong>location</strong> permission. Keep your <a class="admin-link" href="#legal">privacy policy</a> up to date, and fill in the Data safety form on Google Play.</span></p>
 
                         <div class="admin-settings-grid mt-3">
                             <div class="form-group">

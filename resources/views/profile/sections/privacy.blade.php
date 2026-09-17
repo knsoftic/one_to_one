@@ -95,58 +95,36 @@
 
 @if ((bool) \App\Models\AppSetting::get('ads_enabled'))
     @php($adProfile = \App\Models\AdProfile::find($user->id))
-    <div class="wa-group" data-ads-settings
-         data-route-consent="{{ route('ads.consent') }}" data-route-profile="{{ route('ads.profile') }}">
+    <div class="wa-group" data-ads-settings data-route-profile="{{ route('ads.profile') }}">
         <h3 class="wa-group-title">Ads</h3>
+        <p class="wa-group-note">
+            This app is free because it shows ads. To keep them relevant we use your country, what you do in the app,
+            the device you are on, and the gender and date of birth you set in <a href="{{ route('profile.edit', ['tab' => 'profile']) }}">your profile</a>.
+            Your area is used only while you allow this device's location permission. We never read your contacts,
+            your messages or your exact position. See our <a href="{{ route('legal', 'privacy') }}" target="_blank" rel="noopener">privacy policy</a>.
+        </p>
+
         <label class="wa-row">
             <span class="wa-row-body">
-                <span class="wa-row-title">Personalised ads</span>
-                <span class="wa-row-text">Use your country, what you do in the app and device basics to show more relevant ads. Off means you still see ads, but generic ones. We never read your contacts, messages or exact location. See our <a href="{{ route('legal', 'privacy') }}" target="_blank" rel="noopener">privacy policy</a>.</span>
+                <span class="wa-row-title">Use my area</span>
+                <span class="wa-row-text">Roughly, to about a kilometre — never your exact spot. Turn it on and your phone asks for the location permission, the same way it does for contacts and the camera.</span>
             </span>
             <span class="switch">
-                <input type="checkbox" data-ads-personalised @checked($user->ads_personalised) aria-label="Personalised ads">
+                <input type="checkbox" data-ads-location @checked($adProfile?->location_allowed) aria-label="Use my area for ads">
                 <span class="switch-track"></span>
             </span>
         </label>
 
-        <div class="wa-ads-details" data-ads-details @unless ($user->ads_personalised) hidden @endunless>
-            <label class="wa-row">
-                <span class="wa-row-body">
-                    <span class="wa-row-title">Use my location</span>
-                    <span class="wa-row-text">Roughly (country and city), only after you allow it on this device. Used to show nearby ads.</span>
-                </span>
-                <span class="switch">
-                    <input type="checkbox" data-ads-location @checked($adProfile?->location_allowed) aria-label="Use my location for ads">
-                    <span class="switch-track"></span>
-                </span>
-            </label>
-            <div class="wa-row wa-choice">
-                <span class="wa-row-body">
-                    <span class="wa-row-title">Gender <span class="optional">(optional)</span></span>
-                </span>
-                <select class="form-control setting-select" data-ads-gender aria-label="Gender for ads">
-                    <option value="">Prefer not to say</option>
-                    <option value="male" @selected($adProfile?->gender === 'male')>Male</option>
-                    <option value="female" @selected($adProfile?->gender === 'female')>Female</option>
-                </select>
-            </div>
-            <label class="wa-row wa-choice">
-                <span class="wa-row-body">
-                    <span class="wa-row-title">Birth year <span class="optional">(optional)</span></span>
-                </span>
-                <input type="number" class="form-control setting-select" data-ads-birth-year min="1900" max="{{ date('Y') }}" value="{{ $adProfile?->birth_year }}" placeholder="—" aria-label="Birth year for ads" style="max-width:6rem">
-            </label>
-            <details class="wa-group-note wa-ads-data">
-                <summary>The ad data we keep about you</summary>
-                <dl data-ads-data>
-                    @forelse (($adProfile?->summary() ?? []) as $label => $value)
-                        <div><dt>{{ $label }}</dt><dd>{{ $value }}</dd></div>
-                    @empty
-                        <p>Nothing yet.</p>
-                    @endforelse
-                </dl>
-                <p>Turning off personalised ads deletes all of this straight away.</p>
-            </details>
-        </div>
+        <details class="wa-group-note wa-ads-data">
+            <summary>What we use to choose your ads</summary>
+            <dl data-ads-data>
+                @forelse (($adProfile?->summary($user) ?? []) as $label => $value)
+                    <div><dt>{{ $label }}</dt><dd>{{ $value }}</dd></div>
+                @empty
+                    <p>Nothing yet.</p>
+                @endforelse
+            </dl>
+            <p>Gender and date of birth are whatever you set in your profile — clear them there and they stop being used.</p>
+        </details>
     </div>
 @endif

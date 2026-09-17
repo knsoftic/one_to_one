@@ -75,6 +75,13 @@ class AccountService
             $user->about = $about === '' ? null : mb_substr($about, 0, 139);
         }
 
+        // Y1 — optional profile details; an empty box clears them.
+        foreach (['gender', 'birth_date'] as $field) {
+            if (array_key_exists($field, $data)) {
+                $user->{$field} = filled($data[$field]) ? $data[$field] : null;
+            }
+        }
+
         $oldEmail = $user->isDirty('email') ? $user->getOriginal('email') : null;
         if ($oldEmail !== null) {
             $user->email_verified_at = null;

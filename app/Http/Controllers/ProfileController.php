@@ -57,7 +57,7 @@ class ProfileController extends Controller
     {
         $this->accounts->updateProfile(
             $request->user(),
-            $request->safe()->only(['name', 'username', 'email', 'about']),
+            $request->safe()->only(['name', 'username', 'email', 'about', 'gender', 'birth_date']),
             $request->file('profile_image'),
             $request->boolean('remove_profile_image'),
         );

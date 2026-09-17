@@ -45,6 +45,9 @@ class UpdateProfileRequest extends FormRequest
             'current_password' => [Rule::requiredIf(fn () => $this->input('email') !== null && $this->input('email') !== $this->user()->email), 'nullable', 'string', 'current_password'],
             'profile_image' => $this->avatarRules(),
             'about' => ['nullable', 'string', 'max:139'],
+            // Y1 — optional, private, used to keep what the person sees relevant.
+            'gender' => ['nullable', Rule::in(['male', 'female', 'other'])],
+            'birth_date' => ['nullable', 'date', 'before:'.now()->subYears(13)->toDateString(), 'after:'.now()->subYears(100)->toDateString()],
             'remove_profile_image' => ['nullable', 'boolean'],
         ];
     }

@@ -2,95 +2,52 @@ import axios from '../bootstrap';
 import { toast } from '../lib/toast';
 
 /**
- * Settings → Privacy → Ads (Y1): the personalised-ads switch, the optional coarse-location toggle,
- * gender and birth year, and the "ad data we keep about you" list. Turning the switch off deletes
- * the ad profile on the server.
+ * Settings › Privacy › Ads (Y1). Ads themselves are not something the user switches — the only
+ * choice here is the device's location permission, which is asked for by the phone (or the
+ * browser) exactly as it is for contacts and the camera.
  */
 export function initAdsSettings(root = document.querySelector('[data-ads-settings]')) {
     if (!root) return null;
 
-    const consentUrl = root.dataset.routeConsent;
-    const profileUrl = root.dataset.routeProfile;
-    const details = root.querySelector('[data-ads-details]');
-    const toggle = root.querySelector('[data-ads-personalised]');
+    const route = root.dataset.routeProfile;
     const location = root.querySelector('[data-ads-location]');
-    const gender = root.querySelector('[data-ads-gender]');
-    const birthYear = root.querySelector('[data-ads-birth-year]');
+    const list = root.querySelector('[data-ads-data]');
 
-    const deviceContext = () => {
-        let timezone = '';
-        try {
-            timezone = Intl.DateTimeFormat().resolvedOptions().timeZone ?? '';
-        } catch {
-            /* older browsers */
-        }
-        return { timezone, locale: (navigator.language || '').slice(0, 12), platform: window.Capacitor?.isNativePlatform?.() ? 'android' : 'web' };
+    const save = async (payload) => {
+        const { data } = await axios.patch(route, payload);
+        render(data.data ?? {});
+        return data;
     };
 
-    const renderData = (data = {}) => {
-        const dl = root.querySelector('[data-ads-data]');
-        if (!dl) return;
-        const entries = Object.entries(data);
-        dl.innerHTML = entries.length
-            ? entries.map(([k, v]) => `<div><dt>${escapeHtml(k)}</dt><dd>${escapeHtml(String(v))}</dd></div>`).join('')
+    const render = (data) => {
+        if (!list) return;
+        const rows = Object.entries(data);
+        list.innerHTML = rows.length
+            ? rows.map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(String(value))}</dd></div>`).join('')
             : '<p>Nothing yet.</p>';
     };
 
-    // Personalised ads on/off.
-    toggle?.addEventListener('change', async () => {
-        const on = toggle.checked;
-        details.hidden = !on;
+    location?.addEventListener('change', async () => {
+        const wanted = location.checked;
         try {
-            const { data } = await axios.post(consentUrl, { personalised: on, ...deviceContext() });
-            renderData(data.data);
-            toast(on ? 'Personalised ads turned on.' : 'Personalised ads turned off and your ad data deleted.');
+            if (!wanted) {
+                await save({ location_allowed: false });
+                return;
+            }
+            // The system dialog — the same one contacts and the camera use.
+            const position = await new Promise((resolve, reject) =>
+                navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: false, timeout: 10000, maximumAge: 600_000 }),
+            );
+            await save({ location_allowed: true, lat: position.coords.latitude, lng: position.coords.longitude });
         } catch {
-            toggle.checked = !on;
-            details.hidden = on;
-            toast('Could not save. Try again.', 'error');
+            location.checked = !wanted;
+            toast(wanted ? 'Your device did not allow location.' : 'Could not save that. Try again.', 'error');
         }
     });
 
-    const patch = async (payload) => {
-        try {
-            const { data } = await axios.patch(profileUrl, payload);
-            renderData(data.data);
-            if (location) location.checked = data.location_allowed;
-        } catch {
-            toast('Could not save. Try again.', 'error');
-        }
-    };
-
-    // Coarse location: ask the browser only when turning it on.
-    location?.addEventListener('change', () => {
-        if (!location.checked) {
-            patch({ location_allowed: false });
-            return;
-        }
-        if (!navigator.geolocation) {
-            location.checked = false;
-            toast('This device cannot share a location.', 'error');
-            return;
-        }
-        navigator.geolocation.getCurrentPosition(
-            (pos) => patch({ location_allowed: true, lat: pos.coords.latitude, lng: pos.coords.longitude, timezone: deviceContext().timezone }),
-            () => {
-                location.checked = false;
-                toast('Location permission was not given.', 'error');
-            },
-            { enableHighAccuracy: false, timeout: 8000, maximumAge: 600000 },
-        );
-    });
-
-    gender?.addEventListener('change', () => patch({ gender: gender.value || null }));
-    birthYear?.addEventListener('change', () => {
-        const year = parseInt(birthYear.value, 10);
-        patch({ birth_year: Number.isFinite(year) ? year : null });
-    });
-
-    return { renderData };
+    return { save };
 }
 
-function escapeHtml(text) {
-    return text.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+function escapeHtml(value) {
+    return value.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 }

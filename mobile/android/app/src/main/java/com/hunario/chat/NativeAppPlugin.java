@@ -53,6 +53,10 @@ import org.json.JSONObject;
         @Permission(strings = { Manifest.permission.POST_NOTIFICATIONS }, alias = NativeAppPlugin.NOTIFICATIONS),
         @Permission(strings = { Manifest.permission.RECORD_AUDIO }, alias = NativeAppPlugin.MICROPHONE),
         @Permission(strings = { Manifest.permission.CAMERA }, alias = NativeAppPlugin.CAMERA),
+        @Permission(
+            strings = { Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION },
+            alias = NativeAppPlugin.LOCATION
+        ),
     }
 )
 public class NativeAppPlugin extends Plugin {
@@ -61,6 +65,7 @@ public class NativeAppPlugin extends Plugin {
     static final String NOTIFICATIONS = "notifications";
     static final String MICROPHONE = "microphone";
     static final String CAMERA = "camera";
+    static final String LOCATION = "location";
 
     private static WeakReference<NativeAppPlugin> instance = new WeakReference<>(null);
 
@@ -257,12 +262,18 @@ public class NativeAppPlugin extends Plugin {
         call.resolve(permissionStates());
     }
 
-    /** Show the system dialog for one permission ({ name: "notifications" | "contacts" | "microphone" | "camera" }). */
+    /** Show the system dialog for one permission ({ name: "notifications" | "contacts" | "microphone" | "camera" | "location" }). */
     @PluginMethod
     public void requestPermission(PluginCall call) {
         String name = call.getString("name", "");
 
-        if (!CONTACTS.equals(name) && !NOTIFICATIONS.equals(name) && !MICROPHONE.equals(name) && !CAMERA.equals(name)) {
+        if (
+            !CONTACTS.equals(name) &&
+            !NOTIFICATIONS.equals(name) &&
+            !MICROPHONE.equals(name) &&
+            !CAMERA.equals(name) &&
+            !LOCATION.equals(name)
+        ) {
             call.reject("Unknown permission.", "UNKNOWN_PERMISSION");
             return;
         }
@@ -293,6 +304,7 @@ public class NativeAppPlugin extends Plugin {
         result.put(CONTACTS, stateOf(CONTACTS));
         result.put(MICROPHONE, stateOf(MICROPHONE));
         result.put(CAMERA, stateOf(CAMERA));
+        result.put(LOCATION, stateOf(LOCATION));
         result.put("batteryUnrestricted", isIgnoringBatteryOptimizations());
         return result;
     }

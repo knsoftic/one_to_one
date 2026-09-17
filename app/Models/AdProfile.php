@@ -6,8 +6,9 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * The ad-targeting profile of a user who turned personalised ads on (Y1). Deleted the moment
- * they turn it off. Holds only broad, non-sensitive signals.
+ * What we use to choose someone's ads (Y1): their own country, the device the app runs on, how
+ * often they open it, and — only while the phone's location permission is granted — a rounded
+ * location. Gender and age come from the person's own profile, not from here.
  */
 class AdProfile extends Model
 {
@@ -18,16 +19,21 @@ class AdProfile extends Model
     public $incrementing = false;
 
     protected $fillable = [
-        'user_id', 'country', 'region', 'timezone', 'locale', 'platform', 'os_version',
-        'app_version', 'location_allowed', 'coarse_location', 'gender', 'birth_year', 'interests', 'updated_at',
+        'user_id', 'country', 'region', 'city', 'timezone', 'locale', 'platform', 'os_version',
+        'device_model', 'app_version', 'ip', 'ip_country', 'location_allowed', 'coarse_location',
+        'location_at', 'opens', 'last_open_at', 'segments', 'updated_at',
     ];
+
+    protected $hidden = ['ip'];
 
     protected function casts(): array
     {
         return [
             'location_allowed' => 'boolean',
-            'birth_year' => 'integer',
-            'interests' => 'array',
+            'opens' => 'integer',
+            'segments' => 'array',
+            'location_at' => 'datetime',
+            'last_open_at' => 'datetime',
             'updated_at' => 'datetime',
         ];
     }
@@ -37,25 +43,20 @@ class AdProfile extends Model
         return $this->belongsTo(User::class);
     }
 
-    public function age(): ?int
-    {
-        return $this->birth_year ? max(0, (int) date('Y') - $this->birth_year) : null;
-    }
-
-    /** What the user sees under "The ad data we keep about you". */
-    public function summary(): array
+    /** What the person sees under "What we use to choose your ads". */
+    public function summary(?User $user = null): array
     {
         return array_filter([
-            'Country' => $this->country,
-            'Area' => $this->region,
+            'Country' => $this->ip_country ?? $this->country,
+            'Area' => $this->city ?? $this->region,
             'Time zone' => $this->timezone,
             'Language' => $this->locale,
-            'Device' => $this->platform ? trim($this->platform.' '.$this->os_version) : null,
+            'Device' => trim(($this->device_model ?? $this->platform ?? '').' '.($this->os_version ?? '')) ?: null,
             'App version' => $this->app_version,
             'Approximate location' => $this->coarse_location,
-            'Gender' => $this->gender,
-            'Age' => $this->age(),
-            'Interests' => $this->interests ? implode(', ', $this->interests) : null,
+            'Gender' => $user?->gender,
+            'Age' => $user?->age(),
+            'Interests' => $this->segments ? implode(', ', $this->segments) : null,
         ], fn ($v) => $v !== null && $v !== '');
     }
 }

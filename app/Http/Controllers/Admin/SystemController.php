@@ -13,6 +13,7 @@ use App\Services\AppUpdateService;
 use App\Services\BrandService;
 use App\Services\SmsService;
 use App\Services\TurnServerService;
+use App\Support\AdPlacement;
 use App\Support\Phone;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -74,6 +75,7 @@ class SystemController extends Controller
             'ads' => [
                 'enabled' => (bool) AppSetting::get('ads_enabled'),
                 'frequency' => (int) AppSetting::get('ad_frequency'),
+                'placements' => AdPlacement::enabled(),
                 'admob_app_id' => AppSetting::get('admob_app_id'),
                 'admob_native_unit' => AppSetting::get('admob_native_unit'),
                 'admob_test' => (bool) AppSetting::get('admob_test'),
@@ -141,6 +143,8 @@ class SystemController extends Controller
             // Ads (Y1)
             'ads_enabled' => ['nullable', 'boolean'],
             'ad_frequency' => ['nullable', 'integer', 'between:4,50'],
+            'ad_placements' => ['nullable', 'array'],
+            'ad_placements.*' => [Rule::in(AdPlacement::keys())],
             'admob_app_id' => ['nullable', 'string', 'max:120', 'regex:/^ca-app-pub-\d{16}~\d{10}$/'],
             'admob_native_unit' => ['nullable', 'string', 'max:120', 'regex:/^ca-app-pub-\d{16}\/\d{10}$/'],
             'admob_test' => ['nullable', 'boolean'],
@@ -170,6 +174,11 @@ class SystemController extends Controller
         ];
         if ($request->has('ad_frequency')) {
             $simple['ad_frequency'] = (int) ($validated['ad_frequency'] ?? 6);
+        }
+        // Which screens may show ads. The Ads form always posts this field, so an empty list
+        // means "nowhere" and the ads simply stop appearing.
+        if ($request->has('ads_section')) {
+            $simple['ad_placements'] = array_values($validated['ad_placements'] ?? []);
         }
         foreach (['admob_app_id', 'admob_native_unit', 'adsense_client', 'adsense_slot'] as $key) {
             if ($request->has($key)) {

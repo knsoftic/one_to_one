@@ -673,3 +673,15 @@ a.admin-number:hover .admin-number-value { color: var(--c-primary-text); }
 .ad-card-text:empty { display: none; }
 .ad-card-cta { display: inline-flex; align-items: center; gap: 0.3rem; margin-top: 0.35rem; font-size: 0.86rem; font-weight: 600; color: var(--c-primary-text); }
 .ad-card-cta .icon { width: 0.9rem; height: 0.9rem; }
+
+/* Ads: placement switches and the per-placement preview stage (Y1) */
+.admin-placements { display: flex; flex-direction: column; margin-top: 0.5rem; }
+.admin-placements .admin-setting-row { padding: 0.6rem 0; border-top: 1px solid var(--admin-border); }
+.admin-placements .admin-setting-row:first-child { border-top: 0; }
+.admin-placement-stat { display: block; margin-top: 0.2rem; color: var(--admin-primary); font-variant-numeric: tabular-nums; }
+.admin-warn-inline { display: block; margin-top: 0.15rem; color: var(--admin-warning, #b45309); font-style: normal; }
+
+.admin-preview-tabs { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0.25rem 0 0.75rem; }
+.admin-ad-stage { display: flex; flex-direction: column; gap: 0.35rem; padding: 0.75rem; border: 1px dashed var(--admin-border); border-radius: 0.9rem; background: var(--admin-surface-2, transparent); }
+.admin-ad-ghost-row { height: 2.75rem; border-radius: 0.6rem; background: linear-gradient(90deg, var(--admin-border) 2.75rem, transparent 2.75rem) no-repeat, var(--admin-surface); opacity: 0.55; }
+.admin-ad-stage-banner .admin-ad-preview { width: 100%; }

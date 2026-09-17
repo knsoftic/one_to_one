@@ -2,13 +2,15 @@
 
 namespace App\Models;
 
+use App\Support\AdPlacement;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Storage;
 
 /**
- * A house ad created in the admin panel (Y1). "Sponsored" cards shown in the app.
+ * A house ad created in the admin panel (Y1). "Sponsored" cards shown in the app, booked
+ * against one or more placements (chats list, status, channels, calls, inside a chat).
  */
 class AdCampaign extends Model
 {
@@ -28,7 +30,7 @@ class AdCampaign extends Model
 
     protected $fillable = [
         'name', 'status', 'title', 'body', 'image_path', 'cta_label', 'target_url', 'sponsor',
-        'countries', 'interests', 'min_age', 'max_age', 'gender', 'personalised_only',
+        'countries', 'segments', 'min_age', 'max_age', 'gender', 'placements',
         'per_user_daily_cap', 'weight', 'starts_at', 'ends_at', 'created_by',
     ];
 
@@ -36,8 +38,8 @@ class AdCampaign extends Model
     {
         return [
             'countries' => 'array',
-            'interests' => 'array',
-            'personalised_only' => 'boolean',
+            'segments' => 'array',
+            'placements' => 'array',
             'min_age' => 'integer',
             'max_age' => 'integer',
             'per_user_daily_cap' => 'integer',
@@ -75,14 +77,17 @@ class AdCampaign extends Model
         return $this->impressions > 0 ? round($this->clicks / $this->impressions * 100, 2) : 0.0;
     }
 
-    /** Whether this campaign can only run for users who turned personalised ads on. */
-    public function needsConsent(): bool
+    /** The placements this ad may run in — empty means every placement that is switched on. */
+    public function placementList(): array
     {
-        return $this->personalised_only
-            || ! empty($this->interests)
-            || $this->min_age !== null
-            || $this->max_age !== null
-            || $this->gender !== null;
+        $chosen = $this->placements ?: AdPlacement::keys();
+
+        return array_values(array_intersect(AdPlacement::enabled(), $chosen));
+    }
+
+    public function runsIn(string $placement): bool
+    {
+        return in_array($placement, $this->placementList(), true);
     }
 
     /** What the app shows: never any targeting details. */

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\AdCampaign;
 use App\Services\AdminAuditService;
+use App\Support\AdPlacement;
 use App\Support\DialCode;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -44,7 +45,14 @@ class AdController extends Controller
         $days = DB::table('ad_stats')->where('campaign_id', $ad->id)->orderByDesc('day')->limit(30)
             ->get()->map(fn ($r) => ['label' => Carbon::parse($r->day)->format('j M'), 'title' => $r->day, 'count' => (int) $r->impressions])->reverse()->values()->all();
 
-        return view('admin.ads.edit', ['campaign' => $ad, 'countries' => DialCode::countries(), 'days' => $days]);
+        $byPlacement = DB::table('ad_placement_stats')->where('campaign_id', $ad->id)->get()->keyBy('placement');
+
+        return view('admin.ads.edit', [
+            'campaign' => $ad,
+            'countries' => DialCode::countries(),
+            'days' => $days,
+            'byPlacement' => $byPlacement,
+        ]);
     }
 
     public function store(Request $request): RedirectResponse
@@ -100,12 +108,13 @@ class AdController extends Controller
             'sponsor' => ['nullable', 'string', 'max:60'],
             'countries' => ['nullable', 'array'],
             'countries.*' => [Rule::in(array_keys(DialCode::countries()))],
-            'interests' => ['nullable', 'array'],
-            'interests.*' => [Rule::in(array_keys(AdCampaign::SEGMENTS))],
+            'segments' => ['nullable', 'array'],
+            'segments.*' => [Rule::in(array_keys(AdCampaign::SEGMENTS))],
+            'placements' => ['nullable', 'array'],
+            'placements.*' => [Rule::in(AdPlacement::keys())],
             'min_age' => ['nullable', 'integer', 'between:13,100'],
             'max_age' => ['nullable', 'integer', 'between:13,100', 'gte:min_age'],
             'gender' => ['nullable', Rule::in(array_keys(AdCampaign::GENDERS))],
-            'personalised_only' => ['nullable', 'boolean'],
             'per_user_daily_cap' => ['required', 'integer', 'between:1,50'],
             'weight' => ['required', 'integer', 'between:1,100'],
             'starts_at' => ['nullable', 'date'],
@@ -113,9 +122,10 @@ class AdController extends Controller
             'image' => ['nullable', 'image', 'mimes:png,jpg,jpeg,webp', 'max:3072'],
         ]);
 
-        $validated['personalised_only'] = $request->boolean('personalised_only');
         $validated['countries'] = array_values($validated['countries'] ?? []) ?: null;
-        $validated['interests'] = array_values($validated['interests'] ?? []) ?: null;
+        $validated['segments'] = array_values($validated['segments'] ?? []) ?: null;
+        // No placement ticked means "wherever ads are switched on".
+        $validated['placements'] = array_values($validated['placements'] ?? []) ?: null;
         unset($validated['image']);
 
         return $validated;

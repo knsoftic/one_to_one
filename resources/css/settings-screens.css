@@ -397,3 +397,7 @@ button.wa-field { cursor: pointer; }
 .wa-ads-data dt { color: var(--c-muted); }
 .wa-ads-data dd { margin: 0; overflow-wrap: anywhere; }
 .wa-ads-data p { margin: 0.4rem 0 0; color: var(--c-subtle); }
+
+/* Ads: the banner format sits full width at the top of a chat (Y1) */
+.ad-card-banner { flex-direction: column; align-items: stretch; }
+.ad-card-banner .ad-card-media { width: 100%; height: 7rem; border-radius: 0.6rem 0.6rem 0 0; }

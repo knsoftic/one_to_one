@@ -590,7 +590,7 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/users/{user}/business', [BusinessController::class, 'show'])->whereNumber('user')->name('users.business');
 
     // Ads (Y1): the user's own consent and ad data, and serving sponsored cards.
-    Route::post('/ads/consent', [AdController::class, 'consent'])->middleware('throttle:chat-actions')->name('ads.consent');
+    Route::post('/ads/open', [AdController::class, 'open'])->middleware('throttle:chat-actions')->name('ads.open');
     Route::patch('/ads/profile', [AdController::class, 'updateProfile'])->middleware('throttle:chat-actions')->name('ads.profile');
     Route::get('/ads/data', [AdController::class, 'data'])->name('ads.data');
     Route::get('/ads/next', [AdController::class, 'next'])->name('ads.next');

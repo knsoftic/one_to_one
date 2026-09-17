@@ -1,95 +1,116 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import axios from '../../bootstrap';
-import { confirmDialog } from '../../lib/modal';
 import { AdsManager } from '../ads';
 
 vi.mock('../../bootstrap', () => ({ default: { post: vi.fn(async () => ({ data: {} })), get: vi.fn(async () => ({ data: { ad: null } })) } }));
-vi.mock('../../lib/modal', () => ({ confirmDialog: vi.fn() }));
 vi.mock('../../lib/native', () => ({ isNativeApp: () => false }));
 
-const AD = { title: 'Buy now', body: 'Cheap', cta: 'Shop', sponsor: 'ACME', image: 'https://x/y.jpg', click: '/ads/1/go', url: 'https://acme.test' };
+const AD = { title: 'Buy now', body: 'Cheap', cta: 'Shop', sponsor: 'ACME', image: 'https://x/y.jpg', click: '/ads/1/go', format: 'row' };
 
-function chatWith(ads, chats = 8) {
-    const list = document.createElement('div');
-    list.innerHTML = Array.from({ length: chats }, (_, i) => `<button class="conversation-item">chat ${i}</button>`).join('');
-    document.body.append(list);
+const PLACEMENTS = {
+    chat_list: { format: 'row', container: '[data-conversation-list]', item: '.conversation-item' },
+    calls: { format: 'row', container: '[data-calls-list]', item: '.calls-entry' },
+};
+
+function chatWith(ads, { chats = 8, calls = 6 } = {}) {
+    document.body.innerHTML = `
+        <div data-conversation-list>${'<button class="conversation-item"></button>'.repeat(chats)}</div>
+        <div data-calls-list>${'<button class="calls-entry"></button>'.repeat(calls)}</div>`;
     return {
-        config: { ads, routes: { adsNext: '/ads/next', adsConsent: '/ads/consent' } },
+        config: { ads, routes: { adsNext: '/ads/next', adsOpen: '/ads/open' } },
         listMode: 'all',
-        el: { conversationList: list },
+        el: { conversationList: document.querySelector('[data-conversation-list]') },
     };
 }
 
-describe('Ads in the chat list', () => {
+/** Let the constructor's awaits and the requestAnimationFrame callbacks run. */
+const settle = async () => {
+    for (let i = 0; i < 4; i++) await Promise.resolve();
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+};
+
+describe('Ads in the app', () => {
     beforeEach(() => {
         axios.get.mockResolvedValue({ data: { ad: null } });
-        axios.post.mockResolvedValue({ data: { personalised: true } });
+        axios.post.mockResolvedValue({ data: {} });
     });
     afterEach(() => {
         document.body.innerHTML = '';
         vi.clearAllMocks();
     });
 
-    it('does nothing when ads are off', () => {
+    it('does nothing when the admin has ads switched off', () => {
         new AdsManager(chatWith({ enabled: false }));
         expect(axios.get).not.toHaveBeenCalled();
+        expect(axios.post).not.toHaveBeenCalled();
     });
 
-    it('places one sponsored card a few rows down, and moves it (no duplicate) on re-render', async () => {
-        axios.get.mockResolvedValue({ data: { ad: AD } });
-        const chat = chatWith({ enabled: true, decided: true, everyChats: 6 });
-        new AdsManager(chat);
-        await Promise.resolve();
-        await Promise.resolve();
+    it('reports the device on open, without ever asking the user anything', async () => {
+        new AdsManager(chatWith({ enabled: true, placements: {}, every: 6 }));
+        await settle();
 
-        const cards = chat.el.conversationList.querySelectorAll('.ad-slot');
-        expect(cards).toHaveLength(1);
-        expect(chat.el.conversationList.querySelector('.ad-card-title').textContent).toBe('Buy now');
-        expect(chat.el.conversationList.querySelector('.ad-card').getAttribute('href')).toBe('/ads/1/go');
-        expect(chat.el.conversationList.querySelector('.ad-card').getAttribute('target')).toBe('_blank');
-        // After the 6th chat (index 5).
-        const nodes = [...chat.el.conversationList.children];
-        expect(nodes.indexOf(chat.el.conversationList.querySelector('.ad-slot'))).toBe(6);
+        expect(axios.post).toHaveBeenCalledWith('/ads/open', expect.objectContaining({ platform: 'web', location_allowed: false }));
+    });
+
+    it('asks for one ad per switched-on placement and slots each into its own screen', async () => {
+        axios.get.mockResolvedValue({ data: { ad: AD } });
+        new AdsManager(chatWith({ enabled: true, placements: PLACEMENTS, every: 6 }));
+        await settle();
+
+        expect(axios.get).toHaveBeenCalledWith('/ads/next', { params: { placement: 'chat_list' } });
+        expect(axios.get).toHaveBeenCalledWith('/ads/next', { params: { placement: 'calls' } });
+
+        const chats = document.querySelector('[data-conversation-list]');
+        const calls = document.querySelector('[data-calls-list]');
+        expect(chats.querySelectorAll('.ad-slot')).toHaveLength(1);
+        expect(calls.querySelectorAll('.ad-slot')).toHaveLength(1);
+        // After the 6th row in the chats list, and after the last row in the shorter calls list.
+        expect([...chats.children].indexOf(chats.querySelector('.ad-slot'))).toBe(6);
+        expect([...calls.children].indexOf(calls.querySelector('.ad-slot'))).toBe(6);
+        expect(chats.querySelector('.ad-card-title').textContent).toBe('Buy now');
+        expect(chats.querySelector('.ad-card').getAttribute('href')).toBe('/ads/1/go');
+    });
+
+    it('moves the card rather than duplicating it when a list redraws', async () => {
+        axios.get.mockResolvedValue({ data: { ad: AD } });
+        const chat = chatWith({ enabled: true, placements: { chat_list: PLACEMENTS.chat_list }, every: 6 });
+        new AdsManager(chat);
+        await settle();
 
         document.dispatchEvent(new CustomEvent('chat:conversations-rendered'));
-        expect(chat.el.conversationList.querySelectorAll('.ad-slot')).toHaveLength(1);
+        await settle();
+
+        expect(document.querySelectorAll('[data-conversation-list] .ad-slot')).toHaveLength(1);
     });
 
-    it('renders without an image and hides the card in archived or locked folders', async () => {
-        axios.get.mockResolvedValue({ data: { ad: { ...AD, image: null, body: '' } } });
-        const chat = chatWith({ enabled: true, decided: true, everyChats: 4 });
+    it('keeps the archived and locked folders free of ads', async () => {
+        axios.get.mockResolvedValue({ data: { ad: AD } });
+        const chat = chatWith({ enabled: true, placements: { chat_list: PLACEMENTS.chat_list }, every: 6 });
         const ads = new AdsManager(chat);
-        await Promise.resolve();
-        await Promise.resolve();
-        expect(chat.el.conversationList.querySelector('.ad-card-media')).toBeNull();
-        expect(chat.el.conversationList.querySelector('.ad-card-text')).toBeNull();
+        await settle();
+        expect(document.querySelector('.ad-slot')).not.toBeNull();
 
         chat.listMode = 'archived';
-        ads.place();
-        expect(chat.el.conversationList.querySelector('.ad-slot')).toBeNull();
+        ads.place('chat_list');
+        expect(document.querySelector('.ad-slot')).toBeNull();
     });
 
-    it('asks for consent once when undecided and records the choice', async () => {
-        vi.useFakeTimers();
-        confirmDialog.mockResolvedValue('on');
-        const chat = chatWith({ enabled: true, decided: false });
-        new AdsManager(chat);
-        await vi.advanceTimersByTimeAsync(1600);
+    it('renders a banner placement without an image or body', async () => {
+        axios.get.mockResolvedValue({ data: { ad: { ...AD, image: null, body: '', format: 'banner' } } });
+        document.body.innerHTML = '<div data-message-list></div>';
+        new AdsManager({
+            config: { ads: { enabled: true, placements: { chat_top: { format: 'banner', container: '[data-message-list]', item: null } } }, routes: { adsNext: '/ads/next' } },
+            listMode: 'all',
+            el: {},
+        });
+        await settle();
 
-        expect(confirmDialog).toHaveBeenCalledOnce();
-        expect(axios.post).toHaveBeenCalledWith('/ads/consent', expect.objectContaining({ personalised: true, platform: 'web' }));
-        expect(chat.config.ads.decided).toBe(true);
-        vi.useRealTimers();
-    });
-
-    it('records a declined choice too', async () => {
-        vi.useFakeTimers();
-        confirmDialog.mockResolvedValue(null);
-        const chat = chatWith({ enabled: true, decided: false });
-        new AdsManager(chat);
-        await vi.advanceTimersByTimeAsync(1600);
-        expect(axios.post).toHaveBeenCalledWith('/ads/consent', expect.objectContaining({ personalised: false }));
-        vi.useRealTimers();
+        const card = document.querySelector('.ad-card');
+        expect(card.classList.contains('ad-card-banner')).toBe(true);
+        expect(card.querySelector('.ad-card-media')).toBeNull();
+        expect(card.querySelector('.ad-card-text')).toBeNull();
+        // A banner sits at the top of the screen it belongs to.
+        expect(document.querySelector('[data-message-list]').firstElementChild.className).toBe('ad-slot');
     });
 });

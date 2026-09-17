@@ -30,6 +30,12 @@ const PERMISSIONS = [
         title: 'Camera',
         text: 'Video calls.',
     },
+    {
+        name: 'location',
+        icon: 'map-pin',
+        title: 'Location',
+        text: 'Share your live location in a chat, and see offers and content from your area. Only the area is used — never your exact spot.',
+    },
 ];
 
 /**

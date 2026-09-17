@@ -71,6 +71,8 @@ class User extends Authenticatable
         'username',
         'email',
         'phone',
+        'gender',
+        'birth_date',
         'profile_image',
         'password',
         'theme',
@@ -127,8 +129,7 @@ class User extends Authenticatable
             'banned_at' => 'datetime',
             'banned_until' => 'datetime',
             // Ads (Y1): consent for personalised ads (null = not decided yet).
-            'ads_personalised' => 'boolean',
-            'ads_consent_at' => 'datetime',
+            'birth_date' => 'date',
             'password' => 'hashed',
         ];
     }
@@ -199,10 +200,16 @@ class User extends Authenticatable
         return $this->hasMany(QuickReply::class);
     }
 
-    /** Y1 — ad-targeting profile (exists only while personalised ads are on). */
+    /** Y1 — what we use to choose this person's ads. */
     public function adProfile(): HasOne
     {
         return $this->hasOne(AdProfile::class);
+    }
+
+    /** Age in whole years from the date of birth in the profile, when it is set. */
+    public function age(): ?int
+    {
+        return $this->birth_date?->age;
     }
 
     /** X3 — browsers that receive push notifications. */

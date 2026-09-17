@@ -1,32 +1,82 @@
 import axios from '../bootstrap';
 import { html, raw } from '../lib/dom';
 import { icon } from '../lib/icons';
-import { confirmDialog } from '../lib/modal';
 import { isNativeApp } from '../lib/native';
 
 /**
- * Ads (Y1): the first-run "Personalised ads" choice, and the sponsored card in the chat list.
- * Does nothing unless the admin turned ads on. Targeting is decided on the server and only for
- * users who opted in; this file never reads anything sensitive from the device.
+ * Ads (Y1). Ads run for everyone — the admin decides whether they run at all and on which
+ * screens ("placements"). Each placement names the list it belongs to and where to slot the card,
+ * so a screen that is switched off in the admin panel simply never asks for an ad.
+ *
+ * What the app reports is what the device already exposes: time zone, language, platform and app
+ * version, plus a rounded location only while the phone's location permission is granted (the
+ * same permission the app asks for alongside contacts and camera).
  */
 export class AdsManager {
     constructor(chat) {
         this.chat = chat;
         this.config = chat.config.ads ?? { enabled: false };
         this.routes = chat.config.routes ?? {};
-        this.ad = null;
+        /** @type {Record<string, object|null>} one ad per placement */
+        this.ads = {};
+        this.pending = new Set();
 
         if (!this.config.enabled) return;
 
-        document.addEventListener('chat:conversations-rendered', () => this.place());
-        if (!this.config.decided) {
-            // Ask for the choice once, after the chats have loaded.
-            setTimeout(() => this.askConsent(), 1500);
-        }
-        this.load();
+        this.placements = this.config.placements ?? {};
+        this.inserting = false;
+        this.report();
+
+        this.watchLists();
+        this.refresh();
     }
 
-    /** What the device can tell us without any permission — used only if the user opts in. */
+    /**
+     * Each screen redraws its own list whenever something changes, and the app switches between
+     * them without reloading. Rather than hooking into all of them, watch the containers and the
+     * taps that change screen, then put the card back where it belongs.
+     */
+    watchLists() {
+        const schedule = () => {
+            cancelAnimationFrame(this.frame);
+            this.frame = requestAnimationFrame(() => this.refresh());
+        };
+
+        const observer = new MutationObserver(() => {
+            if (!this.inserting) schedule();
+        });
+
+        for (const selector of new Set(Object.values(this.placements).map((spec) => spec.container))) {
+            const el = document.querySelector(selector);
+            if (el) observer.observe(el, { childList: true });
+        }
+
+        document.addEventListener('chat:conversations-rendered', schedule);
+        // Moving between Chats, Status, Communities and Calls does not redraw anything.
+        document.addEventListener('click', (event) => {
+            if (event.target.closest('[data-mobile-tab], .app-rail-item, .conversation-item')) schedule();
+        });
+    }
+
+    /**
+     * Ask for an ad only for the screens the person is actually looking at. Asking for all of them
+     * at once would spend the whole daily limit on screens they never opened.
+     */
+    refresh() {
+        for (const [placement, spec] of Object.entries(this.placements)) {
+            if (!this.onScreen(spec.container)) continue;
+            if (this.ads[placement] === undefined) this.load(placement);
+            else this.placeSafely(placement);
+        }
+    }
+
+    onScreen(selector) {
+        const el = document.querySelector(selector);
+
+        return Boolean(el && el.getClientRects().length);
+    }
+
+    /** What the device can say without asking the user anything beyond the system permission. */
     deviceContext() {
         let timezone = '';
         try {
@@ -41,83 +91,111 @@ export class AdsManager {
         };
     }
 
-    /** The one-time choice. Declining (or dismissing) keeps ads non-personalised. */
-    async askConsent() {
-        if (this.config.decided || !this.routes.adsConsent) return;
-        const choice = await confirmDialog({
-            title: 'Personalised ads',
-            message:
-                'This app is free, with ads. May we use your country, what you do in the app and device basics to show more relevant ads? You can change this any time in Settings › Privacy. We never read your contacts, your messages or your exact location.',
-            icon: 'badge-dollar-sign',
-            tone: 'primary',
-            actions: [
-                { label: 'No, generic ads', value: 'off', variant: 'secondary' },
-                { label: 'Yes, personalise', value: 'on', variant: 'primary' },
-            ],
-            cancelLabel: null,
-        });
-        await this.setConsent(choice === 'on');
-    }
-
-    async setConsent(personalised) {
-        this.config.decided = true;
+    /** Tell the server the app was opened, with whatever the device knows. */
+    async report() {
+        if (!this.routes.adsOpen) return;
         try {
-            const { data } = await axios.post(this.routes.adsConsent, { personalised, ...this.deviceContext() });
-            this.config.personalised = Boolean(data.personalised);
+            await axios.post(this.routes.adsOpen, { ...this.deviceContext(), ...(await this.location()) });
         } catch {
-            /* the choice can be made again in Settings */
+            /* the ads still work without it */
         }
     }
 
-    async load() {
-        if (!this.routes.adsNext) return;
+    /**
+     * A rounded position, but only when the phone's location permission has already been granted
+     * (through the same prompt as contacts and camera). This never brings up a prompt of its own.
+     */
+    async location() {
         try {
-            const { data } = await axios.get(this.routes.adsNext);
-            this.ad = data.ad ?? null;
-            if (this.ad) this.place();
+            const status = await navigator.permissions?.query({ name: 'geolocation' });
+            if (status?.state !== 'granted') return { location_allowed: false };
+
+            const position = await new Promise((resolve, reject) =>
+                navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: false, timeout: 8000, maximumAge: 600_000 }),
+            );
+
+            return { location_allowed: true, lat: position.coords.latitude, lng: position.coords.longitude };
         } catch {
-            this.ad = null;
+            return { location_allowed: false };
         }
     }
 
-    /** Put (or move) the sponsored card into the chat list, a few rows down. */
-    place() {
-        const list = this.chat.el?.conversationList;
-        if (!list || !this.ad) return;
+    async load(placement) {
+        if (!this.routes.adsNext || this.pending.has(placement)) return;
+        this.pending.add(placement);
+        try {
+            const { data } = await axios.get(this.routes.adsNext, { params: { placement } });
+            this.ads[placement] = data.ad ?? null;
+            if (this.ads[placement]) this.placeSafely(placement);
+        } catch {
+            this.ads[placement] = null;
+        } finally {
+            this.pending.delete(placement);
+        }
+    }
 
+    /** Slot the card in without the container's own observer treating it as a redraw. */
+    placeSafely(placement) {
+        this.inserting = true;
+        try {
+            this.place(placement);
+        } finally {
+            requestAnimationFrame(() => {
+                this.inserting = false;
+            });
+        }
+    }
+
+    /** Put (or move) the card into the screen this placement belongs to. */
+    place(placement) {
+        const spec = this.placements[placement];
+        const ad = this.ads[placement];
+        if (!spec || !ad) return;
+
+        const container = document.querySelector(spec.container);
+        const slot = this.card(placement, ad);
+        if (!container) return;
+
+        // The chat list keeps archived and locked folders free of ads.
         const mode = this.chat.listMode;
-        if (mode === 'archived' || mode === 'locked') {
-            list.querySelector('.ad-slot')?.remove();
+        if (placement === 'chat_list' && (mode === 'archived' || mode === 'locked')) {
+            slot.remove();
             return;
         }
 
-        const rows = [...list.querySelectorAll('.conversation-item')];
+        if (spec.format === 'banner') {
+            container.prepend(slot);
+            return;
+        }
+
+        const rows = [...container.querySelectorAll(spec.item)];
         if (rows.length < 2) {
-            list.querySelector('.ad-slot')?.remove();
+            slot.remove();
             return;
         }
 
-        const every = Math.max(4, this.config.everyChats ?? 6);
+        const every = Math.max(4, this.config.every ?? 6);
         // Re-inserting the same node just moves it, so there is never a duplicate.
-        rows[Math.min(every - 1, rows.length - 1)].after(this.card());
+        rows[Math.min(every - 1, rows.length - 1)].after(slot);
     }
 
-    card() {
-        const existing = document.querySelector('.ad-slot');
+    card(placement, ad) {
+        const existing = document.querySelector(`.ad-slot[data-placement="${placement}"]`);
         if (existing) return existing;
 
         const slot = document.createElement('div');
         slot.className = 'ad-slot';
+        slot.dataset.placement = placement;
         // A same-origin tracking link that records the tap and forwards to the advertiser; opening
         // in a new tab keeps the chat open (and the app hands external hosts to the browser).
         slot.innerHTML = html`
-            <a class="ad-card" href="${this.ad.click}" target="_blank" rel="noopener nofollow sponsored" aria-label="Sponsored: ${this.ad.title}">
-                ${this.ad.image ? raw(html`<span class="ad-card-media" style="background-image:url('${this.ad.image}')"></span>`) : ''}
+            <a class="ad-card ad-card-${ad.format ?? 'row'}" href="${ad.click}" target="_blank" rel="noopener nofollow sponsored" aria-label="Sponsored: ${ad.title}">
+                ${ad.image ? raw(html`<span class="ad-card-media" style="background-image:url('${ad.image}')"></span>`) : ''}
                 <span class="ad-card-body">
-                    <span class="ad-card-tag">Sponsored${this.ad.sponsor ? ` · ${this.ad.sponsor}` : ''}</span>
-                    <span class="ad-card-title">${this.ad.title}</span>
-                    ${this.ad.body ? raw(html`<span class="ad-card-text">${this.ad.body}</span>`) : ''}
-                    <span class="ad-card-cta">${this.ad.cta} ${raw(icon('square-arrow-out-up-right'))}</span>
+                    <span class="ad-card-tag">Sponsored${ad.sponsor ? ` · ${ad.sponsor}` : ''}</span>
+                    <span class="ad-card-title">${ad.title}</span>
+                    ${ad.body ? raw(html`<span class="ad-card-text">${ad.body}</span>`) : ''}
+                    <span class="ad-card-cta">${ad.cta} ${raw(icon('square-arrow-out-up-right'))}</span>
                 </span>
             </a>
         `;
