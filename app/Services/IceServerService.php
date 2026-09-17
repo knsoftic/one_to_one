@@ -31,21 +31,40 @@ class IceServerService
             return $servers;
         }
 
+        $credentials = $this->turnCredentials((string) $user->getKey());
+        if ($credentials !== null) {
+            $servers[] = ['urls' => $turn, ...$credentials];
+        }
+
+        return $servers;
+    }
+
+    /**
+     * TURN username and password: made from the shared secret (valid for a while), or the fixed pair.
+     *
+     * @return array{username: string, credential: string}|null
+     */
+    public function turnCredentials(string $label, ?int $ttlSeconds = null): ?array
+    {
         $secret = (string) config('chat.calls.turn_secret');
 
         if ($secret !== '') {
-            $username = (time() + max(300, (int) config('chat.calls.turn_ttl_seconds', 43200))).':'.$user->getKey();
+            $username = (time() + max(300, $ttlSeconds ?? (int) config('chat.calls.turn_ttl_seconds', 43200))).':'.$label;
             $credential = base64_encode(hash_hmac('sha1', $username, $secret, true));
         } else {
             $username = (string) config('chat.calls.turn_username');
             $credential = (string) config('chat.calls.turn_password');
         }
 
-        if ($username !== '' && $credential !== '') {
-            $servers[] = ['urls' => $turn, 'username' => $username, 'credential' => $credential];
-        }
+        return $username !== '' && $credential !== '' ? ['username' => $username, 'credential' => $credential] : null;
+    }
 
-        return $servers;
+    /**
+     * @return list<string>
+     */
+    public function turnUrls(): array
+    {
+        return $this->urls(config('chat.calls.turn_urls'));
     }
 
     /**

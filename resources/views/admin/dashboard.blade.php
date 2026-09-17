@@ -204,6 +204,11 @@
                     <li data-ok="1"><x-icon name="database" /> <span><strong>Database</strong> {{ $health['database_bytes'] !== null ? $bytes($health['database_bytes']) : 'size unknown' }}</span></li>
                     <li data-ok="{{ $health['push'] ? '1' : '0' }}"><x-icon :name="$health['push'] ? 'circle-check' : 'circle-alert'" /> <span><strong>Phone notifications</strong> {{ $health['push'] ? 'Firebase ready' : 'Firebase not set up' }}</span></li>
                     <li data-ok="1"><x-icon name="bell-ring" /> <span><strong>Browser notifications</strong> {{ number_format($health['web_push'] ?? 0) }} browsers signed up</span></li>
+                    @php
+                        $turnHealth = $health['turn'] ?? ['configured' => false, 'check' => null];
+                        $turnOk = $turnHealth['configured'] && ($turnHealth['check']['ok'] ?? false);
+                    @endphp
+                    <li data-ok="{{ $turnOk ? '1' : '0' }}"><x-icon :name="$turnOk ? 'circle-check' : 'circle-alert'" /> <span><strong>Call server (TURN)</strong> <a class="admin-link" href="{{ route('admin.settings') }}#turn">{{ ! $turnHealth['configured'] ? 'not set up — calls on mobile data may fail' : ($turnHealth['check'] === null ? 'set up, not checked yet' : ($turnHealth['check']['ok'] ? 'answers (server check '.$turnHealth['check']['at']->diffForHumans().')' : 'problem found '.$turnHealth['check']['at']->diffForHumans())) }}</a></span></li>
                     <li data-ok="{{ $health['realtime'] ? '1' : '0' }}"><x-icon :name="$health['realtime'] ? 'circle-check' : 'circle-alert'" /> <span><strong>Live updates</strong> {{ $health['realtime'] ? 'Reverb' : 'polling (Reverb off)' }}</span></li>
                     <li data-ok="{{ $health['zip'] ? '1' : '0' }}"><x-icon :name="$health['zip'] ? 'circle-check' : 'circle-alert'" /> <span><strong>ZIP</strong> {{ $health['zip'] ? 'available (exports and backups)' : 'PHP zip extension missing' }}</span></li>
                     <li data-ok="1"><x-icon name="info" /> <span>PHP {{ $health['php'] }} · Laravel {{ $health['laravel'] }}</span></li>

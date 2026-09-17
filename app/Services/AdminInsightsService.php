@@ -91,7 +91,7 @@ class AdminInsightsService
      */
     public function health(): array
     {
-        return Cache::remember('admin:health', 60, function () {
+        $health = Cache::remember('admin:health', 60, function () {
             $lastRun = Cache::get(ChatDoctor::SCHEDULER_HEARTBEAT_KEY);
             $storage = storage_path();
 
@@ -111,6 +111,11 @@ class AdminInsightsService
                 'queue_driver' => (string) config('queue.default'),
             ];
         });
+
+        // Not cached with the rest: a check made in App settings shows up straight away.
+        $turn = app(TurnServerService::class)->status();
+
+        return $health + ['turn' => ['configured' => $turn['configured'], 'check' => $turn['check']]];
     }
 
     /* ------------------------------------------------------------------ */

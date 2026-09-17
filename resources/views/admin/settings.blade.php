@@ -8,6 +8,7 @@
         <a href="#sms" class="admin-tab">SMS</a>
         <a href="#email" class="admin-tab">Email</a>
         <a href="#extras" class="admin-tab">GIFs, calls &amp; invite</a>
+        <a href="#turn" class="admin-tab">Call server (TURN)</a>
         <a href="#legal" class="admin-tab">Legal pages</a>
         <a href="#android" class="admin-tab">Android app</a>
         <a href="#tests" class="admin-tab">Test</a>
@@ -169,6 +170,7 @@
                     {!! $field('invite_url', 'Invite link', ['type' => 'url', 'placeholder' => 'https://play.google.com/store/apps/…', 'hint' => 'Sent to friends who are not on the app yet. Empty = the sign-up page.', 'env' => 'CHAT_INVITE_URL']) !!}
                 </div>
                 <h4 class="admin-subtitle-row">Call relay (TURN) — makes calls work on mobile data</h4>
+                <p class="admin-muted">Your own server fills these in by itself: see <a href="#turn">Call server (TURN)</a>.</p>
                 <div class="admin-settings-grid">
                     {!! $field('turn_urls', 'TURN addresses', ['type' => 'textarea', 'placeholder' => 'turn:chat.example.com:3478?transport=udp,turns:chat.example.com:5349?transport=tcp', 'env' => 'CHAT_CALL_TURN_URLS']) !!}
                     {!! $field('turn_secret', 'Shared secret (coturn)', ['hint' => 'Or fill in a fixed username and password below.', 'env' => 'CHAT_CALL_TURN_SECRET']) !!}
@@ -222,6 +224,87 @@
         <div class="admin-settings-save"><button type="submit" class="btn btn-primary btn-lg"><x-icon name="check" /> Save settings</button></div>
         <p class="admin-muted">Passwords and keys are encrypted with the app key and never shown again. The database, APP_KEY, APP_URL and Reverb still come from .env.</p>
     </form>
+
+    {{-- Call server (TURN) --}}
+    @php
+        $turnCheck = $turn['check'];
+        [$turnBadge, $turnLabel] = match (true) {
+            ! $turn['configured'] => ['badge-warning', 'Not set up'],
+            $turnCheck === null => ['badge-muted', 'Not checked'],
+            $turnCheck['ok'] => ['badge-success', 'Answers'],
+            default => ['badge-danger', 'Problem'],
+        };
+        $turnResults = collect($turnCheck['results'] ?? [])->keyBy('url');
+        // The script needs to know where the app is (quoted when the folder has spaces).
+        $quote = fn (string $path) => preg_match('/^[\w.\/-]+$/', $path) ? $path : escapeshellarg($path);
+        $turnSetupCommand = 'APP_DIR='.$quote(base_path()).' bash '.$quote(base_path('scripts/setup-turn.sh'));
+        $transportLabels = ['udp' => 'UDP', 'tcp' => 'TCP', 'tls' => 'TLS (port for strict networks)'];
+    @endphp
+    <section class="card admin-tool" id="turn">
+        <div class="card-body">
+            <div class="admin-turn-head">
+                <h3 class="admin-section-title"><x-icon name="server" /> Call server (TURN)</h3>
+                <span class="badge {{ $turnBadge }}">{{ $turnLabel }}</span>
+            </div>
+            <p class="admin-muted">Calls first try to connect the two phones directly. On mobile data and office or hotel Wi-Fi that often fails, and the call goes through a TURN server instead. With your own (coturn, free) calls connect everywhere and nothing is paid per minute.</p>
+
+            @if ($turn['configured'])
+                <div class="admin-table-wrap admin-turn-table mt-3">
+                    <table class="admin-table">
+                        <thead><tr><th>Address</th><th>Type</th><th>Last check</th></tr></thead>
+                        <tbody>
+                            @foreach ($turn['endpoints'] as $endpoint)
+                                @php($result = $turnResults->get($endpoint['url']))
+                                <tr>
+                                    <td><code>{{ $endpoint['url'] }}</code></td>
+                                    <td>{{ $transportLabels[$endpoint['transport']] }}</td>
+                                    <td>
+                                        @if (! $result)
+                                            <span class="admin-muted">—</span>
+                                        @elseif ($result['ok'])
+                                            <span class="admin-turn-result is-ok"><x-icon name="circle-check" /> Answers{{ $result['relay'] ? ' · relay '.$result['relay'] : '' }}{{ $result['ms'] ? ' · '.$result['ms'].' ms' : '' }}</span>
+                                        @else
+                                            <span class="admin-turn-result is-bad"><x-icon name="circle-alert" /> {{ $result['detail'] }}</span>
+                                        @endif
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+                <p class="admin-muted mt-2">
+                    {{ $turn['auth'] === 'secret' ? 'Shared secret: every person gets their own call password that expires after 12 hours.' : 'Fixed username and password.' }}
+                    {{ $turn['from_admin'] ? '' : 'Read from .env.' }}
+                    {{ $turnCheck ? 'Checked '.$turnCheck['at']->diffForHumans().'.' : '' }}
+                </p>
+                <p class="admin-muted">The server check finds a stopped coturn, a wrong secret or a certificate problem, but it runs on the server itself, so your hosting provider's firewall can't be seen from there. <strong>Test from this browser</strong> on a phone with Wi-Fi off confirms the ports are open.</p>
+                <div class="admin-turn-actions">
+                    <form method="POST" action="{{ route('admin.turn.check') }}" data-loading-form>
+                        @csrf
+                        <button type="submit" class="btn btn-primary"><x-icon name="refresh-cw" /> Check from the server</button>
+                    </form>
+                    <button type="button" class="btn btn-secondary" data-turn-browser-test data-url="{{ route('admin.turn.servers') }}"><x-icon name="monitor" /> Test from this browser</button>
+                </div>
+                <div class="admin-turn-browser" data-turn-browser-result aria-live="polite" hidden></div>
+            @else
+                <p class="admin-backup-note is-warning"><x-icon name="triangle-alert" /> No TURN server yet: calls between people on mobile data or strict Wi-Fi may ring but never connect.</p>
+            @endif
+
+            <div class="admin-turn-setup">
+                <h4 class="admin-subtitle-row">{{ $turn['configured'] ? 'Install it again or on a new server' : 'Set up your own TURN server' }}</h4>
+                <ol class="admin-turn-steps">
+                    <li>
+                        <span>Open the server's terminal as <strong>root</strong> (SSH, or aaPanel → Terminal) and run:</span>
+                        <span class="admin-turn-command"><code data-copy-source>{{ $turnSetupCommand }}</code><button type="button" class="btn btn-ghost btn-sm" data-copy><x-icon name="copy" /> Copy</button></span>
+                        <span class="admin-muted">It installs coturn, makes a new shared secret, uses the site's SSL certificate, opens the ports and saves the address and secret here — nothing to type in.</span>
+                    </li>
+                    <li><span>In your hosting provider's firewall (VPS panel or security group), if it has one, allow <strong>TCP + UDP 3478</strong>, <strong>TCP + UDP 5349</strong> and <strong>UDP 49160–49400</strong>.</span></li>
+                    <li><span>Come back here and press <strong>Check from the server</strong>. Then open this page on a phone with Wi-Fi off and press <strong>Test from this browser</strong>.</span></li>
+                </ol>
+                <p class="admin-muted">Using another TURN provider? Fill in its addresses and secret (or username and password) under <a href="#extras">GIFs, calls &amp; invite link</a>. Step-by-step: <a href="{{ route('admin.docs.show', 'deployment') }}#19-voice-video-calls-turn-server">server guide, step 19</a>.</p>
+            </div>
+        </div>
+    </section>
 
     {{-- Android app releases (X4) --}}
     <section class="card admin-tool" id="android">

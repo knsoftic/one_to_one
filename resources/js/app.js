@@ -12,6 +12,7 @@ import { initNetworkStatus } from './ui/network';
 import { initAdminBulk } from './ui/admin-bulk';
 import { initAdminDocs } from './ui/admin-docs';
 import { initAdminBrand } from './ui/admin-brand';
+import { initAdminTurn } from './ui/admin-turn';
 import { initWebUpdateNotice } from './ui/app-update';
 import { initSettings } from './ui/settings';
 import { initInstallPrompt, listenForNotificationClicks, registerServiceWorker, syncPush } from './lib/web-push';
@@ -31,6 +32,7 @@ initNetworkStatus(config);
 initAdminBulk();
 initAdminDocs();
 initAdminBrand();
+initAdminTurn();
 // X4: offer a reload when a new version was deployed while this tab was open.
 initWebUpdateNotice(config);
 

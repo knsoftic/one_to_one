@@ -7,7 +7,8 @@
 #   2. writes a secure configuration (shared secret, relay ports, private networks blocked)
 #   3. uses the site's SSL certificate for TURN over TLS (refreshed monthly)
 #   4. opens the ports in ufw / firewalld when they are active
-#   5. sets CHAT_CALL_TURN_URLS / CHAT_CALL_TURN_SECRET in .env and caches the config
+#   5. saves the address and shared secret in Admin → App settings → Call server (TURN)
+#   6. checks that the server hands out relays with those credentials
 #
 # Usage (as root):
 #   bash /www/wwwroot/chat.hunario.com/scripts/setup-turn.sh
@@ -37,16 +38,6 @@ die() { printf '\n\033[31m✘ %s\033[0m\n' "$*"; exit 1; }
 
 env_get() {
     { grep -E "^$1=" "$ENV_FILE" || true; } | tail -n 1 | cut -d= -f2- | sed -e 's/^"//' -e 's/"$//'
-}
-
-env_set() {
-    local key="$1" value="$2" escaped
-    escaped=$(printf '%s' "$value" | sed -e 's/[\/&|]/\\&/g')
-    if grep -qE "^${key}=" "$ENV_FILE"; then
-        sed -i -E "s|^${key}=.*|${key}=${escaped}|" "$ENV_FILE"
-    else
-        printf '%s=%s\n' "$key" "$value" >> "$ENV_FILE"
-    fi
 }
 
 # ---------------------------------------------------------------------------
@@ -89,13 +80,21 @@ fi
 
 # ---------------------------------------------------------------------------
 step "Configuration"
-SECRET="$(env_get CHAT_CALL_TURN_SECRET)"
-[ -n "$SECRET" ] || SECRET="$(openssl rand -hex 32)"
-
 if [ -d /etc/coturn ] && [ ! -f /etc/turnserver.conf ]; then
     CONF=/etc/coturn/turnserver.conf
 else
     CONF=/etc/turnserver.conf
+fi
+
+# Running it again keeps the secret, so calls in progress keep working.
+SECRET=""
+[ -f "$CONF" ] && SECRET="$({ grep -E '^static-auth-secret=' "$CONF" || true; } | tail -n 1 | cut -d= -f2-)"
+[ -n "$SECRET" ] || SECRET="$(env_get CHAT_CALL_TURN_SECRET)"
+if [ -n "$SECRET" ]; then
+    ok "Keeping the existing shared secret"
+else
+    SECRET="$(openssl rand -hex 32)"
+    ok "New shared secret made"
 fi
 [ -f "$CONF" ] && cp "$CONF" "$CONF.bak.$(date +%Y%m%d%H%M%S)"
 
@@ -192,23 +191,30 @@ printf '       TCP+UDP 3478%s, UDP %s-%s\n' "$( [ "$TLS" = 1 ] && echo ', TCP+UD
 
 # ---------------------------------------------------------------------------
 step "Connecting the app"
-cp "$ENV_FILE" "$ENV_FILE.bak.$(date +%Y%m%d%H%M%S)"
 URLS="turn:$TURN_HOST:3478?transport=udp,turn:$TURN_HOST:3478?transport=tcp"
 [ "$TLS" = 1 ] && URLS="$URLS,turns:$DOMAIN:5349?transport=tcp"
-env_set CHAT_CALL_TURN_URLS "\"$URLS\""
-env_set CHAT_CALL_TURN_SECRET "$SECRET"
 
 cd "$APP_DIR"
-"$PHP_BIN" artisan config:cache >/dev/null
-chown -R "$WEB_USER":"$WEB_USER" bootstrap/cache storage
-ok "CHAT_CALL_TURN_URLS set and configuration cached"
+# Saved in Admin → App settings → Call server (TURN); the secret goes in through stdin, never the command line.
+printf '%s' "$SECRET" | runuser -u "$WEB_USER" -- "$PHP_BIN" artisan chat:turn-server --urls="$URLS" --secret-stdin \
+    || die "Could not save the TURN settings in the app (see the message above)."
 
 # ---------------------------------------------------------------------------
-step "Checking"
-runuser -u "$WEB_USER" -- "$PHP_BIN" artisan chat:doctor || true
+step "Checking (asks the TURN server for a relay, like a phone in a call)"
+sleep 1
+if runuser -u "$WEB_USER" -- "$PHP_BIN" artisan chat:turn-server --check; then
+    ok "coturn answers and the secret matches (checked from this server)"
+    warn "This check does not pass through your hosting provider's firewall. Confirm the ports from outside:"
+    warn "Admin → App settings → Call server (TURN) → Test from this browser, on a phone with Wi-Fi off."
+else
+    warn "The check failed on the server itself: coturn is not running or refused the relay"
+    warn "(systemctl status coturn; tail -n 50 /var/log/turnserver.log), or this server's own firewall blocks it."
+    warn "Check again later in Admin → App settings → Call server (TURN)."
+fi
 
 cat <<DONE
 
-Done. Test a call between a phone on mobile data (Wi-Fi off) and another device.
+Done. Admin → App settings → Call server (TURN) now shows this server.
+Test a call between a phone on mobile data (Wi-Fi off) and another device.
 While a call is relayed, "tail -f /var/log/turnserver.log" shows the session.
 DONE

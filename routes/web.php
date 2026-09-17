@@ -8,6 +8,7 @@ use App\Http\Controllers\Admin\ChatController as AdminChatController;
 use App\Http\Controllers\Admin\DocsController;
 use App\Http\Controllers\Admin\SpaceController;
 use App\Http\Controllers\Admin\SystemController;
+use App\Http\Controllers\Admin\TurnController;
 use App\Http\Controllers\Admin\UserDataController;
 use App\Http\Controllers\Admin\UserModerationController;
 use App\Http\Controllers\AdminController;
@@ -544,6 +545,9 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::put('/settings', [SystemController::class, 'updateSettings'])->name('settings.update');
         Route::put('/app-release', [AppReleaseController::class, 'update'])->name('app-release.update');
         Route::put('/app-brand', [BrandController::class, 'update'])->name('brand.update');
+        // Call server (TURN): check it from the server, or get short-lived credentials for the browser check
+        Route::post('/settings/turn-check', [TurnController::class, 'check'])->middleware('throttle:6,1')->name('turn.check');
+        Route::get('/settings/turn-servers', [TurnController::class, 'servers'])->middleware('throttle:20,1')->name('turn.servers');
         Route::post('/settings/test-sms', [SystemController::class, 'testSms'])->middleware('throttle:chat-lock')->name('settings.test-sms');
         Route::post('/settings/test-mail', [SystemController::class, 'testMail'])->middleware('throttle:chat-lock')->name('settings.test-mail');
         // Reports (Phase 6, P6)

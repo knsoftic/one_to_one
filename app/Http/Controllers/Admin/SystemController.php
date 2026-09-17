@@ -12,6 +12,7 @@ use App\Services\AppConfigService;
 use App\Services\AppUpdateService;
 use App\Services\BrandService;
 use App\Services\SmsService;
+use App\Services\TurnServerService;
 use App\Support\Phone;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -69,6 +70,7 @@ class SystemController extends Controller
             'values' => $this->config->formValues(),
             'smsReady' => $sms->available(),
             'mailer' => (string) config('mail.default'),
+            'turn' => app(TurnServerService::class)->status(),
             'brand' => app(BrandService::class)->settings() + [
                 'current_name' => app(BrandService::class)->name(),
                 'default_name' => app(BrandService::class)->defaultName(),

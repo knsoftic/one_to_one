@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\Call;
 use App\Models\DeviceToken;
 use App\Services\PushService;
+use App\Services\TurnServerService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Cache;
@@ -165,23 +166,12 @@ class ChatDoctor extends Command
     {
         $this->result((bool) config('chat.calls.enabled', true), 'Calls are enabled', 'Set CHAT_CALLS_ENABLED=true.', warnOnly: true);
 
-        $turnUrls = collect(explode(',', (string) config('chat.calls.turn_urls')))->map(fn ($url) => trim($url))->filter();
-        $hasCredentials = (string) config('chat.calls.turn_secret') !== '' || (string) config('chat.calls.turn_username') !== '';
-
-        if ($turnUrls->isEmpty() || ! $hasCredentials) {
-            $this->result(false, 'TURN server configured', 'Without TURN, calls on mobile data and strict networks often fail to connect. Run scripts/setup-turn.sh (guide step 19).', warnOnly: true);
+        $turn = app(TurnServerService::class);
+        if (! $turn->status()['configured']) {
+            $this->result(false, 'TURN server configured', 'Without TURN, calls on mobile data and strict networks often fail to connect. Run scripts/setup-turn.sh as root (guide step 19), or fill in Admin → App settings → Call server (TURN).', warnOnly: true);
         } else {
-            $checked = [];
-            foreach ($turnUrls as $url) {
-                if (! preg_match('/^turns?:([^:?]+)(?::(\d+))?/i', $url, $match) || str_starts_with(strtolower($url), 'turns:')) {
-                    continue;
-                }
-                $target = $match[1].':'.($match[2] ?? 3478);
-                if (isset($checked[$target])) {
-                    continue;
-                }
-                $checked[$target] = true;
-                $this->result($this->stunBinding($match[1], (int) ($match[2] ?? 3478)), "TURN server answers on {$target} (UDP)", 'coturn is not running or UDP 3478 is blocked: systemctl status coturn, and open the ports (guide step 19.3).');
+            foreach ($turn->check()['results'] as $result) {
+                $this->result($result['ok'], "TURN relay on {$result['url']}", $result['detail'].' (systemctl status coturn; ports: guide step 19.3)');
             }
         }
 
@@ -237,23 +227,6 @@ class ChatDoctor extends Command
         fclose($socket);
 
         return preg_match('#^HTTP/\d(?:\.\d)?\s+(\d{3})#', $line, $match) ? (int) $match[1] : null;
-    }
-
-    /** STUN binding request (coturn answers without credentials). */
-    private function stunBinding(string $host, int $port): bool
-    {
-        $socket = @stream_socket_client("udp://{$host}:{$port}", $errno, $error, 3);
-        if (! $socket) {
-            return false;
-        }
-
-        stream_set_timeout($socket, 3);
-        $transaction = random_bytes(12);
-        fwrite($socket, pack('nnN', 0x0001, 0, 0x2112A442).$transaction);
-        $response = (string) fread($socket, 512);
-        fclose($socket);
-
-        return strlen($response) >= 20 && unpack('n', substr($response, 0, 2))[1] === 0x0101 && substr($response, 8, 12) === $transaction;
     }
 
     private function section(string $title): void

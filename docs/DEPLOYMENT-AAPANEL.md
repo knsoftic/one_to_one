@@ -672,7 +672,7 @@ phone. Tokens of uninstalled apps are removed automatically.
 
 ## 19. Voice & video calls (TURN server)
 
-> **Shortcut:** `bash /www/wwwroot/chat.hunario.com/scripts/setup-turn.sh` (as root) does 19.1–19.4 automatically: installs coturn, writes the configuration with a new secret, uses the site certificate for TLS, opens the ports in ufw/firewalld, updates `.env` and runs `php artisan chat:doctor`. Only the hosting provider's firewall (if your VPS panel has one) must still be opened by hand.
+> **Shortcut:** `APP_DIR=/www/wwwroot/chat.hunario.com bash /www/wwwroot/chat.hunario.com/scripts/setup-turn.sh` (as root) does 19.1–19.4 automatically: installs coturn, writes the configuration with a new secret (kept when you run it again), uses the site certificate for TLS, opens the ports in ufw/firewalld, saves the address and secret in **Admin → App settings → Call server (TURN)** and asks the server for a relay to check it. Only the hosting provider's firewall (if your VPS panel has one) must still be opened by hand. The admin page shows the same command with a Copy button, and **Check from the server** / **Test from this browser** buttons.
 
 Calls work in the browser and in the Android app as soon as the latest code is deployed: the call buttons are in the
 chat header, calls ring on every device of the person called (full-screen ringing on Android, even when the app is
@@ -702,7 +702,7 @@ Replace `/etc/turnserver.conf` (Ubuntu/Debian) or `/etc/coturn/turnserver.conf` 
 listening-port=3478
 tls-listening-port=5349
 min-port=49160
-max-port=49200
+max-port=49400
 external-ip=YOUR_PUBLIC_IP
 
 realm=chat.hunario.com
@@ -725,8 +725,11 @@ denied-peer-ip=127.0.0.0-127.255.255.255
 denied-peer-ip=169.254.0.0-169.254.255.255
 denied-peer-ip=172.16.0.0-172.31.255.255
 denied-peer-ip=192.168.0.0-192.168.255.255
+denied-peer-ip=::1
+denied-peer-ip=fc00::-fdff:ffff:ffff:ffff:ffff:ffff:ffff:ffff
+denied-peer-ip=fe80::-febf:ffff:ffff:ffff:ffff:ffff:ffff:ffff
 no-cli
-total-quota=100
+total-quota=200
 stale-nonce=600
 simple-log
 log-file=/var/log/turnserver.log
@@ -745,9 +748,10 @@ chown -R turnserver:turnserver /etc/coturn/certs 2>/dev/null || chown -R coturn:
 chmod 600 /etc/coturn/certs/privkey.pem
 ```
 
-Start it:
+Start it (the file holds the secret, so only root and coturn may read it):
 
 ```bash
+chmod 640 /etc/turnserver.conf && chown root:turnserver /etc/turnserver.conf 2>/dev/null || chown root:coturn /etc/coturn/turnserver.conf
 sed -i 's/^#\?TURNSERVER_ENABLED=.*/TURNSERVER_ENABLED=1/' /etc/default/coturn 2>/dev/null
 systemctl enable --now coturn
 systemctl restart coturn && systemctl status coturn --no-pager
@@ -761,20 +765,22 @@ In **aaPanel → Security → Firewall** *and* in your cloud provider's firewall
 |------|----------|---------|
 | 3478 | TCP + UDP | TURN |
 | 5349 | TCP + UDP | TURN over TLS |
-| 49160–49200 | UDP | Relayed audio/video |
+| 49160–49400 | UDP | Relayed audio/video |
 
 ### 19.4 Connect the app
 
-In `.env` (same secret as in `turnserver.conf`):
-
-```dotenv
-CHAT_CALL_TURN_URLS="turn:chat.hunario.com:3478?transport=udp,turn:chat.hunario.com:3478?transport=tcp,turns:chat.hunario.com:5349?transport=tcp"
-CHAT_CALL_TURN_SECRET=THE_SECRET_FROM_19.1
-```
+Save the address and the secret from 19.1 in the app (stored encrypted in the database; the secret is read from
+stdin so it never shows up in the process list):
 
 ```bash
-/www/server/php/82/bin/php artisan config:cache
+cd /www/wwwroot/chat.hunario.com
+printf '%s' 'THE_SECRET_FROM_19.1' | runuser -u www -- /www/server/php/82/bin/php artisan chat:turn-server \
+  --urls="turn:chat.hunario.com:3478?transport=udp,turn:chat.hunario.com:3478?transport=tcp,turns:chat.hunario.com:5349?transport=tcp" --secret-stdin
+runuser -u www -- /www/server/php/82/bin/php artisan chat:turn-server --check   # asks for a relay, like a phone in a call
 ```
+
+Or type them into **Admin → App settings → GIFs, calls & invite link** and press **Check from the server** under
+**Call server (TURN)**. (`CHAT_CALL_TURN_URLS` / `CHAT_CALL_TURN_SECRET` in `.env` still work as a fallback.)
 
 Every user now receives TURN credentials that expire after 12 hours (`CHAT_CALL_TURN_TTL`), so a copied password is
 useless. Other call settings:
@@ -794,6 +800,6 @@ seconds. `tail -f /var/log/turnserver.log` shows `session ... new` lines while a
 | Call buttons missing | `CHAT_CALLS_ENABLED=false`, or cached config: `php artisan config:cache`. |
 | "Calls need a secure (https) connection" | Open the site over `https://`. Browsers only allow camera and microphone on HTTPS. |
 | "Allow microphone access to make calls" | The browser or phone blocked the microphone/camera. Allow it in the site settings (lock icon) or in Android → Apps → One2One Chat → Permissions. |
-| Rings, but stays on "Connecting…" / "Couldn't connect" | No TURN server, wrong secret, ports closed, or `external-ip` wrong. Check steps 19.2–19.4 and `/var/log/turnserver.log`. |
+| Rings, but stays on "Connecting…" / "Couldn't connect" | No TURN server, wrong secret, ports closed, or `external-ip` wrong. **Admin → App settings → Call server (TURN) → Check from the server** finds a stopped coturn or a wrong secret; it runs on the server itself, so closed ports in the hosting provider's firewall only show up with **Test from this browser** on a phone with Wi-Fi off (neither test covers the relay range 49160–49400: open it as in 19.3). Also `/var/log/turnserver.log`. |
 | The other person never rings | Reverb/polling not working (steps 10–11), or on Android: push not configured (step 18). The ringing screen needs *Display over lock screen / full-screen notifications* allowed on Android 14+. |
 | Calls stay "ringing" after a crash | The scheduler closes abandoned calls every minute (step 12 cron). |
