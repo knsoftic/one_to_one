@@ -20,6 +20,7 @@
             ['admin.statuses', [], 'circle-dashed', 'Status updates', 'admin.statuses*', null],
         ],
         'System' => [
+            ['admin.ads', [], 'badge-dollar-sign', 'Ads', 'admin.ads*', null],
             ['admin.audit', [], 'scroll-text', 'Audit log', 'admin.audit*', null],
             ['admin.settings', [], 'sliders-horizontal', 'App settings', 'admin.settings*', null],
             ['admin.backups', [], 'database', 'Backups', 'admin.backups*', null],

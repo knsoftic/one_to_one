@@ -383,3 +383,17 @@ button.wa-field { cursor: pointer; }
 .quick-reply-slash { position: absolute; top: 50%; inset-inline-start: 0.85rem; transform: translateY(-50%); font-weight: 700; color: var(--c-primary-text); pointer-events: none; }
 .quick-reply-shortcut-input .form-control { padding-inline-start: 1.6rem; }
 .wa-settings .btn.is-danger { color: var(--c-danger); }
+
+/* Ads settings (Y1) */
+.wa-ads-details { display: flex; flex-direction: column; }
+.wa-ads-data { padding: 0.75rem 0.9rem; }
+.wa-ads-data > summary { cursor: pointer; font-weight: 500; color: var(--c-primary-text); list-style: none; }
+.wa-ads-data > summary::-webkit-details-marker { display: none; }
+.wa-ads-data > summary::before { content: '▸ '; }
+.wa-ads-data[open] > summary::before { content: '▾ '; }
+.wa-ads-data dl { display: flex; flex-direction: column; margin: 0.6rem 0 0.4rem; }
+.wa-ads-data dl > div { display: grid; grid-template-columns: minmax(6rem, 40%) 1fr; gap: 0.5rem; padding: 0.3rem 0; border-top: 1px solid var(--c-border); }
+.wa-ads-data dl > div:first-child { border-top: 0; }
+.wa-ads-data dt { color: var(--c-muted); }
+.wa-ads-data dd { margin: 0; overflow-wrap: anywhere; }
+.wa-ads-data p { margin: 0.4rem 0 0; color: var(--c-subtle); }

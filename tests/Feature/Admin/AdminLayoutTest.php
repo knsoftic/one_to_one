@@ -64,7 +64,7 @@ class AdminLayoutTest extends TestCase
             ->assertSee('data-settings-save', false);
 
         $html = $response->getContent();
-        $order = ['brand', 'signup', 'sms', 'email', 'extras', 'legal', 'notice', 'turn', 'android', 'tests'];
+        $order = ['brand', 'signup', 'sms', 'email', 'extras', 'ads', 'legal', 'notice', 'turn', 'android', 'tests'];
         // Every menu link has its section, and the sections come in the menu's order.
         preg_match_all('/<a href="#([a-z]+)" class="admin-tab">/', $html, $links);
         $this->assertSame($order, $links[1]);

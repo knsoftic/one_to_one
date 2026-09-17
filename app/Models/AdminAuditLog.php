@@ -38,6 +38,9 @@ class AdminAuditLog extends Model
         'backup.created' => 'Made a server backup',
         'backup.downloaded' => 'Downloaded a server backup',
         'backup.deleted' => 'Deleted a server backup',
+        'ad.created' => 'Created an ad campaign',
+        'ad.updated' => 'Edited an ad campaign',
+        'ad.deleted' => 'Deleted an ad campaign',
     ];
 
     protected $guarded = ['id'];

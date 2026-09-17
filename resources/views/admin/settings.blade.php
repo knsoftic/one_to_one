@@ -9,6 +9,7 @@
             <a href="#sms" class="admin-tab"><x-icon name="message-square" /> SMS</a>
             <a href="#email" class="admin-tab"><x-icon name="mail" /> Email</a>
             <a href="#extras" class="admin-tab"><x-icon name="sliders-horizontal" /> GIFs, calls &amp; invite</a>
+            <a href="#ads" class="admin-tab"><x-icon name="badge-dollar-sign" /> Ads</a>
             <a href="#legal" class="admin-tab"><x-icon name="scale" /> Legal pages</a>
             <a href="#notice" class="admin-tab"><x-icon name="megaphone" /> Notice</a>
             <a href="#turn" class="admin-tab"><x-icon name="server" /> Call server (TURN)</a>
@@ -179,6 +180,68 @@
                             {!! $field('turn_secret', 'Shared secret (coturn)', ['hint' => 'Or fill in a fixed username and password below.', 'env' => 'CHAT_CALL_TURN_SECRET']) !!}
                             {!! $field('turn_username', 'Username', ['env' => 'CHAT_CALL_TURN_USERNAME']) !!}
                             {!! $field('turn_password', 'Password', ['env' => 'CHAT_CALL_TURN_PASSWORD']) !!}
+                        </div>
+                    </div>
+                </section>
+
+                {{-- Ads (Y1) --}}
+                <section class="card admin-tool" id="ads">
+                    <div class="card-body">
+                        <h3 class="admin-section-title"><x-icon name="badge-dollar-sign" /> Ads</h3>
+                        <label class="admin-setting-row">
+                            <span>
+                                <strong>Show ads in the app</strong>
+                                <small>A "sponsored" card appears in the chat list. Off by default. Manage your own campaigns in <a class="admin-link" href="{{ route('admin.ads') }}">Ads</a>.</small>
+                            </span>
+                            <span class="switch">
+                                <input type="hidden" name="ads_enabled" value="0">
+                                <input type="checkbox" name="ads_enabled" value="1" @checked($ads['enabled']) aria-label="Show ads in the app">
+                                <span class="switch-track"></span>
+                            </span>
+                        </label>
+                        <p class="admin-backup-note"><x-icon name="shield-check" /> Ads always respect the user's choice. Personalised targeting (interests, age, gender) is used only for people who turned <strong>Personalised ads</strong> on in their own settings. Everyone else gets non-personalised ads. Keep your <a class="admin-link" href="#legal">privacy policy</a> up to date, and fill in the Data safety form on Google Play.</p>
+
+                        <div class="admin-settings-grid mt-3">
+                            <div class="form-group">
+                                <label for="ad-frequency" class="form-label">Show a house ad every…</label>
+                                <input id="ad-frequency" type="number" name="ad_frequency" min="4" max="50" class="form-control @error('ad_frequency') is-invalid @enderror" value="{{ old('ad_frequency', $ads['frequency'] ?: 6) }}">
+                                <p class="form-hint">Chats between two sponsored cards in the list (at least 4).</p>
+                                @error('ad_frequency')<p class="form-error"><x-icon name="circle-alert" />{{ $message }}</p>@enderror
+                            </div>
+                        </div>
+
+                        <h4 class="admin-subtitle-row">Google AdMob <span class="optional">(Android app)</span></h4>
+                        <p class="admin-muted">Optional. Fill these in to also show Google ads in the Android app. You need a <a class="admin-link" href="https://admob.google.com" target="_blank" rel="noopener">Google AdMob</a> account, and a new app version after adding the IDs (a native ad shows next to your own ads). The app asks Google's consent form (UMP) before Google ads.</p>
+                        <div class="admin-settings-grid mt-2">
+                            <div class="form-group">
+                                <label for="admob-app-id" class="form-label">AdMob app ID</label>
+                                <input id="admob-app-id" name="admob_app_id" class="form-control @error('admob_app_id') is-invalid @enderror" value="{{ old('admob_app_id', $ads['admob_app_id']) }}" placeholder="ca-app-pub-0000000000000000~0000000000">
+                                @error('admob_app_id')<p class="form-error"><x-icon name="circle-alert" />{{ $message }}</p>@enderror
+                            </div>
+                            <div class="form-group">
+                                <label for="admob-native-unit" class="form-label">Native ad unit ID</label>
+                                <input id="admob-native-unit" name="admob_native_unit" class="form-control @error('admob_native_unit') is-invalid @enderror" value="{{ old('admob_native_unit', $ads['admob_native_unit']) }}" placeholder="ca-app-pub-0000000000000000/0000000000">
+                                @error('admob_native_unit')<p class="form-error"><x-icon name="circle-alert" />{{ $message }}</p>@enderror
+                            </div>
+                        </div>
+                        <label class="checkbox mt-2">
+                            <input type="hidden" name="admob_test" value="0">
+                            <input type="checkbox" name="admob_test" value="1" @checked($ads['admob_test'])> Show AdMob <strong>test ads</strong> (use while trying it out — real ads on your own account can get banned)
+                        </label>
+
+                        <h4 class="admin-subtitle-row">Google AdSense <span class="optional">(website)</span></h4>
+                        <p class="admin-muted">Optional. For people using the app in a browser. Needs an approved <a class="admin-link" href="https://adsense.google.com" target="_blank" rel="noopener">AdSense</a> account for your domain.</p>
+                        <div class="admin-settings-grid mt-2">
+                            <div class="form-group">
+                                <label for="adsense-client" class="form-label">AdSense publisher ID</label>
+                                <input id="adsense-client" name="adsense_client" class="form-control @error('adsense_client') is-invalid @enderror" value="{{ old('adsense_client', $ads['adsense_client']) }}" placeholder="ca-pub-0000000000000000">
+                                @error('adsense_client')<p class="form-error"><x-icon name="circle-alert" />{{ $message }}</p>@enderror
+                            </div>
+                            <div class="form-group">
+                                <label for="adsense-slot" class="form-label">Ad slot ID</label>
+                                <input id="adsense-slot" name="adsense_slot" class="form-control @error('adsense_slot') is-invalid @enderror" value="{{ old('adsense_slot', $ads['adsense_slot']) }}" placeholder="1234567890">
+                                @error('adsense_slot')<p class="form-error"><x-icon name="circle-alert" />{{ $message }}</p>@enderror
+                            </div>
                         </div>
                     </div>
                 </section>

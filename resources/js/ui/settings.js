@@ -1,4 +1,5 @@
 import axios from '../bootstrap';
+import { initAdsSettings } from './ads-settings';
 import { $, $$, errorMessage } from '../lib/dom';
 import { setTheme } from '../lib/theme';
 import { toast } from '../lib/toast';
@@ -339,4 +340,5 @@ export function initSettings(config) {
     initBrowserNotificationButton(config);
     initCopyButtons(container);
     initProfileQr();
+    initAdsSettings();
 }

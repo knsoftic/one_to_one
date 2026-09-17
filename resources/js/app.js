@@ -14,6 +14,7 @@ import { initAdminDocs } from './ui/admin-docs';
 import { initAdminBrand } from './ui/admin-brand';
 import { initAdminTurn } from './ui/admin-turn';
 import { initAdminUi } from './ui/admin-ui';
+import { initAdminAds } from './ui/admin-ads';
 import { initWebUpdateNotice } from './ui/app-update';
 import { initSettings } from './ui/settings';
 import { initInstallPrompt, listenForNotificationClicks, registerServiceWorker, syncPush } from './lib/web-push';
@@ -35,6 +36,7 @@ initAdminDocs();
 initAdminBrand();
 initAdminTurn();
 initAdminUi();
+initAdminAds();
 // X4: offer a reload when a new version was deployed while this tab was open.
 initWebUpdateNotice(config);
 

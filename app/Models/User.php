@@ -126,6 +126,9 @@ class User extends Authenticatable
             'two_step_enabled_at' => 'datetime',
             'banned_at' => 'datetime',
             'banned_until' => 'datetime',
+            // Ads (Y1): consent for personalised ads (null = not decided yet).
+            'ads_personalised' => 'boolean',
+            'ads_consent_at' => 'datetime',
             'password' => 'hashed',
         ];
     }
@@ -194,6 +197,12 @@ class User extends Authenticatable
     public function quickReplies(): HasMany
     {
         return $this->hasMany(QuickReply::class);
+    }
+
+    /** Y1 — ad-targeting profile (exists only while personalised ads are on). */
+    public function adProfile(): HasOne
+    {
+        return $this->hasOne(AdProfile::class);
     }
 
     /** X3 — browsers that receive push notifications. */

@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\AccountController;
+use App\Http\Controllers\AdController;
+use App\Http\Controllers\Admin\AdController as AdminAdController;
 use App\Http\Controllers\Admin\AppReleaseController;
 use App\Http\Controllers\Admin\BackupController as AdminBackupController;
 use App\Http\Controllers\Admin\BrandController;
@@ -545,6 +547,13 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::put('/settings', [SystemController::class, 'updateSettings'])->name('settings.update');
         Route::put('/app-release', [AppReleaseController::class, 'update'])->name('app-release.update');
         Route::put('/app-brand', [BrandController::class, 'update'])->name('brand.update');
+        // Ads (Y1): the app's own sponsored cards
+        Route::get('/ads', [AdminAdController::class, 'index'])->name('ads');
+        Route::get('/ads/new', [AdminAdController::class, 'create'])->name('ads.create');
+        Route::post('/ads', [AdminAdController::class, 'store'])->name('ads.store');
+        Route::get('/ads/{ad}', [AdminAdController::class, 'edit'])->whereNumber('ad')->name('ads.edit');
+        Route::put('/ads/{ad}', [AdminAdController::class, 'update'])->whereNumber('ad')->name('ads.update');
+        Route::delete('/ads/{ad}', [AdminAdController::class, 'destroy'])->whereNumber('ad')->name('ads.destroy');
         // Call server (TURN): check it from the server, or get short-lived credentials for the browser check
         Route::post('/settings/turn-check', [TurnController::class, 'check'])->middleware('throttle:6,1')->name('turn.check');
         Route::get('/settings/turn-servers', [TurnController::class, 'servers'])->middleware('throttle:20,1')->name('turn.servers');
@@ -579,6 +588,13 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::put('/quick-replies/{quickReply}', [BusinessController::class, 'updateQuickReply'])->whereNumber('quickReply')->name('quick-replies.update');
     Route::delete('/quick-replies/{quickReply}', [BusinessController::class, 'destroyQuickReply'])->whereNumber('quickReply')->name('quick-replies.destroy');
     Route::get('/users/{user}/business', [BusinessController::class, 'show'])->whereNumber('user')->name('users.business');
+
+    // Ads (Y1): the user's own consent and ad data, and serving sponsored cards.
+    Route::post('/ads/consent', [AdController::class, 'consent'])->middleware('throttle:chat-actions')->name('ads.consent');
+    Route::patch('/ads/profile', [AdController::class, 'updateProfile'])->middleware('throttle:chat-actions')->name('ads.profile');
+    Route::get('/ads/data', [AdController::class, 'data'])->name('ads.data');
+    Route::get('/ads/next', [AdController::class, 'next'])->name('ads.next');
+    Route::get('/ads/{campaign}/go', [AdController::class, 'click'])->whereNumber('campaign')->name('ads.click');
 
     // Manage storage (D6)
     Route::get('/settings/storage', [StorageController::class, 'summary'])->middleware('throttle:chat-search')->name('storage.summary');

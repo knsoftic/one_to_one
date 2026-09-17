@@ -37,6 +37,7 @@ import { InviteFriends } from './invite';
 import { LocationSharing } from './location';
 import { Mentions } from './mentions';
 import { QuickReplies } from './business';
+import { AdsManager } from './ads';
 import { ContactSharing } from './contact-share';
 import { Polls } from './poll';
 import { DisappearingMessages } from './disappearing';
@@ -209,6 +210,7 @@ export class ChatApp {
         this.groupInvites = new GroupInvites(this);
         this.mentions = new Mentions(this);
         this.quickReplies = new QuickReplies(this);
+        this.ads = new AdsManager(this);
         this.pins = new PinnedMessages(this);
         this.linkPreviews = new LinkPreviewComposer(this);
         this.chatLock = new ChatLock(this);
@@ -609,6 +611,8 @@ export class ChatApp {
         }
 
         this.updateUnreadTotals();
+        // Y1: lets the ads module place a sponsored card in the list.
+        document.dispatchEvent(new CustomEvent('chat:conversations-rendered'));
     }
 
     /** "typing" / "recording", or in a group who is doing it. */

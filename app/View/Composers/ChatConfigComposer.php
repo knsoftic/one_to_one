@@ -3,6 +3,7 @@
 namespace App\View\Composers;
 
 use App\Http\Resources\UserResource;
+use App\Models\AppSetting;
 use App\Services\CallLogService;
 use App\Services\ChatLockService;
 use App\Services\GifService;
@@ -57,6 +58,8 @@ class ChatConfigComposer
             'conversationExport' => ['conversations.export', ['conversation' => $id]],
             'quickReplies' => ['quick-replies.index', []],
             'userBusiness' => ['users.business', ['user' => $id]],
+            'adsNext' => ['ads.next', []],
+            'adsConsent' => ['ads.consent', []],
             'chatLockPin' => ['chat-lock.pin.store', []],
             'chatLockPinDestroy' => ['chat-lock.pin.destroy', []],
             'chatLockUnlock' => ['chat-lock.unlock', []],
@@ -203,6 +206,13 @@ class ChatConfigComposer
             'profileQr' => $view->getData()['profileQr'] ?? null,
             // X8: quick replies ("/" in the typing box) for business accounts.
             'business' => $user ? ['enabled' => $user->businessProfile()->exists()] : null,
+            // Ads (Y1): whether ads run, and this user's consent choice (a sponsored card in the chat list).
+            'ads' => AppSetting::get('ads_enabled') ? [
+                'enabled' => true,
+                'personalised' => (bool) $user->ads_personalised,
+                'decided' => $user->ads_consent_at !== null,
+                'everyChats' => max(4, (int) AppSetting::get('ad_frequency')),
+            ] : ['enabled' => false],
             // Export chat (D7): a ZIP with media needs PHP's zip extension.
             'export' => ['media' => class_exists(\ZipArchive::class)],
             // Status (Phase 5).

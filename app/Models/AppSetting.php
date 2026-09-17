@@ -20,6 +20,9 @@ class AppSetting extends Model
         'default_country_code' => '+92',
         // Email at sign-up: optional, required or hidden.
         'signup_email' => 'optional',
+        // Ads (Y1): off until an admin turns them on; a house ad every N chats.
+        'ads_enabled' => false,
+        'ad_frequency' => 6,
     ];
 
     private const CACHE_KEY = 'app-settings';

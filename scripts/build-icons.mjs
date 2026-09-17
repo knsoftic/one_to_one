@@ -48,6 +48,8 @@ const ICONS = [
     'keyboard', 'languages', 'share', 'download-cloud', 'briefcase-business', 'store', 'map-pinned', 'globe-lock', 'tags', 'tag', 'zap', 'message-square-reply', 'clock-8', 'hand', 'bell-dot', 'app-window', 'shield-alert', 'file-lock', 'scale', 'badge-info',
     // Admin guides
     'book-open', 'list-tree', 'route',
+    // Ads (Y1)
+    'badge-dollar-sign', 'target', 'square-arrow-out-up-right', 'image-plus', 'chart-no-axes-column',
 ];
 
 const pascal = (name) => name.replace(/(^|-)([a-z0-9])/g, (_, __, c) => c.toUpperCase());

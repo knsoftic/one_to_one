@@ -71,6 +71,15 @@ class SystemController extends Controller
             'smsReady' => $sms->available(),
             'mailer' => (string) config('mail.default'),
             'turn' => app(TurnServerService::class)->status(),
+            'ads' => [
+                'enabled' => (bool) AppSetting::get('ads_enabled'),
+                'frequency' => (int) AppSetting::get('ad_frequency'),
+                'admob_app_id' => AppSetting::get('admob_app_id'),
+                'admob_native_unit' => AppSetting::get('admob_native_unit'),
+                'admob_test' => (bool) AppSetting::get('admob_test'),
+                'adsense_client' => AppSetting::get('adsense_client'),
+                'adsense_slot' => AppSetting::get('adsense_slot'),
+            ],
             'brand' => app(BrandService::class)->settings() + [
                 'current_name' => app(BrandService::class)->name(),
                 'default_name' => app(BrandService::class)->defaultName(),
@@ -129,6 +138,15 @@ class SystemController extends Controller
             'mail_from_address' => ['nullable', 'email:rfc', 'max:191'],
             'mail_from_name' => ['nullable', 'string', 'max:100'],
 
+            // Ads (Y1)
+            'ads_enabled' => ['nullable', 'boolean'],
+            'ad_frequency' => ['nullable', 'integer', 'between:4,50'],
+            'admob_app_id' => ['nullable', 'string', 'max:120', 'regex:/^ca-app-pub-\d{16}~\d{10}$/'],
+            'admob_native_unit' => ['nullable', 'string', 'max:120', 'regex:/^ca-app-pub-\d{16}\/\d{10}$/'],
+            'admob_test' => ['nullable', 'boolean'],
+            'adsense_client' => ['nullable', 'string', 'max:120', 'regex:/^ca-pub-\d{16}$/'],
+            'adsense_slot' => ['nullable', 'string', 'max:20', 'regex:/^\d{6,20}$/'],
+
             'tenor_key' => ['nullable', 'string', 'max:255'],
             'turn_urls' => ['nullable', 'string', 'max:1000'],
             'turn_secret' => ['nullable', 'string', 'max:255'],
@@ -147,7 +165,17 @@ class SystemController extends Controller
         $simple = [
             'registration_open' => $request->boolean('registration_open'),
             'notice' => filled($validated['notice'] ?? null) ? trim((string) $validated['notice']) : null,
+            'ads_enabled' => $request->boolean('ads_enabled'),
+            'admob_test' => $request->boolean('admob_test'),
         ];
+        if ($request->has('ad_frequency')) {
+            $simple['ad_frequency'] = (int) ($validated['ad_frequency'] ?? 6);
+        }
+        foreach (['admob_app_id', 'admob_native_unit', 'adsense_client', 'adsense_slot'] as $key) {
+            if ($request->has($key)) {
+                $simple[$key] = filled($validated[$key] ?? null) ? trim((string) $validated[$key]) : null;
+            }
+        }
         foreach (['legal_owner', 'legal_email', 'legal_country', 'legal_updated'] as $key) {
             if ($request->has($key)) {
                 $simple[$key] = filled($validated[$key] ?? null) ? trim((string) $validated[$key]) : null;
@@ -160,7 +188,7 @@ class SystemController extends Controller
 
         // The log names what changed, never passwords or keys.
         $this->audit->record($request->user(), 'settings.updated', null,
-            'Changed app settings: sign-ups '.($simple['registration_open'] ? 'open' : 'closed').', notice '.($simple['notice'] ? 'on' : 'off').($changed ? ', '.implode(', ', $changed) : ''),
+            'Changed app settings: sign-ups '.($simple['registration_open'] ? 'open' : 'closed').', notice '.($simple['notice'] ? 'on' : 'off').', ads '.($simple['ads_enabled'] ? 'on' : 'off').($changed ? ', '.implode(', ', $changed) : ''),
             ['changed' => $changed, 'registration_open' => $simple['registration_open']]);
 
         return back()->with('status', 'Settings saved.');
