@@ -536,6 +536,9 @@ select.form-control { appearance: none; padding-inline-end: 2.25rem; background-
     box-shadow: 0 6px 16px -6px rgba(99, 102, 241, 0.6);
 }
 .brand-mark .icon { width: 1.25rem; height: 1.25rem; }
+/* The app icon uploaded in Admin → App settings. */
+span:is(.brand-mark, .admin-brand-mark).has-image { overflow: hidden; background: transparent; box-shadow: none; }
+span:is(.brand-mark, .admin-brand-mark).has-image img { display: block; width: 100%; height: 100%; object-fit: cover; }
 
 /* ---------- Theme toggle ---------- */
 .theme-toggle [data-theme-icon] { display: none; }

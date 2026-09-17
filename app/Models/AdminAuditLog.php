@@ -34,6 +34,7 @@ class AdminAuditLog extends Model
         'report.updated' => 'Reviewed a report',
         'settings.updated' => 'Changed app settings',
         'app.release_updated' => 'Published an app update',
+        'app.brand_updated' => 'Changed the app name or icon',
         'backup.created' => 'Made a server backup',
         'backup.downloaded' => 'Downloaded a server backup',
         'backup.deleted' => 'Deleted a server backup',

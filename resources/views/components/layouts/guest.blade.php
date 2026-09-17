@@ -3,7 +3,7 @@
     <div class="auth-shell">
         <aside class="auth-hero">
             <a href="{{ route('login') }}" class="brand">
-                <span class="brand-mark"><x-icon name="message-circle" /></span>
+                <x-brand-mark />
                 {{ config('app.name') }}
             </a>
 
@@ -47,7 +47,7 @@
         <main class="auth-main">
             <div class="auth-topbar">
                 <a href="{{ route('login') }}" class="brand">
-                    <span class="brand-mark"><x-icon name="message-circle" /></span>
+                    <x-brand-mark />
                     <span>{{ config('app.name') }}</span>
                 </a>
                 <x-theme-toggle />

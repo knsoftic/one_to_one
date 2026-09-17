@@ -3,7 +3,7 @@
     <div class="legal-shell">
         <header class="legal-topbar">
             <a href="{{ auth()->check() ? route('chat.index') : route('login') }}" class="brand">
-                <span class="brand-mark"><x-icon name="message-circle" /></span>
+                <x-brand-mark />
                 <span>{{ config('app.name') }}</span>
             </a>
             <x-theme-toggle />

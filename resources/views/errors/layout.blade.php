@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex, nofollow">
     <title>@yield('title') · {{ config('app.name') }}</title>
-    <link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml">
+    @inject('brand', 'App\Services\BrandService')
+    <link rel="icon" href="{{ $brand->iconUrl('favicon') }}" type="{{ $brand->faviconType() }}">
     {{-- Self-contained styles: error pages must render even when the app is unhealthy. --}}
     <style>
         :root { color-scheme: light dark; --bg: #f4f3fb; --card: #fff; --text: #17152e; --muted: #69668a; --border: #e8e6f3; --primary: #4f46e5; }

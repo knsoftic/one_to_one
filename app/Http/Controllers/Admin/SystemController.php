@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Services\AdminAuditService;
 use App\Services\AppConfigService;
 use App\Services\AppUpdateService;
+use App\Services\BrandService;
 use App\Services\SmsService;
 use App\Support\Phone;
 use Illuminate\Http\RedirectResponse;
@@ -68,6 +69,12 @@ class SystemController extends Controller
             'values' => $this->config->formValues(),
             'smsReady' => $sms->available(),
             'mailer' => (string) config('mail.default'),
+            'brand' => app(BrandService::class)->settings() + [
+                'current_name' => app(BrandService::class)->name(),
+                'default_name' => app(BrandService::class)->defaultName(),
+                'icon_url' => app(BrandService::class)->iconUrl(192),
+                'maskable_url' => app(BrandService::class)->iconUrl('maskable'),
+            ],
             'android' => [
                 'latest_code' => AppSetting::get('android_latest_code'),
                 'latest_name' => AppSetting::get('android_latest_name'),

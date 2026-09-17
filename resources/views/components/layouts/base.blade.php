@@ -13,10 +13,11 @@
 
     <title>{{ $title ? $title.' · ' : '' }}{{ config('app.name') }}</title>
 
-    <link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml">
+    @inject('brand', 'App\Services\BrandService')
+    <link rel="icon" href="{{ $brand->iconUrl('favicon') }}" type="{{ $brand->faviconType() }}">
     {{-- Installable app (X3) --}}
     <link rel="manifest" href="{{ route('manifest') }}">
-    <link rel="apple-touch-icon" href="{{ asset('icons/apple-touch-icon.png') }}">
+    <link rel="apple-touch-icon" href="{{ $brand->iconUrl(180) }}">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="{{ config('app.name') }}">
 

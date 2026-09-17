@@ -153,6 +153,8 @@ Because administrators can read chats for moderation, don't tick "end-to-end enc
 ## 7. Every update
 
 1. `versionCode` +1 and new `versionName` in `build.gradle`.
+   If the app name or icon changed in **Admin → App settings → App name & icon**, first copy them into the app:
+   `php artisan app:android-brand --url=https://chat.hunario.com` (phones show the new name and icon after this update).
 2. `.\gradlew.bat bundleRelease` → upload to Play.
 3. Admin → App settings → Android app: set the same version code/name and "What's new" (add an *oldest allowed version* only when old apps stop working).
 4. Web-only changes need no new app: deploy the site as usual.

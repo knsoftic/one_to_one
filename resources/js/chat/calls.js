@@ -2016,7 +2016,7 @@ export class CallManager {
         try {
             const notification = new Notification(incoming.call.type === 'video' ? 'Incoming video call' : 'Incoming voice call', {
                 body: incoming.peer?.name ?? '',
-                icon: incoming.peer?.avatar_url || '/favicon.svg',
+                icon: incoming.peer?.avatar_url || window.App?.config?.icon || '/favicon.svg',
                 tag: `call-${incoming.call.id}`,
                 requireInteraction: true,
             });

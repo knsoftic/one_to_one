@@ -525,3 +525,28 @@ a.mini-stat[href]:hover { background: var(--c-primary-soft); }
 .doc-table :is(th, td) { padding: 0.55rem 0.75rem; border-bottom: 1px solid var(--c-border); text-align: start; vertical-align: top; }
 .doc-table th { font-weight: 600; white-space: nowrap; background: var(--c-surface-2); }
 .doc-table tr:last-child td { border-bottom: 0; }
+
+/* ==========================================================================
+   Admin → App settings → App name & icon
+   ========================================================================== */
+.admin-brand-layout { display: grid; gap: 1.25rem; grid-template-columns: minmax(0, 1fr); align-items: start; }
+@media (min-width: 900px) { .admin-brand-layout { grid-template-columns: minmax(0, 1fr) 17rem; } }
+.admin-brand-fields { display: grid; gap: 0.9rem; min-width: 0; }
+.admin-brand-fields .form-group { margin: 0; }
+.admin-brand-color { display: flex; align-items: center; gap: 0.75rem; }
+.admin-brand-color input[type='color'] { flex: none; width: 3rem; height: 2.4rem; padding: 0.15rem; border: 1px solid var(--c-border); border-radius: 10px; background: var(--c-surface); cursor: pointer; }
+.admin-brand-color .form-hint { margin: 0; }
+.admin-brand-preview { display: flex; flex-direction: column; gap: 0.6rem; }
+.admin-brand-preview-title { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--c-muted); }
+.admin-brand-phone { display: flex; justify-content: center; gap: 1.75rem; padding: 1.5rem 1rem 1.25rem; border-radius: 22px; background: radial-gradient(18rem 10rem at 20% 0%, #7c3aed, transparent 70%), linear-gradient(160deg, #1e1b4b, #312e81); }
+.admin-brand-app { display: flex; flex-direction: column; align-items: center; gap: 0.45rem; width: 4.6rem; }
+.admin-brand-tile { display: grid; place-items: center; width: 3.6rem; height: 3.6rem; overflow: hidden; background: var(--brand-color, #4338ca); box-shadow: 0 8px 18px -10px rgba(0, 0, 0, 0.6); }
+.admin-brand-tile.is-square { border-radius: 16px; }
+.admin-brand-tile.is-circle { border-radius: 50%; }
+.admin-brand-tile img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.admin-brand-tile.is-padded img { width: 80%; height: 80%; }
+.admin-brand-label { max-width: 100%; overflow: hidden; font-size: 0.72rem; line-height: 1.2; color: #fff; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
+.admin-brand-phone-note { display: flex; align-items: flex-start; gap: 0.6rem; margin: 1rem 0; padding: 0.8rem 0.95rem; border-radius: 12px; font-size: 0.85rem; line-height: 1.55; color: var(--c-text); background: var(--c-surface-2); }
+.admin-brand-phone-note .icon { flex: none; width: 1.1rem; height: 1.1rem; margin-top: 0.15rem; color: var(--c-primary); }
+.admin-brand-phone-note p { margin: 0; }
+.admin-brand-phone-note code { overflow-wrap: anywhere; }

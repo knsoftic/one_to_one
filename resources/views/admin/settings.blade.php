@@ -3,6 +3,7 @@
 @endphp
 <x-layouts.admin title="App settings" heading="App settings" subheading="Sign-up, SMS, email, GIFs and calls — saved in the database, no .env editing needed.">
     <nav class="admin-tabs" aria-label="Settings sections">
+        <a href="#brand" class="admin-tab">App name &amp; icon</a>
         <a href="#signup" class="admin-tab">Sign-up &amp; login</a>
         <a href="#sms" class="admin-tab">SMS</a>
         <a href="#email" class="admin-tab">Email</a>
@@ -11,6 +12,68 @@
         <a href="#android" class="admin-tab">Android app</a>
         <a href="#tests" class="admin-tab">Test</a>
     </nav>
+
+    {{-- App name & icon --}}
+    <section class="card admin-tool" id="brand">
+        <div class="card-body">
+            <h3 class="admin-section-title"><x-icon name="badge-info" /> App name &amp; icon</h3>
+            <p class="admin-muted">Changes the name and icon everywhere in the app, on the sign-in page, in emails and notifications, and in the web app people install from the browser.</p>
+            <form method="POST" action="{{ route('admin.brand.update') }}" enctype="multipart/form-data" class="admin-form admin-brand-form mt-3" data-loading-form data-brand-form novalidate>
+                @csrf
+                @method('PUT')
+                <div class="admin-brand-layout">
+                    <div class="admin-brand-fields">
+                        <div class="form-group">
+                            <label for="brand-name" class="form-label">App name</label>
+                            <input id="brand-name" type="text" name="name" maxlength="{{ \App\Services\BrandService::NAME_MAX }}" required class="form-control @error('name', 'brand') is-invalid @enderror" value="{{ old('name', $brand['current_name']) }}" data-brand-name>
+                            <p class="form-hint">About 12 letters fit under a phone's home-screen icon. The name from <code>.env</code> is "{{ $brand['default_name'] }}".</p>
+                            @error('name', 'brand')<p class="form-error"><x-icon name="circle-alert" />{{ $message }}</p>@enderror
+                        </div>
+                        <div class="form-group">
+                            <label for="brand-icon" class="form-label">App icon <span class="optional">(PNG, JPG or WebP)</span></label>
+                            <input id="brand-icon" type="file" name="icon" accept="image/png,image/jpeg,image/webp" class="form-control @error('icon', 'brand') is-invalid @enderror" data-brand-icon>
+                            <p class="form-hint">A square picture, 1024 × 1024 is best (at least 512 × 512). Keep the logo away from the edges: phones cut icons into circles and rounded squares.</p>
+                            @error('icon', 'brand')<p class="form-error"><x-icon name="circle-alert" />{{ $message }}</p>@enderror
+                            @if ($brand['icon'])
+                                <label class="checkbox mt-2"><input type="checkbox" name="remove_icon" value="1" data-brand-remove> Use the built-in icon again</label>
+                            @endif
+                        </div>
+                        <div class="form-group">
+                            <label for="brand-color" class="form-label">Icon background</label>
+                            <span class="admin-brand-color">
+                                <input id="brand-color" type="color" name="color" value="{{ old('color', $brand['color']) }}" data-brand-color>
+                                <span class="form-hint">Fills the space around the logo where a phone shapes the icon.</span>
+                            </span>
+                            @error('color', 'brand')<p class="form-error"><x-icon name="circle-alert" />{{ $message }}</p>@enderror
+                        </div>
+                        @if ($brand['icon'] && ! $brand['gd'])
+                            <p class="admin-backup-note is-warning"><x-icon name="triangle-alert" /> PHP's <code>gd</code> extension is not installed, so the picture is used as it is and the phone app icon sizes can't be made. Enable it in aaPanel → PHP → Install extensions, then upload the icon again.</p>
+                        @endif
+                    </div>
+
+                    <div class="admin-brand-preview" aria-label="Preview" data-brand-preview style="--brand-color: {{ $brand['color'] }}">
+                        <span class="admin-brand-preview-title">Preview</span>
+                        <div class="admin-brand-phone">
+                            <span class="admin-brand-app">
+                                <span class="admin-brand-tile is-square"><img src="{{ $brand['icon_url'] }}" alt="" data-brand-image></span>
+                                <span class="admin-brand-label" data-brand-label>{{ $brand['current_name'] }}</span>
+                            </span>
+                            <span class="admin-brand-app">
+                                <span class="admin-brand-tile is-circle"><img src="{{ $brand['icon'] ? $brand['maskable_url'] : $brand['icon_url'] }}" alt="" data-brand-image data-brand-padded></span>
+                                <span class="admin-brand-label" data-brand-label>{{ $brand['current_name'] }}</span>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="admin-brand-phone-note">
+                    <x-icon name="smartphone" />
+                    <p>On Android phones the <strong>home-screen</strong> name and icon are part of the installed app, so they change with the next app version. After saving here, build the new version (it takes this name and icon from <code>{{ route('app.brand') }}</code>), then publish it in <a href="#android">Android app</a> below so phones get "Update available".</p>
+                </div>
+                <div><button type="submit" class="btn btn-primary"><x-icon name="check" /> Save name &amp; icon</button></div>
+            </form>
+        </div>
+    </section>
 
     <form method="POST" action="{{ route('admin.settings.update') }}" class="admin-stack admin-settings" data-loading-form novalidate>
         @csrf

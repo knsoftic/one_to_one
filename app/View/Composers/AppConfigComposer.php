@@ -4,6 +4,7 @@ namespace App\View\Composers;
 
 use App\Models\User;
 use App\Services\AppUpdateService;
+use App\Services\BrandService;
 use App\Services\DeviceService;
 use App\Services\WallpaperService;
 use App\Services\WebPushService;
@@ -43,6 +44,8 @@ class AppConfigComposer
 
         $view->with('appConfig', [
             'name' => config('app.name'),
+            // Admin → App settings → App name & icon (browser notifications without a photo).
+            'icon' => app(BrandService::class)->iconUrl(192),
             'user' => $user ? [
                 'id' => $user->id,
                 'name' => $user->name,

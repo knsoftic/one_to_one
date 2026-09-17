@@ -7,7 +7,7 @@
                     <x-icon name="arrow-left" />
                 </a>
                 <a href="{{ route('chat.index') }}" class="brand text-ink">
-                    <span class="brand-mark"><x-icon name="message-circle" /></span>
+                    <x-brand-mark />
                     <span class="hidden sm:inline">{{ config('app.name') }}</span>
                 </a>
             </div>

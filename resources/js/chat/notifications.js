@@ -184,7 +184,7 @@ export class Notifier {
             try {
                 const notification = new Notification(title, {
                     body,
-                    icon: sender.avatar_url || '/favicon.svg',
+                    icon: sender.avatar_url || window.App?.config?.icon || '/favicon.svg',
                     tag: `conversation-${conversationId}`,
                     renotify: true,
                 });

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\AppSetting;
 use App\Services\AppUpdateService;
+use App\Services\BrandService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -13,8 +14,10 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
  */
 class AppShellController extends Controller
 {
-    public function manifest(): JsonResponse
+    public function manifest(BrandService $brand): JsonResponse
     {
+        $icon = $brand->iconUrl(192);
+
         return response()->json([
             'name' => config('app.name'),
             'short_name' => config('app.name'),
@@ -30,15 +33,15 @@ class AppShellController extends Controller
             // X2: the installed web app appears in the phone's Share menu for text and links.
             'share_target' => ['action' => '/chat', 'method' => 'GET', 'params' => ['title' => 'share_title', 'text' => 'share_text', 'url' => 'share_url']],
             'icons' => [
-                ['src' => '/icons/icon-192.png', 'sizes' => '192x192', 'type' => 'image/png'],
-                ['src' => '/icons/icon-512.png', 'sizes' => '512x512', 'type' => 'image/png'],
-                ['src' => '/icons/maskable-512.png', 'sizes' => '512x512', 'type' => 'image/png', 'purpose' => 'maskable'],
+                ['src' => $icon, 'sizes' => '192x192', 'type' => 'image/png'],
+                ['src' => $brand->iconUrl(512), 'sizes' => '512x512', 'type' => 'image/png'],
+                ['src' => $brand->iconUrl('maskable'), 'sizes' => '512x512', 'type' => 'image/png', 'purpose' => 'maskable'],
             ],
             'shortcuts' => [
-                ['name' => 'Chats', 'url' => '/chat', 'icons' => [['src' => '/icons/icon-192.png', 'sizes' => '192x192']]],
-                ['name' => 'Settings', 'url' => '/settings', 'icons' => [['src' => '/icons/icon-192.png', 'sizes' => '192x192']]],
+                ['name' => 'Chats', 'url' => '/chat', 'icons' => [['src' => $icon, 'sizes' => '192x192']]],
+                ['name' => 'Settings', 'url' => '/settings', 'icons' => [['src' => $icon, 'sizes' => '192x192']]],
             ],
-        ], 200, ['Content-Type' => 'application/manifest+json', 'Cache-Control' => 'public, max-age=86400'], JSON_UNESCAPED_SLASHES);
+        ], 200, ['Content-Type' => 'application/manifest+json', 'Cache-Control' => 'public, max-age=3600'], JSON_UNESCAPED_SLASHES);
     }
 
     /** The store link when there is one, otherwise the APK uploaded in the admin panel. */

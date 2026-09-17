@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Broadcasting\ResilientBroadcastManager;
 use App\Services\AppConfigService;
+use App\Services\BrandService;
 use App\Services\ChatLockService;
 use App\Services\ConversationTypes;
 use App\Services\PrivacyService;
@@ -40,6 +41,9 @@ class AppServiceProvider extends ServiceProvider
         // SMS, email, GIF and call settings saved in the admin panel (MySQL).
         $this->app->singleton(AppConfigService::class);
 
+        // App name and icon from Admin → App settings (remembers the .env name).
+        $this->app->singleton(BrandService::class);
+
         // Remembers lock checks for one request (C9).
         $this->app->scoped(ChatLockService::class);
 
@@ -60,7 +64,11 @@ class AppServiceProvider extends ServiceProvider
 
         // Settings saved in the admin panel win over .env; queued jobs pick up changes too.
         $this->app->make(AppConfigService::class)->apply();
-        Queue::before(fn () => $this->app->make(AppConfigService::class)->apply());
+        $this->app->make(BrandService::class)->apply();
+        Queue::before(function () {
+            $this->app->make(AppConfigService::class)->apply();
+            $this->app->make(BrandService::class)->apply();
+        });
 
         // Per-request memory (scoped services) never outlives its request.
         Event::listen(RequestHandled::class, fn () => $this->app->forgetScopedInstances());

@@ -3,6 +3,7 @@
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\Admin\AppReleaseController;
 use App\Http\Controllers\Admin\BackupController as AdminBackupController;
+use App\Http\Controllers\Admin\BrandController;
 use App\Http\Controllers\Admin\ChatController as AdminChatController;
 use App\Http\Controllers\Admin\DocsController;
 use App\Http\Controllers\Admin\SpaceController;
@@ -79,6 +80,8 @@ Route::get('/{page}', [LegalController::class, 'show'])->whereIn('page', array_k
 
 // Installable app (X3) and the Android app download (X4).
 Route::get('/manifest.webmanifest', [AppShellController::class, 'manifest'])->name('manifest');
+// App name and icon from Admin → App settings, for building the Android app (php artisan app:android-brand).
+Route::get('/app-brand.json', [BrandController::class, 'show'])->middleware('throttle:60,1')->name('app.brand');
 
 // App language, English or Urdu (X1) — also on the sign-in pages.
 Route::post('/language', [LocaleController::class, 'update'])->middleware('throttle:20,1')->name('locale.update');
@@ -540,6 +543,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('/settings', [SystemController::class, 'settings'])->name('settings');
         Route::put('/settings', [SystemController::class, 'updateSettings'])->name('settings.update');
         Route::put('/app-release', [AppReleaseController::class, 'update'])->name('app-release.update');
+        Route::put('/app-brand', [BrandController::class, 'update'])->name('brand.update');
         Route::post('/settings/test-sms', [SystemController::class, 'testSms'])->middleware('throttle:chat-lock')->name('settings.test-sms');
         Route::post('/settings/test-mail', [SystemController::class, 'testMail'])->middleware('throttle:chat-lock')->name('settings.test-mail');
         // Reports (Phase 6, P6)

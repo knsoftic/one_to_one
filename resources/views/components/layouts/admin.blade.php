@@ -34,7 +34,7 @@
 
         <aside class="admin-sidebar" aria-label="Admin navigation">
             <div class="admin-brand">
-                <span class="admin-brand-mark"><x-icon name="shield-check" /></span>
+                <x-brand-mark base="admin-brand-mark" icon="shield-check" />
                 <span class="admin-brand-text">
                     <strong>{{ config('app.name') }}</strong>
                     <small>Admin panel</small>
