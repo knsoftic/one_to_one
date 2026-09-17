@@ -1,15 +1,15 @@
 @php
     $cards = [
-        ['label' => 'Users', 'value' => $stats['total_users'], 'icon' => 'users', 'tone' => 'primary', 'hint' => number_format($stats['new_users']).' new this week', 'href' => route('admin.users')],
-        ['label' => 'Online now', 'value' => $stats['online_users'], 'icon' => 'activity', 'tone' => 'success', 'hint' => number_format($insights['active_30d']).' active in 30 days', 'href' => route('admin.users', ['online' => 1])],
-        ['label' => 'Messages', 'value' => $stats['total_messages'], 'icon' => 'message-square-text', 'tone' => 'sky', 'hint' => number_format($stats['messages_today']).' sent today', 'href' => route('admin.messages')],
+        ['label' => 'Users', 'primary' => true, 'spark' => 'users', 'value' => $stats['total_users'], 'icon' => 'users', 'tone' => 'primary', 'hint' => number_format($stats['new_users']).' new this week', 'href' => route('admin.users')],
+        ['label' => 'Online now', 'primary' => true, 'spark' => 'active', 'value' => $stats['online_users'], 'icon' => 'activity', 'tone' => 'success', 'hint' => number_format($insights['active_30d']).' active in 30 days', 'href' => route('admin.users', ['online' => 1])],
+        ['label' => 'Messages', 'primary' => true, 'spark' => 'messages', 'value' => $stats['total_messages'], 'icon' => 'message-square-text', 'tone' => 'sky', 'hint' => number_format($stats['messages_today']).' sent today', 'href' => route('admin.messages')],
         ['label' => 'Chats', 'value' => $stats['total_conversations'], 'icon' => 'message-circle', 'tone' => 'violet', 'hint' => 'All chats, groups and channels', 'href' => route('admin.chats')],
         ['label' => 'Groups', 'value' => $stats['groups'], 'icon' => 'users-round', 'tone' => 'primary', 'hint' => 'Groups still open', 'href' => route('admin.groups')],
         ['label' => 'Channels', 'value' => $stats['channels'], 'icon' => 'rss', 'tone' => 'sky', 'hint' => 'Public channels', 'href' => route('admin.channels')],
         ['label' => 'Communities', 'value' => $stats['communities'], 'icon' => 'layers', 'tone' => 'violet', 'hint' => 'With their groups', 'href' => route('admin.communities')],
         ['label' => 'Status updates', 'value' => $stats['statuses'], 'icon' => 'circle-dashed', 'tone' => 'amber', 'hint' => 'Live right now', 'href' => route('admin.statuses')],
         ['label' => 'Calls today', 'value' => $stats['calls_today'], 'icon' => 'phone', 'tone' => 'success', 'hint' => 'Voice and video', 'href' => null],
-        ['label' => 'Open reports', 'value' => $stats['open_reports'], 'icon' => 'message-square-warning', 'tone' => 'danger', 'hint' => 'Waiting for review', 'href' => route('admin.reports')],
+        ['label' => 'Open reports', 'primary' => true, 'spark' => null, 'value' => $stats['open_reports'], 'icon' => 'message-square-warning', 'tone' => 'danger', 'hint' => 'Waiting for review', 'href' => route('admin.reports')],
         ['label' => 'Banned', 'value' => $stats['banned_users'], 'icon' => 'shield-ban', 'tone' => 'danger', 'hint' => number_format($stats['suspended_users']).' suspended', 'href' => route('admin.users', ['status' => 'banned'])],
         ['label' => 'Sign-ins today', 'value' => $insights['logins']['today'], 'icon' => 'log-in', 'tone' => 'amber', 'hint' => number_format($insights['logins']['failed_today']).' wrong passwords', 'href' => null],
     ];
@@ -47,18 +47,41 @@
         </span>
     </div>
 
-    <div class="stat-grid">
-        @foreach ($cards as $card)
-            <{{ $card['href'] ? 'a' : 'div' }} @if ($card['href']) href="{{ $card['href'] }}" @endif class="stat-card" data-tone="{{ $card['tone'] }}">
-                <span class="stat-icon"><x-icon :name="$card['icon']" /></span>
-                <span class="min-w-0">
-                    <span class="stat-label">{{ $card['label'] }}</span>
-                    <span class="stat-value">{{ number_format($card['value']) }}</span>
-                    <span class="stat-hint">{{ $card['hint'] }}</span>
+    @php
+        [$primaryCards, $otherCards] = collect($cards)->partition(fn ($card) => $card['primary'] ?? false);
+    @endphp
+    <div class="kpi-grid">
+        @foreach ($primaryCards as $card)
+            <{{ $card['href'] ? 'a' : 'div' }} @if ($card['href']) href="{{ $card['href'] }}" @endif @class(['kpi-card', 'is-alert' => $card['tone'] === 'danger' && $card['value'] > 0]) data-tone="{{ $card['tone'] }}">
+                <span class="kpi-head">
+                    <span class="stat-icon"><x-icon :name="$card['icon']" /></span>
+                    <span class="kpi-label">{{ $card['label'] }}</span>
+                </span>
+                <span class="kpi-value">{{ number_format($card['value']) }}</span>
+                <span class="kpi-foot">
+                    <span class="kpi-hint">{{ $card['hint'] }}</span>
+                    @if ($card['spark'])
+                        <x-admin.sparkline :values="collect($insights['series'][$card['spark']])->pluck('count')->all()" :label="$card['label'].' per day, last '.$days.' days'" />
+                    @endif
                 </span>
             </{{ $card['href'] ? 'a' : 'div' }}>
         @endforeach
     </div>
+
+    <section class="card">
+        <div class="glance-grid">
+            @foreach ($otherCards as $card)
+                <{{ $card['href'] ? 'a' : 'div' }} @if ($card['href']) href="{{ $card['href'] }}" @endif class="glance-item" data-tone="{{ $card['tone'] }}">
+                    <span class="glance-icon"><x-icon :name="$card['icon']" /></span>
+                    <span class="glance-text">
+                        <span class="glance-label">{{ $card['label'] }}</span>
+                        <span class="glance-hint">{{ $card['hint'] }}</span>
+                    </span>
+                    <span class="glance-value">{{ number_format($card['value']) }}</span>
+                </{{ $card['href'] ? 'a' : 'div' }}>
+            @endforeach
+        </div>
+    </section>
 
     <div class="admin-grid admin-grid-even">
         @foreach ([

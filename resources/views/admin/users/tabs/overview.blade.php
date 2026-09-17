@@ -79,33 +79,51 @@
     {{-- ======================== Right: numbers and tools ======================== --}}
     <div class="admin-stack">
         <section class="card">
-            <div class="card-body">
-                <div class="mini-stats">
-                    @foreach ([
-                        ['Messages sent', number_format($counts['messages_sent']), 'send-horizontal', 'activity'],
+            <div class="card-header admin-card-head">
+                <div>
+                    <h2 class="card-title">In numbers</h2>
+                    <p class="card-subtitle">Everything this account did. Tap a number for the details.</p>
+                </div>
+            </div>
+            <div class="admin-numbers">
+                @foreach ([
+                    'Messages' => [
+                        ['Sent', number_format($counts['messages_sent']), 'send-horizontal', 'activity'],
+                        ['Sent in 30 days', number_format($counts['messages_30d']), 'trending-up', 'activity'],
                         ['Received (1:1)', number_format($counts['messages_received']), 'message-square-text', 'activity'],
-                        ['Sent, 30 days', number_format($counts['messages_30d']), 'trending-up', 'activity'],
-                        ['Media sent', number_format($counts['media_files']).' · '.$bytes($counts['media_bytes']), 'images', 'settings'],
+                        ['Photos, videos & files', number_format($counts['media_files']).' · '.$bytes($counts['media_bytes']), 'images', 'settings'],
+                    ],
+                    'Chats & groups' => [
                         ['Chats', number_format($counts['chats']), 'message-circle', 'chats'],
                         ['Groups', number_format($counts['groups']).($counts['groups_created'] ? ' · '.$counts['groups_created'].' made' : ''), 'users-round', 'groups'],
                         ['Communities', number_format($counts['communities']), 'layers', 'groups'],
                         ['Channels', number_format($counts['channels']), 'rss', 'groups'],
-                        ['Calls', number_format($counts['calls_made'] + $counts['calls_received']).' · '.gmdate($counts['call_seconds'] >= 3600 ? 'G\h i\m' : 'i:s', $counts['call_seconds']), 'phone', 'calls'],
-                        ['Missed calls', number_format($counts['calls_missed']), 'phone-missed', 'calls'],
+                        ['Status updates', number_format($counts['statuses']), 'circle-dashed', null],
+                    ],
+                    'Calls' => [
+                        ['Calls', number_format($counts['calls_made'] + $counts['calls_received']), 'phone', 'calls'],
+                        ['Talk time', gmdate($counts['call_seconds'] >= 3600 ? 'G\h i\m' : 'i:s', $counts['call_seconds']), 'clock', 'calls'],
+                        ['Missed', number_format($counts['calls_missed']), 'phone-missed', 'calls'],
+                    ],
+                    'People & devices' => [
                         ['Contacts saved', number_format($counts['contacts']), 'contact', 'contacts'],
                         ['They blocked', number_format($counts['blocked']), 'ban', 'contacts'],
                         ['Blocked by others', number_format($counts['blocked_by']), 'shield', 'contacts'],
-                        ['Status updates', number_format($counts['statuses']), 'circle-dashed', null],
                         ['Phones (app)', number_format($counts['devices']), 'smartphone', 'devices'],
                         ['Sign-ins', number_format($counts['logins']), 'log-in', 'devices'],
-                    ] as [$label, $value, $icon, $target])
-                        <a @if ($target) href="{{ route('admin.users.show', ['user' => $user, 'tab' => $target]) }}" @endif class="mini-stat">
-                            <x-icon :name="$icon" class="text-primary" />
-                            <span class="mini-stat-value">{{ $value }}</span>
-                            <span class="mini-stat-label">{{ $label }}</span>
-                        </a>
-                    @endforeach
-                </div>
+                    ],
+                ] as $group => $rows)
+                    <div class="admin-numbers-group">
+                        <h3 class="admin-numbers-title">{{ $group }}</h3>
+                        @foreach ($rows as [$label, $value, $icon, $target])
+                            <{{ $target ? 'a' : 'div' }} @if ($target) href="{{ route('admin.users.show', ['user' => $user, 'tab' => $target]) }}" @endif class="admin-number">
+                                <x-icon :name="$icon" />
+                                <span class="admin-number-label">{{ $label }}</span>
+                                <span class="admin-number-value">{{ $value }}</span>
+                            </{{ $target ? 'a' : 'div' }}>
+                        @endforeach
+                    </div>
+                @endforeach
             </div>
         </section>
 

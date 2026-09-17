@@ -60,15 +60,15 @@
                         @endforeach
                     </div>
                 @endforeach
-                <div class="admin-nav-group">
-                    <a href="{{ route('chat.index') }}" class="admin-nav-link"><x-icon name="arrow-left" /> <span>Back to chats</span></a>
-                </div>
             </nav>
 
-            <p class="admin-audit-note">
-                <x-icon name="scroll-text" />
-                <span>Opening someone's chat, searching messages and every moderation action is written to the audit log.</span>
-            </p>
+            <div class="admin-sidebar-foot">
+                <a href="{{ route('chat.index') }}" class="admin-nav-link"><x-icon name="message-circle" /> <span>Back to chats</span></a>
+                <p class="admin-audit-note">
+                    <x-icon name="scroll-text" />
+                    <span>Opening a chat, searching messages and every moderation action goes into the <a href="{{ route('admin.audit') }}">audit log</a>.</span>
+                </p>
+            </div>
         </aside>
         <label for="admin-nav-toggle" class="admin-scrim" aria-hidden="true"></label>
 
@@ -86,6 +86,11 @@
                         <p class="admin-subtitle">{{ $subheading }}</p>
                     @endif
                 </div>
+                <form method="GET" action="{{ route('admin.users') }}" class="admin-topbar-search" role="search">
+                    <x-icon name="search" />
+                    <input type="search" name="q" value="{{ request()->routeIs('admin.users') ? request('q') : '' }}" placeholder="Find a person…" aria-label="Find a person by name, username, email or mobile" autocomplete="off" data-admin-search>
+                    <kbd aria-hidden="true">/</kbd>
+                </form>
                 <div class="admin-topbar-actions">
                     <x-theme-toggle />
                     <div class="dropdown">
