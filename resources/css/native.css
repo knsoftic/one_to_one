@@ -7,22 +7,36 @@
    ========================================================================== */
 
 :root {
+    /* Page shells (header padding): nothing in browsers, the status bar in the app. */
     --app-safe-top: 0px;
+    /* Edge-anchored parts (composer, bottom bar, call and camera screens…): env() in browsers. */
+    --app-inset-top: env(safe-area-inset-top, 0px);
+    --app-inset-bottom: env(safe-area-inset-bottom, 0px);
     --network-bar-h: 0px;
 }
 
 .has-network-bar { --network-bar-h: 2rem; }
 
 .is-native-app {
-    /* Capacitor injects --safe-area-inset-* for WebViews without env() support. */
-    --app-safe-top: max(var(--safe-area-inset-top, 0px), env(safe-area-inset-top, 0px));
+    /* The Android app sets the exact bar sizes (--safe-area-inset-*). env() is only the fallback
+       until they arrive: older WebViews report the status bar even when the page is already
+       below it, which doubled the space at the top. */
+    --app-inset-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+    --app-inset-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+    --app-safe-top: var(--app-inset-top);
     -webkit-tap-highlight-color: transparent;
+}
+
+/* App 1.1 and older on some phones put the page below the status and navigation bars
+   (resources/js/native/system-bars.js): nothing to leave room for. */
+.is-native-app.has-bars-outside {
+    --app-inset-top: 0px;
+    --app-inset-bottom: 0px;
 }
 
 .chat-app,
 .auth-shell,
-.page-shell,
-.admin-shell {
+.page-shell {
     padding-top: calc(var(--app-safe-top) + var(--network-bar-h));
     transition: padding-top 0.2s ease;
 }
@@ -33,6 +47,9 @@
 @media (max-width: 767px) {
     .is-native-app :is(.chat-app, .wa-settings) {
         background: var(--g-header) top / 100% calc(var(--app-safe-top) + var(--network-bar-h)) no-repeat, var(--c-surface);
+    }
+    .is-native-app .group-info-header {
+        background: var(--g-header) top / 100% var(--app-safe-top) no-repeat, var(--c-surface);
     }
 }
 
@@ -101,7 +118,7 @@
 
 @media (prefers-reduced-motion: reduce) {
     .network-bar, .network-bar-dots i { animation: none; }
-    .chat-app, .auth-shell, .page-shell, .admin-shell { transition: none; }
+    .chat-app, .auth-shell, .page-shell { transition: none; }
 }
 
 /* ---------- Permission request sheet (mobile app) ---------- */

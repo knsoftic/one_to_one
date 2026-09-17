@@ -52,6 +52,7 @@ public class MainActivity extends BridgeActivity {
     private final Runnable slowLoadCheck = this::showConnectionScreen;
 
     private volatile boolean contentReady = false;
+    private SystemInsets systemInsets;
     private View connectionScreen;
     private ConnectivityManager.NetworkCallback networkCallback;
 
@@ -144,6 +145,9 @@ public class MainActivity extends BridgeActivity {
             return;
         }
 
+        // Status and navigation bars: the page is drawn behind them (Android 8+) and gets their sizes as CSS variables.
+        systemInsets = SystemInsets.install(getWindow(), bridge.getWebView());
+
         bridge.addWebViewListener(
             new WebViewListener() {
                 @Override
@@ -155,6 +159,7 @@ public class MainActivity extends BridgeActivity {
                 @Override
                 public void onPageCommitVisible(WebView view, String url) {
                     contentReady = true;
+                    systemInsets.onPageVisible();
                     handler.removeCallbacks(slowLoadCheck);
                     hideConnectionScreen();
                 }
@@ -273,6 +278,9 @@ public class MainActivity extends BridgeActivity {
             return;
         }
         contentReady = true;
+        if (systemInsets != null) {
+            systemInsets.useAppBackgroundIcons();
+        }
 
         if (connectionScreen == null) {
             ViewGroup root = findViewById(android.R.id.content);

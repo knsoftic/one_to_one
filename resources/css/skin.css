@@ -155,7 +155,7 @@
 .sidebar-section-title { padding: 1rem 1rem 0.45rem 1.35rem; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--c-subtle); }
 
 /* Rounded rows with room around them */
-.conversation-item { gap: 0.9rem; min-height: 4.4rem; margin: 0.1rem 0.5rem; padding: 0 0.7rem; border-radius: 16px; }
+.conversation-item { width: calc(100% - 1rem); gap: 0.9rem; min-height: 4.4rem; margin: 0.1rem 0.5rem; padding: 0 0.7rem; border-radius: 16px; }
 .conversation-item:hover { background: var(--c-surface-2); }
 .conversation-item.is-active { background: var(--c-list-active); box-shadow: inset 3px 0 0 var(--c-primary); }
 .conversation-item .avatar-md { --size: 3rem; }
@@ -328,7 +328,7 @@ a.message-file:hover, .message.is-mine a.message-file:hover { filter: brightness
 }
 
 /* ---------- Composer: a floating card ---------- */
-.chat-composer { padding: 0.5rem 1rem calc(0.65rem + env(safe-area-inset-bottom)); background: transparent; border-top: 0; }
+.chat-composer { padding: 0.5rem 1rem calc(0.65rem + var(--app-inset-bottom)); background: transparent; border-top: 0; }
 .composer-form { gap: 0.55rem; }
 .composer-input-wrap { padding: 0.2rem 0.35rem; border: 1px solid var(--c-border); border-radius: 22px; background: var(--c-surface); box-shadow: var(--shadow-md); }
 .composer-input-wrap:focus-within { border-color: var(--c-primary); box-shadow: 0 0 0 3px var(--c-focus), var(--shadow-md); background: var(--c-surface); }
@@ -429,20 +429,20 @@ a.message-file:hover, .message.is-mine a.message-file:hover { filter: brightness
     .sidebar-filters { padding: 0 1rem 0.5rem; }
     .chip { height: 2.1rem; font-size: 0.9rem; }
 
-    .conversation-item { min-height: 4.5rem; margin: 0.1rem 0.4rem; padding: 0 0.65rem; gap: 0.9rem; }
+    .conversation-item { width: calc(100% - 0.8rem); min-height: 4.5rem; margin: 0.1rem 0.4rem; padding: 0 0.65rem; gap: 0.9rem; }
     .conversation-item .avatar-md { --size: 3.15rem; }
     .conversation-name { font-size: 1.04rem; }
     .conversation-preview { font-size: 0.9rem; }
     .sidebar-scroll { padding-bottom: 8rem; }
 
     .fab { inset-inline-end: 1.1rem; width: 3.6rem; height: 3.6rem; border-radius: 20px; color: #fff; background: var(--c-fab); box-shadow: 0 14px 28px -12px rgba(79, 70, 229, 0.95); }
-    .chat-app[data-view='list'] .fab { bottom: calc(5.9rem + env(safe-area-inset-bottom)); }
+    .chat-app[data-view='list'] .fab { bottom: calc(5.9rem + var(--app-inset-bottom)); }
 
     /* Floating pill navigation */
     .mobile-nav {
         inset-inline-start: 0.75rem;
         inset-inline-end: 0.75rem;
-        bottom: calc(0.65rem + env(safe-area-inset-bottom));
+        bottom: calc(0.65rem + var(--app-inset-bottom));
         grid-template-columns: repeat(4, minmax(0, 1fr));
         padding: 0.35rem;
         border: 1px solid var(--c-border);
@@ -472,7 +472,7 @@ a.message-file:hover, .message.is-mine a.message-file:hover { filter: brightness
     .chat-messages { padding: 0.6rem 0.8rem; }
     .message-text { font-size: 1rem; }
 
-    .chat-composer { padding: 0.35rem 0.5rem calc(0.5rem + env(safe-area-inset-bottom)); }
+    .chat-composer { padding: 0.35rem 0.5rem calc(0.5rem + var(--app-inset-bottom)); }
     .composer-input-wrap { border-radius: 24px; }
     .composer-textarea { min-height: 2.75rem; font-size: 16px; }
     .composer-send { width: 3rem; height: 3rem; }

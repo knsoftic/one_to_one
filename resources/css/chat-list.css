@@ -47,7 +47,7 @@
     min-width: 0;
     max-height: 80dvh;
     overflow-y: auto;
-    padding: 0.6rem 0.6rem calc(0.75rem + env(safe-area-inset-bottom));
+    padding: 0.6rem 0.6rem calc(0.75rem + var(--app-inset-bottom));
     border-radius: 22px 22px 0 0;
     border-bottom: 0;
     animation: sheet-up 0.28s var(--ease-out);

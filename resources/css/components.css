@@ -447,7 +447,7 @@ select.form-control { appearance: none; padding-inline-end: 2.25rem; background-
 .toast-stack {
     position: fixed;
     z-index: 200;
-    top: max(1rem, env(safe-area-inset-top));
+    top: max(1rem, var(--app-inset-top));
     inset-inline-end: 1rem;
     display: flex;
     flex-direction: column;

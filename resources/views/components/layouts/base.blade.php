@@ -30,7 +30,16 @@
             root.setAttribute('data-theme-pref', pref);
             root.setAttribute('data-theme', dark ? 'dark' : 'light');
             // Inside the mobile app the page is drawn behind the status bar.
-            if (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) { root.classList.add('is-native-app'); }
+            if (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) {
+                root.classList.add('is-native-app');
+                // App 1.1 and older on many phones put the page below the status bar: leave no room for it
+                // (the same check as barsOutside() in resources/js/native/system-bars.js, which keeps it up to date).
+                var w = window.innerWidth, h = window.innerHeight, sw = screen.width, sh = screen.height;
+                if (!root.hasAttribute('data-native-insets') && w > 0 && h > 0 && sw > 0 && sh > 0) {
+                    var across = Math.abs(sw - w) <= Math.abs(sh - w) ? sw : sh, gap = (across === sw ? sh : sw) - h;
+                    if (Math.abs(across - w) <= 160 && gap >= 20 && gap <= 160) { root.classList.add('has-bars-outside'); }
+                }
+            }
         })();
     </script>
 

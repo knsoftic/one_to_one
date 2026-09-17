@@ -179,7 +179,7 @@ button.reaction-row:hover, button.reaction-row:focus-visible { background: var(-
 
 .reaction-picker-host { position: fixed; inset: 0; z-index: 110; }
 .reaction-picker-backdrop { position: absolute; inset: 0; background: rgba(8, 11, 20, 0.35); }
-.reaction-picker-host .emoji-panel { left: 50%; bottom: max(1rem, env(safe-area-inset-bottom)); transform: translateX(-50%); }
+.reaction-picker-host .emoji-panel { left: 50%; bottom: max(1rem, var(--app-inset-bottom)); transform: translateX(-50%); }
 
 @keyframes reaction-pop { from { transform: scale(0.6); opacity: 0; } to { transform: none; opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .message-reactions, .reaction-popover { animation: none; } }
@@ -593,7 +593,7 @@ a.link-card:focus-visible { outline: 2px solid var(--c-focus); outline-offset: 2
     align-items: center;
     justify-content: space-between;
     gap: 0.5rem;
-    padding: max(0.5rem, env(safe-area-inset-top)) 0.75rem 0.5rem;
+    padding: max(0.5rem, var(--app-inset-top)) 0.75rem 0.5rem;
 }
 .image-editor-btn { color: #fff; }
 .image-editor-tools { display: flex; align-items: center; gap: 0.25rem; }
@@ -667,7 +667,7 @@ a.link-card:focus-visible { outline: 2px solid var(--c-focus); outline-offset: 2
     justify-content: center;
     gap: 0.75rem 1.25rem;
     min-height: 3.5rem;
-    padding: 0.5rem 1rem max(0.75rem, env(safe-area-inset-bottom));
+    padding: 0.5rem 1rem max(0.75rem, var(--app-inset-bottom));
 }
 .image-editor-colors,
 .image-editor-sizes { display: flex; align-items: center; gap: 0.4rem; }
@@ -721,13 +721,13 @@ a.link-card:focus-visible { outline: 2px solid var(--c-focus); outline-offset: 2
 }
 .camera-top,
 .camera-bottom { position: absolute; inset-inline-start: 0; inset-inline-end: 0; display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1rem; }
-.camera-top { top: 0; display: grid; grid-template-columns: auto 1fr auto; padding-top: max(0.75rem, env(safe-area-inset-top)); background: linear-gradient(rgba(0, 0, 0, 0.45), transparent); }
+.camera-top { top: 0; display: grid; grid-template-columns: auto 1fr auto; padding-top: max(0.75rem, var(--app-inset-top)); background: linear-gradient(rgba(0, 0, 0, 0.45), transparent); }
 .camera-timer { grid-column: 2; justify-self: center; }
 .camera-bottom {
     bottom: 0;
     flex-direction: column;
     gap: 0.75rem;
-    padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
+    padding-bottom: max(1.25rem, var(--app-inset-bottom));
     background: linear-gradient(transparent, rgba(0, 0, 0, 0.55));
 }
 .camera-btn {

@@ -26,9 +26,9 @@
     color: var(--call-text);
     background: var(--call-bg);
     padding:
-        max(env(safe-area-inset-top), var(--app-safe-top, 0px), 0.75rem)
+        max(var(--app-inset-top), 0.75rem)
         1rem
-        max(env(safe-area-inset-bottom), 1.5rem);
+        max(var(--app-inset-bottom), 1.5rem);
     animation: call-in 0.28s var(--ease-out, ease-out);
     -webkit-tap-highlight-color: transparent;
     user-select: none;
@@ -76,7 +76,7 @@
 .call-local {
     position: absolute;
     z-index: 3;
-    top: calc(max(env(safe-area-inset-top), var(--app-safe-top, 0px), 0.75rem) + 3.5rem);
+    top: calc(max(var(--app-inset-top), 0.75rem) + 3.5rem);
     inset-inline-end: 1rem;
     width: clamp(6.5rem, 26vw, 10rem);
     aspect-ratio: 3 / 4;
@@ -232,7 +232,7 @@
 .call-screen.has-remote-video .call-identity {
     flex: 0;
     position: absolute;
-    top: calc(max(env(safe-area-inset-top), var(--app-safe-top, 0px), 0.75rem) + 2.9rem);
+    top: calc(max(var(--app-inset-top), 0.75rem) + 2.9rem);
     inset-inline-start: 1rem;
     inset-inline-end: calc(clamp(6.5rem, 26vw, 10rem) + 2rem);
     align-items: flex-start;
@@ -467,7 +467,7 @@
 .call-video-invite {
     position: absolute;
     left: 50%;
-    bottom: calc(7.5rem + env(safe-area-inset-bottom));
+    bottom: calc(7.5rem + var(--app-inset-bottom));
     z-index: 3;
     display: inline-flex;
     align-items: center;
@@ -493,7 +493,7 @@
     position: fixed;
     z-index: 390;
     inset-inline-end: 1rem;
-    bottom: calc(1rem + env(safe-area-inset-bottom));
+    bottom: calc(1rem + var(--app-inset-bottom));
     width: clamp(7.5rem, 28vw, 13rem);
     aspect-ratio: 3 / 4;
     overflow: hidden;
@@ -520,7 +520,7 @@
 .call-pip-btn.is-end { background: #ef4444; }
 .call-pip-btn .icon { width: 1rem; height: 1rem; }
 @media (max-width: 767px) {
-    .call-pip { bottom: calc(4.75rem + env(safe-area-inset-bottom)); }
+    .call-pip { bottom: calc(4.75rem + var(--app-inset-bottom)); }
 }
 @media (prefers-reduced-motion: reduce) {
     .call-pip { animation: none; }
@@ -533,7 +533,7 @@
 .call-screen.is-sharing-screen .call-local-video { object-fit: contain; background: #000; }
 .call-share-banner {
     position: absolute;
-    top: calc(max(env(safe-area-inset-top), var(--app-safe-top, 0px), 0.75rem) + 3.4rem);
+    top: calc(max(var(--app-inset-top), 0.75rem) + 3.4rem);
     left: 50%;
     z-index: 5;
     display: inline-flex;

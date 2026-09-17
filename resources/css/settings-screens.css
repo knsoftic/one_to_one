@@ -89,11 +89,11 @@
 .wa-me-main:hover, .wa-menu-row:hover { background: var(--c-surface-2); }
 .wa-me-main:focus-visible, .wa-menu-row:focus-visible { outline: 2px solid var(--c-primary); outline-offset: -2px; }
 
-.wa-settings-footer { margin: 1rem 0 2rem; font-size: 0.8rem; line-height: 1.4; text-align: center; color: var(--c-muted); }
+.wa-settings-footer { margin: 1rem 0 calc(2rem + var(--app-inset-bottom)); font-size: 0.8rem; line-height: 1.4; text-align: center; color: var(--c-muted); }
 .wa-settings-footer strong { font-size: 0.95rem; font-weight: 600; letter-spacing: 0.02em; color: var(--c-text); }
 
 /* ---------- A section screen ---------- */
-.wa-section-body { width: 100%; max-width: 46rem; margin: 0 auto; padding-bottom: calc(2.5rem + env(safe-area-inset-bottom, 0px)); }
+.wa-section-body { width: 100%; max-width: 46rem; margin: 0 auto; padding-bottom: calc(2.5rem + var(--app-inset-bottom)); }
 .wa-alerts:empty { display: none; }
 .wa-alerts .alert { margin: 0.25rem var(--wa-pad) 0.75rem; }
 
@@ -249,7 +249,7 @@ button.wa-field { cursor: pointer; }
     bottom: 0;
     display: flex;
     justify-content: flex-end;
-    padding: 0.75rem var(--wa-pad) calc(0.75rem + env(safe-area-inset-bottom, 0px));
+    padding: 0.75rem var(--wa-pad) calc(0.75rem + var(--app-inset-bottom));
     background: linear-gradient(to top, var(--c-surface) 70%, transparent);
 }
 
@@ -316,7 +316,7 @@ button.wa-field { cursor: pointer; }
 
 /* X5 — Legal pages and their links */
 .legal-body { background: var(--c-bg); }
-.legal-shell { max-width: 50rem; margin: 0 auto; padding: calc(1rem + env(safe-area-inset-top)) 1rem 2.5rem; }
+.legal-shell { max-width: 50rem; margin: 0 auto; padding: calc(1rem + var(--app-inset-top)) 1rem 2.5rem; }
 .legal-topbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.25rem 0 1rem; }
 .legal-topbar .brand { display: inline-flex; align-items: center; gap: 0.55rem; font-weight: 700; color: var(--c-text); text-decoration: none; }
 .legal-nav { display: flex; gap: 0.4rem; overflow-x: auto; padding-bottom: 0.75rem; scrollbar-width: none; }

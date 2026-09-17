@@ -367,7 +367,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 0.75rem;
-    padding: 0.65rem 0.9rem calc(0.65rem + env(safe-area-inset-bottom));
+    padding: 0.65rem 0.9rem calc(0.65rem + var(--app-inset-bottom));
     border-top: 1px solid var(--c-border);
     background: var(--c-surface);
     font-size: 0.86rem;
@@ -468,7 +468,7 @@ kbd {
 .app-update-notice {
     position: fixed;
     left: 50%;
-    bottom: calc(1rem + env(safe-area-inset-bottom));
+    bottom: calc(1rem + var(--app-inset-bottom));
     z-index: 80;
     display: flex;
     align-items: center;

@@ -88,7 +88,7 @@
     align-items: center;
     gap: 0.5rem;
     min-height: 3.9rem;
-    padding: calc(0.4rem + var(--app-safe-top, 0px)) clamp(0.5rem, 2.5vw, 2rem) 0.4rem;
+    padding: calc(0.4rem + var(--app-safe-top, 0px) + var(--network-bar-h, 0px)) clamp(0.5rem, 2.5vw, 2rem) 0.4rem;
     background: var(--c-panel-header);
     border-bottom: 1px solid var(--c-border);
 }

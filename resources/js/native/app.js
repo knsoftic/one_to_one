@@ -3,7 +3,8 @@ import { confirmDialog } from '../lib/modal';
 import { checkAndroidUpdate } from '../ui/app-update';
 import { AppLock } from './app-lock';
 import { requestStartupPermissions } from './permissions';
-import { App, NativeApp, SystemBars, SystemBarsStyle } from './plugins';
+import { App, NativeApp, SystemBars } from './plugins';
+import { watchSystemBars } from './system-bars';
 
 /** Open overlays that the Android back button should close first. */
 const OVERLAYS = '.modal, .lightbox:not(.is-closing), .dropdown-menu:not([hidden]), .emoji-panel, .group-info';
@@ -40,8 +41,8 @@ export function initNativeApp(config) {
     appConfig = config ?? {};
     document.documentElement.classList.add('is-native-app');
 
-    syncSystemBars();
-    document.addEventListener('theme:change', syncSystemBars);
+    // Status and navigation bar icons that stay visible on every screen (and the fix for app 1.1).
+    watchSystemBars({ SystemBars, NativeApp }).catch(() => {});
 
     bindBackButton();
 
@@ -73,18 +74,6 @@ export function initNativeApp(config) {
         },
         true,
     );
-}
-
-/* ---------------------------------------------------------------------- */
-/* Status bar                                                              */
-/* ---------------------------------------------------------------------- */
-
-function syncSystemBars() {
-    const dark = document.documentElement.dataset.theme === 'dark';
-    // Chats, settings and sign-in have the indigo gradient behind the status bar.
-    const gradientTop = Boolean(document.querySelector('[data-chat-app], [data-settings], .auth-shell'));
-    // "Dark" = light icons for a dark page, "Light" = dark icons for a light page.
-    SystemBars.setStyle({ style: dark || gradientTop ? SystemBarsStyle.Dark : SystemBarsStyle.Light }).catch(() => {});
 }
 
 /* ---------------------------------------------------------------------- */
