@@ -32,6 +32,10 @@ class AdService
         if (! $this->enabled() || ! AdPlacement::isEnabled($placement)) {
             return null;
         }
+        // A plan with "no ads" (Y2) means no house ads and no promotions.
+        if (app(PlanService::class)->hasBenefit($user, 'ads_off')) {
+            return null;
+        }
 
         $profile = AdProfile::query()->find($user->getKey());
         $country = $profile?->ip_country ?? $profile?->country ?? DialCode::country($user->phone);
@@ -44,6 +48,10 @@ class AdService
 
         $eligible = AdCampaign::query()
             ->where('status', 'active')
+            // Promotions (Y2): only approved ones with views left, and never to their own owner.
+            ->where(fn ($q) => $q->whereNull('owner_id')->orWhere('review_status', 'approved'))
+            ->where(fn ($q) => $q->whereNull('view_budget')->orWhereColumn('impressions', '<', 'view_budget'))
+            ->where(fn ($q) => $q->whereNull('owner_id')->orWhere('owner_id', '!=', $user->getKey()))
             ->where(fn ($q) => $q->whereNull('starts_at')->orWhere('starts_at', '<=', now()))
             ->where(fn ($q) => $q->whereNull('ends_at')->orWhere('ends_at', '>=', now()))
             ->get()

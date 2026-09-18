@@ -15,6 +15,10 @@ import { initAdminBrand } from './ui/admin-brand';
 import { initAdminTurn } from './ui/admin-turn';
 import { initAdminUi } from './ui/admin-ui';
 import { initAdminAds } from './ui/admin-ads';
+import { initAdminPlans } from './ui/admin-plans';
+import { initAdminPayments } from './ui/admin-payments';
+import { initAdminPromotions } from './ui/admin-promotions';
+import { initAdminWallet } from './ui/admin-wallet';
 import { initWebUpdateNotice } from './ui/app-update';
 import { initSettings } from './ui/settings';
 import { initInstallPrompt, listenForNotificationClicks, registerServiceWorker, syncPush } from './lib/web-push';
@@ -37,6 +41,10 @@ initAdminBrand();
 initAdminTurn();
 initAdminUi();
 initAdminAds();
+initAdminPlans();
+initAdminPayments();
+initAdminPromotions();
+initAdminWallet();
 // X4: offer a reload when a new version was deployed while this tab was open.
 initWebUpdateNotice(config);
 
