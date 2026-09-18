@@ -2,6 +2,8 @@
 @php
     $openReports = \App\Models\UserReport::query()->open()->count();
     $banned = \App\Models\User::query()->where('status', \App\Models\User::STATUS_BANNED)->count();
+    $paymentsToReview = \App\Models\Payment::query()->where('status', 'review')->count();
+    $promotionsToReview = \App\Models\AdCampaign::query()->where('review_status', 'pending')->count();
     $nav = [
         'Overview' => [
             ['admin.dashboard', [], 'layout-dashboard', 'Dashboard', 'admin.dashboard', null],
@@ -18,6 +20,14 @@
             ['admin.channels', [], 'rss', 'Channels', 'admin.channels*', null],
             ['admin.communities', [], 'layers', 'Communities', 'admin.communities*', null],
             ['admin.statuses', [], 'circle-dashed', 'Status updates', 'admin.statuses*', null],
+        ],
+        'Money' => [
+            ['admin.money', [], 'wallet', 'Overview', 'admin.money', null],
+            ['admin.plans', [], 'crown', 'Plans', 'admin.plans*', null],
+            ['admin.coin-packs', [], 'coins', 'Coin packs', 'admin.coin-packs*', null],
+            ['admin.payments', [], 'receipt', 'Payments', 'admin.payments*', $paymentsToReview ?: null],
+            ['admin.promotions', [], 'megaphone', 'Promotions', 'admin.promotions*', $promotionsToReview ?: null],
+            ['admin.referrals', [], 'gift', 'Referrals', 'admin.referrals*', null],
         ],
         'System' => [
             ['admin.ads', [], 'badge-dollar-sign', 'Ads', 'admin.ads*', null],

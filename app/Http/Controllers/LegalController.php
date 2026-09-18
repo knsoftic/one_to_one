@@ -16,6 +16,8 @@ class LegalController extends Controller
         'terms' => 'Terms of service',
         'child-safety' => 'Child safety standards',
         'delete-account' => 'Delete your account',
+        // Y2: Google Play and card providers require a reachable refund policy.
+        'refunds' => 'Refund policy',
     ];
 
     public function show(string $page): View

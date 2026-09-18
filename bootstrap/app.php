@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\AuthenticateDevice;
 use App\Http\Middleware\EnsureAccountIsActive;
+use App\Http\Middleware\EnsurePaidEnabled;
 use App\Http\Middleware\EnsureUserIsAdmin;
 use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\SetLocale;
@@ -27,7 +28,11 @@ return Application::configure(basePath: dirname(__DIR__))
             'active' => EnsureAccountIsActive::class,
             'admin' => EnsureUserIsAdmin::class,
             'device' => AuthenticateDevice::class,
+            'paid' => EnsurePaidEnabled::class,
         ]);
+
+        // Payment providers post to these without a session; their own signatures are checked instead.
+        $middleware->validateCsrfTokens(except: ['webhooks/*']);
 
         $middleware->web(append: [
             SetLocale::class,

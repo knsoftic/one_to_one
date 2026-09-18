@@ -10,6 +10,7 @@ use App\Models\Conversation;
 use App\Models\User;
 use App\Services\AccountService;
 use App\Services\ContactService;
+use App\Services\MonetisationService;
 use App\Services\OtpService;
 use App\Services\SessionService;
 use App\Support\ChatPreferences;
@@ -41,6 +42,8 @@ class ProfileController extends Controller
 
         return view('profile.edit', [
             'user' => $user,
+            // Y2: which paid rows (Premium, Wallet, Promote, Refer) this person sees.
+            'paid' => app(MonetisationService::class)->settingsFlags($user),
             'blockedUsers' => $blocked,
             'blockCandidates' => User::query()->whereKey($partnerIds)->active()->orderBy('name')->get(),
             'savedNames' => app(ContactService::class)->savedNames($user, $blocked->pluck('id')->merge($partnerIds)->all()),

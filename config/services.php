@@ -74,4 +74,26 @@ return [
         ],
     ],
 
+    /*
+    | Payments (Y2). Set from Admin → App settings → Paid features; these are the .env fallbacks.
+    */
+    'stripe' => [
+        'key' => env('STRIPE_KEY'),
+        'secret' => env('STRIPE_SECRET'),
+        'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
+    ],
+
+    'paypal' => [
+        'client_id' => env('PAYPAL_CLIENT_ID'),
+        'secret' => env('PAYPAL_SECRET'),
+        'mode' => env('PAYPAL_MODE', 'sandbox'),
+        'webhook_id' => env('PAYPAL_WEBHOOK_ID'),
+    ],
+
+    'play' => [
+        'package_name' => env('PLAY_PACKAGE_NAME', 'com.hunario.chat'),
+        // The JSON of a Google Cloud service account with access to the Play Developer API.
+        'service_account' => env('PLAY_SERVICE_ACCOUNT_JSON'),
+    ],
+
 ];

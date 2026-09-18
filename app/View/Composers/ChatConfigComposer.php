@@ -7,6 +7,8 @@ use App\Models\AppSetting;
 use App\Services\CallLogService;
 use App\Services\ChatLockService;
 use App\Services\GifService;
+use App\Services\LimitService;
+use App\Services\PlanService;
 use App\Support\AdPlacement;
 use Illuminate\Support\Facades\Route;
 use Illuminate\View\View;
@@ -61,6 +63,8 @@ class ChatConfigComposer
             'userBusiness' => ['users.business', ['user' => $id]],
             'adsNext' => ['ads.next', []],
             'adsOpen' => ['ads.open', []],
+            'adsTap' => ['ads.tap', ['campaign' => $id]],
+            'promotionsGo' => ['promotions.go', ['campaign' => $id]],
             'chatLockPin' => ['chat-lock.pin.store', []],
             'chatLockPinDestroy' => ['chat-lock.pin.destroy', []],
             'chatLockUnlock' => ['chat-lock.unlock', []],
@@ -207,8 +211,9 @@ class ChatConfigComposer
             'profileQr' => $view->getData()['profileQr'] ?? null,
             // X8: quick replies ("/" in the typing box) for business accounts.
             'business' => $user ? ['enabled' => $user->businessProfile()->exists()] : null,
-            // Ads (Y1): whether ads run, and the screens the admin switched them on for.
-            'ads' => AppSetting::get('ads_enabled') ? [
+            // Ads (Y1): whether ads run, and the screens the admin switched them on for. A plan
+            // with "no ads" (Y2) turns them off for that person — house ads and promotions alike.
+            'ads' => AppSetting::get('ads_enabled') && ! ($user && app(PlanService::class)->hasBenefit($user, 'ads_off')) ? [
                 'enabled' => true,
                 'placements' => AdPlacement::forApp(),
                 'every' => max(4, (int) AppSetting::get('ad_frequency')),
@@ -220,9 +225,10 @@ class ChatConfigComposer
                 'maxVideoSeconds' => (int) config('chat.statuses.max_video_seconds', 60),
                 'lifetimeHours' => (int) config('chat.statuses.lifetime_hours', 24),
             ],
+            // Limits a paid plan may raise (Y2) — the pickers show this person's own numbers.
             'groups' => [
-                'maxMembers' => (int) config('chat.groups.max_members', 256),
-                'maxBroadcastRecipients' => (int) config('chat.groups.max_broadcast_recipients', 256),
+                'maxMembers' => $user ? app(LimitService::class)->groupMembers($user) : (int) config('chat.groups.max_members', 256),
+                'maxBroadcastRecipients' => $user ? app(LimitService::class)->broadcastRecipients($user) : (int) config('chat.groups.max_broadcast_recipients', 256),
             ],
             'routes' => $routes,
             'limits' => [

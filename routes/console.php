@@ -10,7 +10,12 @@ use App\Services\CallRoomService;
 use App\Services\CallService;
 use App\Services\DisappearingMessageService;
 use App\Services\OtpService;
+use App\Services\Payments\PlayGateway;
+use App\Services\PaymentService;
+use App\Services\PlanService;
 use App\Services\PresenceService;
+use App\Services\PromotionService;
+use App\Services\ReferralService;
 use App\Services\StatusService;
 use App\Services\ViewOnceService;
 use Illuminate\Support\Facades\Artisan;
@@ -99,3 +104,54 @@ Schedule::call(fn () => app(OtpService::class)->prune())->daily()->name('prune-o
 Schedule::call(fn () => UserLogin::query()->where('created_at', '<', now()->subDays(UserLogin::KEEP_DAYS))->delete())->daily()->name('prune-user-logins');
 // Link previews no message uses anymore (and their images).
 Schedule::command('model:prune', ['--model' => [LinkPreview::class]])->daily();
+
+/*
+|--------------------------------------------------------------------------
+| Paid features (Y2)
+|--------------------------------------------------------------------------
+*/
+
+Artisan::command('chat:expire-plans', function () {
+    $n = app(PlanService::class)->expire();
+    $this->info("{$n} subscription(s) expired or started.");
+})->purpose('End subscriptions past their date and start queued ones');
+
+Artisan::command('chat:plan-coins', function () {
+    $plans = app(PlanService::class);
+    $coins = $plans->grantMonthlyCoins();
+    $reminded = $plans->remindEnding();
+    $this->info("{$coins} monthly coin grant(s), {$reminded} reminder(s).");
+})->purpose('Grant the monthly free coins of active plans and remind people whose plan ends soon');
+
+Artisan::command('chat:payments-sweep', function () {
+    $payments = app(PaymentService::class);
+    $expired = $payments->expirePending();
+    $purged = $payments->purgeProofs();
+    $this->info("{$expired} stale payment(s) cancelled, {$purged} screenshot(s) purged.");
+})->purpose('Cancel abandoned payments and purge old payment screenshots');
+
+Artisan::command('chat:promotions-sweep', function () {
+    $n = app(PromotionService::class)->sweepTargets();
+    $this->info("{$n} promotion(s) stopped because their target is gone.");
+})->purpose('Stop promotions whose status, channel, community or business no longer exists');
+
+Artisan::command('chat:play-sweep', function () {
+    $n = app(PlayGateway::class)->sweepVoided();
+    $this->info("{$n} Google Play purchase(s) reversed.");
+})->purpose('Reverse coins and plans for purchases Google Play refunded');
+
+Artisan::command('chat:referral-codes', function () {
+    $referrals = app(ReferralService::class);
+    $n = 0;
+    User::query()->whereNull('referral_code')->each(function (User $user) use ($referrals, &$n) {
+        $referrals->codeFor($user);
+        $n++;
+    });
+    $this->info("{$n} referral code(s) created.");
+})->purpose('Give every existing account a referral code');
+
+Schedule::command('chat:expire-plans')->hourly()->withoutOverlapping();
+Schedule::command('chat:plan-coins')->dailyAt('00:10')->withoutOverlapping();
+Schedule::command('chat:payments-sweep')->everyFifteenMinutes()->withoutOverlapping();
+Schedule::command('chat:promotions-sweep')->everyFiveMinutes()->withoutOverlapping();
+Schedule::command('chat:play-sweep')->dailyAt('03:00')->withoutOverlapping();

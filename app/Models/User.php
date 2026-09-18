@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\ReferralService;
 use App\Support\Phone;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Builder;
@@ -104,6 +105,14 @@ class User extends Authenticatable
 
     protected static function booted(): void
     {
+        // Y2 — a referral is rewarded exactly once, when the number is verified for the first
+        // time (phone-OTP sign-in, change number, or an admin edit all pass through here).
+        static::updated(function (User $user) {
+            if ($user->wasChanged('phone_verified_at') && $user->phone_verified_at !== null && $user->getOriginal('phone_verified_at') === null) {
+                app(ReferralService::class)->rewardIfEligible($user);
+            }
+        });
+
         // Keep the indexed phone suffix in sync for phone-book contact matching.
         static::saving(function (User $user) {
             if (array_key_exists('phone', $user->getAttributes())
@@ -128,8 +137,10 @@ class User extends Authenticatable
             'two_step_enabled_at' => 'datetime',
             'banned_at' => 'datetime',
             'banned_until' => 'datetime',
-            // Ads (Y1): consent for personalised ads (null = not decided yet).
+            // Profile details (Y1) and the paid-feature columns (Y2).
             'birth_date' => 'date',
+            'plan_until' => 'datetime',
+            'verified_until' => 'datetime',
             'password' => 'hashed',
         ];
     }
@@ -204,6 +215,38 @@ class User extends Authenticatable
     public function adProfile(): HasOne
     {
         return $this->hasOne(AdProfile::class);
+    }
+
+    /* Y2 — paid features. The columns behind these are written only by the services (forceFill). */
+
+    public function wallet(): HasOne
+    {
+        return $this->hasOne(Wallet::class);
+    }
+
+    public function subscriptions(): HasMany
+    {
+        return $this->hasMany(Subscription::class);
+    }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(Payment::class);
+    }
+
+    public function promotions(): HasMany
+    {
+        return $this->hasMany(AdCampaign::class, 'owner_id');
+    }
+
+    public function referrals(): HasMany
+    {
+        return $this->hasMany(Referral::class, 'referrer_id');
+    }
+
+    public function referredBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'referred_by');
     }
 
     /** Age in whole years from the date of birth in the profile, when it is set. */

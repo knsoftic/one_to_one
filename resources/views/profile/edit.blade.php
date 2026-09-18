@@ -9,6 +9,16 @@
         'notifications' => ['title' => 'Notifications', 'text' => 'Message alerts, tones and vibration', 'icon' => 'bell'],
         'business' => ['title' => 'Business tools', 'text' => 'Business profile, away message, quick replies, labels', 'icon' => 'briefcase-business'],
         'storage' => ['title' => 'Storage and data', 'text' => 'Manage storage, auto-download, chat backup', 'icon' => 'hard-drive'],
+    ];
+    // Y2: paid rows, only while the admin has the paid features on.
+    $paid = $paid ?? [];
+    $sections += array_filter([
+        'premium' => ($paid['premium'] ?? false) ? ['title' => 'Premium', 'text' => 'Plans, no ads, verified badge, bigger limits', 'icon' => 'crown'] : null,
+        'wallet' => ($paid['wallet'] ?? false) ? ['title' => 'Wallet', 'text' => 'Balance, buy coins, history', 'icon' => 'coins'] : null,
+        'promote' => ($paid['promote'] ?? false) ? ['title' => 'Promote', 'text' => 'Boost your status, channel, business or link', 'icon' => 'megaphone'] : null,
+        'refer' => ($paid['refer'] ?? false) ? ['title' => 'Refer & earn', 'text' => 'Invite friends, earn coins', 'icon' => 'gift'] : null,
+    ]);
+    $sections += [
         'qr' => ['title' => 'QR code', 'icon' => 'qr-code', 'menu' => false],
         'blocked' => ['title' => 'Blocked contacts', 'icon' => 'ban', 'menu' => false, 'parent' => 'privacy'],
     ];

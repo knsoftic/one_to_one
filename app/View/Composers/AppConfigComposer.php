@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Services\AppUpdateService;
 use App\Services\BrandService;
 use App\Services\DeviceService;
+use App\Services\MonetisationService;
 use App\Services\WallpaperService;
 use App\Services\WebPushService;
 use App\Support\ChatPreferences;
@@ -38,7 +39,25 @@ class AppConfigComposer
             'settings' => 'profile.edit',
             'chat' => 'chat.index',
             'devices' => 'devices.store',
+            // Paid features (Y2): the settings-page modules read these.
+            'premium' => 'premium.show',
+            'wallet' => 'wallet.show',
+            'walletHistory' => 'wallet.history',
+            'walletWithdraw' => 'wallet.withdraw',
+            'badgeBuy' => 'badge.buy',
+            'promotions' => 'promotions.index',
+            'promotionsQuote' => 'promotions.quote',
+            'promotionsStore' => 'promotions.store',
+            'referral' => 'referral.show',
+            'payBegin' => 'pay.begin',
+            'payPlayVerify' => 'pay.play.verify',
         ])->filter(fn ($name) => Route::has($name))->map(fn ($name) => route($name))
+            // Templates with an id to fill in client-side.
+            ->when(Route::has('promotions.show'), fn ($r) => $r->put('promotionShow', route('promotions.show', ['campaign' => '__ID__'])))
+            ->when(Route::has('promotions.stop'), fn ($r) => $r->put('promotionStop', route('promotions.stop', ['campaign' => '__ID__'])))
+            ->when(Route::has('pay.show'), fn ($r) => $r->put('payShow', route('pay.show', ['payment' => '__ID__'])))
+            ->when(Route::has('pay.proof'), fn ($r) => $r->put('payProof', route('pay.proof', ['payment' => '__ID__'])))
+            ->when(Route::has('pay.cancel'), fn ($r) => $r->put('payCancel', route('pay.cancel', ['payment' => '__ID__'])))
             // Lightweight endpoint the connection bar pings to detect recovery.
             ->put('health', url('/up'));
 
@@ -65,6 +84,8 @@ class AppConfigComposer
                 'is_admin' => $user->isAdmin(),
             ] : null,
             'routes' => $routes,
+            // Paid features (Y2): master switch, currency, platform and this person's plan/badge.
+            'paid' => app(MonetisationService::class)->configFor($user, request()),
             // The Android app registers again when this changes (see resources/js/native/app.js).
             'mobile' => $user && Route::has('devices.store') ? ['configVersion' => app(DeviceService::class)->configVersion()] : null,
             // X4: the web app's build (open tabs offer a reload after a deploy) and the newest Android app.

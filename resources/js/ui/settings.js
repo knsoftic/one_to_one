@@ -336,6 +336,11 @@ export function initSettings(config) {
     initChatBackup(config);
     // Manage storage (D6) loads its own code when the page has it.
     if ($('[data-storage-manager]')) import('./storage-manager').then(({ initStorageManager }) => initStorageManager(config));
+    // Paid features (Y2) load their own code when the page has the section.
+    if ($('[data-premium]')) import('./premium').then(({ initPremium }) => initPremium(config));
+    if ($('[data-wallet]')) import('./wallet').then(({ initWallet }) => initWallet(config));
+    if ($('[data-promote]')) import('./promote').then(({ initPromote }) => initPromote(config));
+    if ($('[data-refer]')) import('./refer').then(({ initRefer }) => initRefer(config));
     initProfileForm();
     initBrowserNotificationButton(config);
     initCopyButtons(container);

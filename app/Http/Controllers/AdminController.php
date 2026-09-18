@@ -75,6 +75,7 @@ class AdminController extends Controller
         'contacts' => ['Contacts & blocks', 'contact'],
         'calls' => ['Calls', 'phone'],
         'reports' => ['Reports', 'message-square-warning'],
+        'money' => ['Money', 'coins'],
         'settings' => ['Settings & storage', 'sliders-horizontal'],
         'history' => ['Admin history', 'history'],
     ];

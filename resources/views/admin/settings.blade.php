@@ -10,6 +10,7 @@
             <a href="#email" class="admin-tab"><x-icon name="mail" /> Email</a>
             <a href="#extras" class="admin-tab"><x-icon name="sliders-horizontal" /> GIFs, calls &amp; invite</a>
             <a href="#ads" class="admin-tab"><x-icon name="badge-dollar-sign" /> Ads</a>
+            <a href="#paid" class="admin-tab"><x-icon name="coins" /> Paid features</a>
             <a href="#legal" class="admin-tab"><x-icon name="scale" /> Legal pages</a>
             <a href="#notice" class="admin-tab"><x-icon name="megaphone" /> Notice</a>
             <a href="#turn" class="admin-tab"><x-icon name="server" /> Call server (TURN)</a>
@@ -264,6 +265,8 @@
                         </div>
                     </div>
                 </section>
+
+                @include('admin.settings.paid')
 
                 {{-- Legal pages (X5) --}}
                 <section class="card admin-tool" id="legal">

@@ -5,14 +5,23 @@ use App\Http\Controllers\AdController;
 use App\Http\Controllers\Admin\AdController as AdminAdController;
 use App\Http\Controllers\Admin\AppReleaseController;
 use App\Http\Controllers\Admin\BackupController as AdminBackupController;
+use App\Http\Controllers\Admin\BadgeController as AdminBadgeController;
 use App\Http\Controllers\Admin\BrandController;
 use App\Http\Controllers\Admin\ChatController as AdminChatController;
+use App\Http\Controllers\Admin\CoinPackController;
 use App\Http\Controllers\Admin\DocsController;
+use App\Http\Controllers\Admin\MoneyController;
+use App\Http\Controllers\Admin\PaymentController as AdminPaymentController;
+use App\Http\Controllers\Admin\PlanController;
+use App\Http\Controllers\Admin\PromotionController as AdminPromotionController;
+use App\Http\Controllers\Admin\ReferralController as AdminReferralController;
 use App\Http\Controllers\Admin\SpaceController;
+use App\Http\Controllers\Admin\SubscriptionController;
 use App\Http\Controllers\Admin\SystemController;
 use App\Http\Controllers\Admin\TurnController;
 use App\Http\Controllers\Admin\UserDataController;
 use App\Http\Controllers\Admin\UserModerationController;
+use App\Http\Controllers\Admin\WalletController as AdminWalletController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AppShellController;
 use App\Http\Controllers\AttachmentController;
@@ -21,6 +30,7 @@ use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\Auth\PhoneLoginController;
 use App\Http\Controllers\Auth\TwoStepController;
 use App\Http\Controllers\BackupController;
+use App\Http\Controllers\BadgeController;
 use App\Http\Controllers\BlockController;
 use App\Http\Controllers\BroadcastController;
 use App\Http\Controllers\BusinessController;
@@ -54,11 +64,15 @@ use App\Http\Controllers\MessageReactionController;
 use App\Http\Controllers\MessageStatusController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OnboardingController;
+use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PhoneChangeController;
 use App\Http\Controllers\PollVoteController;
+use App\Http\Controllers\PremiumController;
 use App\Http\Controllers\PresenceController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProfileQrController;
+use App\Http\Controllers\PromotionController;
+use App\Http\Controllers\ReferralController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SessionController;
 use App\Http\Controllers\StarredMessageController;
@@ -68,6 +82,8 @@ use App\Http\Controllers\StorageController;
 use App\Http\Controllers\SyncController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\ViewOnceController;
+use App\Http\Controllers\WalletController;
+use App\Http\Controllers\WebhookController;
 use App\Http\Controllers\WebPushController;
 use App\Services\DocsService;
 use Illuminate\Support\Facades\Route;
@@ -89,6 +105,11 @@ Route::get('/app-brand.json', [BrandController::class, 'show'])->middleware('thr
 // App language, English or Urdu (X1) — also on the sign-in pages.
 Route::post('/language', [LocaleController::class, 'update'])->middleware('throttle:20,1')->name('locale.update');
 Route::get('/download/android', [AppShellController::class, 'downloadAndroid'])->middleware('throttle:60,1')->name('app.download.android');
+
+// Refer & earn (Y2): the invite link. Payment providers' callbacks: no session, their own signatures are checked.
+Route::get('/r/{code}', [ReferralController::class, 'join'])->where('code', '[A-Z2-9]{8}')->middleware('throttle:60,1')->name('referral.join');
+Route::post('/webhooks/stripe', [WebhookController::class, 'stripe'])->middleware('throttle:120,1')->name('webhooks.stripe');
+Route::post('/webhooks/paypal', [WebhookController::class, 'paypal'])->middleware('throttle:120,1')->name('webhooks.paypal');
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
@@ -554,6 +575,41 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('/ads/{ad}', [AdminAdController::class, 'edit'])->whereNumber('ad')->name('ads.edit');
         Route::put('/ads/{ad}', [AdminAdController::class, 'update'])->whereNumber('ad')->name('ads.update');
         Route::delete('/ads/{ad}', [AdminAdController::class, 'destroy'])->whereNumber('ad')->name('ads.destroy');
+
+        // Money (Y2): plans, coin packs, payments, promotions, subscriptions, referrals.
+        Route::get('/money', [MoneyController::class, 'index'])->name('money');
+        Route::get('/plans', [PlanController::class, 'index'])->name('plans');
+        Route::get('/plans/new', [PlanController::class, 'create'])->name('plans.create');
+        Route::post('/plans', [PlanController::class, 'store'])->name('plans.store');
+        Route::get('/plans/{plan}', [PlanController::class, 'edit'])->whereNumber('plan')->name('plans.edit');
+        Route::put('/plans/{plan}', [PlanController::class, 'update'])->whereNumber('plan')->name('plans.update');
+        Route::delete('/plans/{plan}', [PlanController::class, 'destroy'])->whereNumber('plan')->name('plans.destroy');
+        Route::get('/coin-packs', [CoinPackController::class, 'index'])->name('coin-packs');
+        Route::post('/coin-packs', [CoinPackController::class, 'store'])->name('coin-packs.store');
+        Route::put('/coin-packs/{pack}', [CoinPackController::class, 'update'])->whereNumber('pack')->name('coin-packs.update');
+        Route::delete('/coin-packs/{pack}', [CoinPackController::class, 'destroy'])->whereNumber('pack')->name('coin-packs.destroy');
+        Route::get('/payments', [AdminPaymentController::class, 'index'])->name('payments');
+        Route::get('/payments/{payment}', [AdminPaymentController::class, 'show'])->whereNumber('payment')->name('payments.show');
+        Route::get('/payments/{payment}/proof', [AdminPaymentController::class, 'proof'])->whereNumber('payment')->name('payments.proof');
+        Route::post('/payments/{payment}/approve', [AdminPaymentController::class, 'approve'])->whereNumber('payment')->name('payments.approve');
+        Route::post('/payments/{payment}/reject', [AdminPaymentController::class, 'reject'])->whereNumber('payment')->name('payments.reject');
+        Route::post('/payments/{payment}/refund', [AdminPaymentController::class, 'refund'])->whereNumber('payment')->name('payments.refund');
+        Route::post('/payments/{payment}/retry', [AdminPaymentController::class, 'retry'])->whereNumber('payment')->name('payments.retry');
+        Route::get('/promotions', [AdminPromotionController::class, 'index'])->name('promotions');
+        Route::get('/promotions/{campaign}', [AdminPromotionController::class, 'show'])->whereNumber('campaign')->name('promotions.show');
+        Route::post('/promotions/{campaign}/approve', [AdminPromotionController::class, 'approve'])->whereNumber('campaign')->name('promotions.approve');
+        Route::post('/promotions/{campaign}/reject', [AdminPromotionController::class, 'reject'])->whereNumber('campaign')->name('promotions.reject');
+        Route::post('/promotions/{campaign}/stop', [AdminPromotionController::class, 'stop'])->whereNumber('campaign')->name('promotions.stop');
+        Route::get('/subscriptions', [SubscriptionController::class, 'index'])->name('subscriptions');
+        Route::post('/users/{user}/plan', [SubscriptionController::class, 'grant'])->whereNumber('user')->name('users.plan.grant');
+        Route::delete('/users/{user}/plan/{subscription}', [SubscriptionController::class, 'end'])->whereNumber('user')->whereNumber('subscription')->name('users.plan.end');
+        Route::post('/users/{user}/coins', [AdminWalletController::class, 'adjust'])->whereNumber('user')->name('users.coins.adjust');
+        Route::post('/users/{user}/wallet/freeze', [AdminWalletController::class, 'freeze'])->whereNumber('user')->name('users.wallet.freeze');
+        Route::post('/users/{user}/badge', [AdminBadgeController::class, 'grant'])->whereNumber('user')->name('users.badge.grant');
+        Route::delete('/users/{user}/badge', [AdminBadgeController::class, 'remove'])->whereNumber('user')->name('users.badge.remove');
+        Route::get('/referrals', [AdminReferralController::class, 'index'])->name('referrals');
+        Route::post('/referrals/{referral}/void', [AdminReferralController::class, 'void'])->whereNumber('referral')->name('referrals.void');
+        Route::post('/settings/pay-check/{gateway}', [AdminPaymentController::class, 'check'])->where('gateway', 'stripe|paypal|play')->middleware('throttle:6,1')->name('settings.pay-check');
         // Call server (TURN): check it from the server, or get short-lived credentials for the browser check
         Route::post('/settings/turn-check', [TurnController::class, 'check'])->middleware('throttle:6,1')->name('turn.check');
         Route::get('/settings/turn-servers', [TurnController::class, 'servers'])->middleware('throttle:20,1')->name('turn.servers');
@@ -595,6 +651,31 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/ads/data', [AdController::class, 'data'])->name('ads.data');
     Route::get('/ads/next', [AdController::class, 'next'])->name('ads.next');
     Route::get('/ads/{campaign}/go', [AdController::class, 'click'])->whereNumber('campaign')->name('ads.click');
+    // A tap on a promoted card records the click and answers with what to open in the app (Y2).
+    Route::post('/ads/{campaign}/tap', [AdController::class, 'tap'])->whereNumber('campaign')->middleware('throttle:chat-actions')->name('ads.tap');
+    Route::get('/promote/{campaign}/go', [PromotionController::class, 'go'])->whereNumber('campaign')->name('promotions.go');
+
+    // Paid features (Y2): plans, coins, promotions, referrals. All 404 while the master switch is off.
+    Route::middleware('paid')->group(function () {
+        Route::get('/settings/premium', [PremiumController::class, 'show'])->name('premium.show');
+        Route::get('/settings/wallet', [WalletController::class, 'show'])->name('wallet.show');
+        Route::get('/settings/wallet/history', [WalletController::class, 'history'])->middleware('throttle:chat-search')->name('wallet.history');
+        Route::post('/settings/wallet/withdraw', [WalletController::class, 'withdraw'])->middleware('throttle:chat-lock')->name('wallet.withdraw');
+        Route::post('/settings/badge', [BadgeController::class, 'buy'])->middleware('throttle:chat-lock')->name('badge.buy');
+        Route::get('/settings/promote', [PromotionController::class, 'index'])->name('promotions.index');
+        Route::get('/settings/promote/quote', [PromotionController::class, 'quote'])->middleware('throttle:chat-actions')->name('promotions.quote');
+        Route::post('/settings/promote', [PromotionController::class, 'store'])->middleware('throttle:chat-lock')->name('promotions.store');
+        Route::get('/settings/promote/{campaign}', [PromotionController::class, 'show'])->whereNumber('campaign')->name('promotions.show');
+        Route::post('/settings/promote/{campaign}/stop', [PromotionController::class, 'stop'])->whereNumber('campaign')->middleware('throttle:chat-actions')->name('promotions.stop');
+        Route::get('/settings/refer', [ReferralController::class, 'show'])->name('referral.show');
+
+        Route::post('/pay', [PaymentController::class, 'begin'])->middleware('throttle:chat-lock')->name('pay.begin');
+        Route::post('/pay/play/verify', [PaymentController::class, 'verifyPlay'])->middleware('throttle:chat-lock')->name('pay.play.verify');
+        Route::get('/pay/{payment}', [PaymentController::class, 'show'])->whereNumber('payment')->name('pay.show');
+        Route::post('/pay/{payment}/proof', [PaymentController::class, 'proof'])->whereNumber('payment')->middleware('throttle:chat-lock')->name('pay.proof');
+        Route::get('/pay/{payment}/return', [PaymentController::class, 'return'])->whereNumber('payment')->name('pay.return');
+        Route::delete('/pay/{payment}', [PaymentController::class, 'cancel'])->whereNumber('payment')->name('pay.cancel');
+    });
 
     // Manage storage (D6)
     Route::get('/settings/storage', [StorageController::class, 'summary'])->middleware('throttle:chat-search')->name('storage.summary');

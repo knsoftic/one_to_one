@@ -11,6 +11,7 @@ use App\Services\AdminAuditService;
 use App\Services\AppConfigService;
 use App\Services\AppUpdateService;
 use App\Services\BrandService;
+use App\Services\MonetisationService;
 use App\Services\SmsService;
 use App\Services\TurnServerService;
 use App\Support\AdPlacement;
@@ -82,6 +83,7 @@ class SystemController extends Controller
                 'adsense_client' => AppSetting::get('adsense_client'),
                 'adsense_slot' => AppSetting::get('adsense_slot'),
             ],
+            'paid' => $this->paidSettings(),
             'brand' => app(BrandService::class)->settings() + [
                 'current_name' => app(BrandService::class)->name(),
                 'default_name' => app(BrandService::class)->defaultName(),
@@ -150,6 +152,8 @@ class SystemController extends Controller
             'admob_test' => ['nullable', 'boolean'],
             'adsense_client' => ['nullable', 'string', 'max:120', 'regex:/^ca-pub-\d{16}$/'],
             'adsense_slot' => ['nullable', 'string', 'max:20', 'regex:/^\d{6,20}$/'],
+            // Paid features (Y2)
+            ...$this->paidRules(),
 
             'tenor_key' => ['nullable', 'string', 'max:255'],
             'turn_urls' => ['nullable', 'string', 'max:1000'],
@@ -180,6 +184,12 @@ class SystemController extends Controller
         if ($request->has('ads_section')) {
             $simple['ad_placements'] = array_values($validated['ad_placements'] ?? []);
         }
+        // Paid features (Y2): saved only when that section of the form was submitted.
+        $paidChanged = [];
+        if ($request->has('paid_section')) {
+            [$paidSimple, $paidChanged] = $this->paidSimple($request, $validated);
+            $simple += $paidSimple;
+        }
         foreach (['admob_app_id', 'admob_native_unit', 'adsense_client', 'adsense_slot'] as $key) {
             if ($request->has($key)) {
                 $simple[$key] = filled($validated[$key] ?? null) ? trim((string) $validated[$key]) : null;
@@ -200,7 +210,130 @@ class SystemController extends Controller
             'Changed app settings: sign-ups '.($simple['registration_open'] ? 'open' : 'closed').', notice '.($simple['notice'] ? 'on' : 'off').', ads '.($simple['ads_enabled'] ? 'on' : 'off').($changed ? ', '.implode(', ', $changed) : ''),
             ['changed' => $changed, 'registration_open' => $simple['registration_open']]);
 
+        if ($paidChanged) {
+            $this->audit->record($request->user(), 'paid.settings_updated', null,
+                'Changed paid-feature settings: '.implode(', ', $paidChanged), ['changed' => $paidChanged]);
+        }
+
         return back()->with('status', 'Settings saved.');
+    }
+
+    /** The Paid features section of the settings page (Y2). */
+    private function paidSettings(): array
+    {
+        $keys = [
+            'paid_enabled', 'paid_currency', 'promote_enabled', 'promo_rate_status', 'promo_rate_channel', 'promo_rate_community',
+            'promo_rate_business', 'promo_rate_card', 'promo_rate_link', 'promo_min_coins', 'promo_max_coins', 'promo_max_active',
+            'promo_daily_cap', 'promo_weight', 'promo_auto_approve', 'promo_blocked_hosts', 'referral_enabled', 'referral_reward',
+            'referral_welcome', 'referral_daily_cap', 'referral_ip_cap', 'badge_coin_price', 'badge_days', 'wallet_withdraw_enabled',
+            'manual_enabled', 'manual_jazzcash', 'manual_easypaisa', 'manual_bank', 'manual_note', 'manual_expire_hours',
+            'proof_keep_days', 'stripe_enabled', 'paypal_enabled', 'play_enabled', 'play_min_app_code',
+        ];
+        $out = [];
+        foreach ($keys as $key) {
+            $out[$key] = AppSetting::get($key);
+        }
+        $out['promo_placements'] = is_array(AppSetting::get('promo_placements')) ? AppSetting::get('promo_placements') : [];
+        $out['stripe_configured'] = filled(config('services.stripe.secret'));
+        $out['paypal_configured'] = filled(config('services.paypal.client_id')) && filled(config('services.paypal.secret'));
+        $out['play_configured'] = filled(config('services.play.service_account'));
+
+        return $out;
+    }
+
+    /** @return array<string, array<int, mixed>> */
+    private function paidRules(): array
+    {
+        $on = ['nullable', 'boolean'];
+        $count = fn (int $min, int $max) => ['nullable', 'integer', "between:{$min},{$max}"];
+
+        return [
+            'paid_enabled' => $on,
+            'paid_currency' => ['nullable', Rule::in(array_keys(MonetisationService::CURRENCIES))],
+            'promote_enabled' => $on,
+            'promo_rate_status' => $count(1, 100000),
+            'promo_rate_channel' => $count(1, 100000),
+            'promo_rate_community' => $count(1, 100000),
+            'promo_rate_business' => $count(1, 100000),
+            'promo_rate_card' => $count(1, 100000),
+            'promo_rate_link' => $count(1, 100000),
+            'promo_min_coins' => $count(1, 1000000),
+            'promo_max_coins' => ['nullable', 'integer', 'between:1,10000000', 'gte:promo_min_coins'],
+            'promo_max_active' => $count(1, 100),
+            'promo_daily_cap' => $count(1, 50),
+            'promo_weight' => $count(1, 100),
+            'promo_auto_approve' => $on,
+            'promo_placements' => ['nullable', 'array'],
+            'promo_placements.*' => [Rule::in(AdPlacement::keys())],
+            'promo_blocked_hosts' => ['nullable', 'string', 'max:2000'],
+            'referral_enabled' => $on,
+            'referral_reward' => $count(0, 100000),
+            'referral_welcome' => $count(0, 100000),
+            'referral_daily_cap' => $count(1, 10000),
+            'referral_ip_cap' => $count(1, 1000),
+            'badge_coin_price' => $count(0, 10000000),
+            'badge_days' => $count(0, 3650),
+            'wallet_withdraw_enabled' => $on,
+            'manual_enabled' => $on,
+            'manual_jazzcash' => ['nullable', 'string', 'max:600'],
+            'manual_easypaisa' => ['nullable', 'string', 'max:600'],
+            'manual_bank' => ['nullable', 'string', 'max:600'],
+            'manual_note' => ['nullable', 'string', 'max:300'],
+            'manual_expire_hours' => $count(1, 720),
+            'proof_keep_days' => $count(1, 3650),
+            'stripe_enabled' => $on,
+            'stripe_publishable_key' => ['nullable', 'string', 'max:191', 'regex:/^pk_(test|live)_/'],
+            'stripe_secret_key' => ['nullable', 'string', 'max:191', 'regex:/^(sk|rk)_(test|live)_/'],
+            'stripe_webhook_secret' => ['nullable', 'string', 'max:191', 'regex:/^whsec_/'],
+            'paypal_enabled' => $on,
+            'paypal_client_id' => ['nullable', 'string', 'max:191'],
+            'paypal_secret' => ['nullable', 'string', 'max:191'],
+            'paypal_mode' => ['nullable', Rule::in(AppConfigService::FIELDS['paypal_mode']['options'])],
+            'paypal_webhook_id' => ['nullable', 'string', 'max:64'],
+            'play_enabled' => $on,
+            'play_package_name' => ['nullable', 'string', 'max:120', 'regex:/^[a-zA-Z][a-zA-Z0-9_]*(\.[a-zA-Z][a-zA-Z0-9_]*)+$/'],
+            'play_service_account_json' => ['nullable', 'string', 'max:10000', 'json'],
+            'play_min_app_code' => ['nullable', 'integer', 'between:1,1000000'],
+        ];
+    }
+
+    /**
+     * The paid-feature settings to store, from the validated form.
+     *
+     * @return array{0: array<string, mixed>, 1: list<string>}
+     */
+    private function paidSimple(Request $request, array $validated): array
+    {
+        $before = $this->paidSettings();
+        $simple = [];
+
+        foreach (['paid_enabled', 'promote_enabled', 'promo_auto_approve', 'referral_enabled', 'wallet_withdraw_enabled', 'manual_enabled', 'stripe_enabled', 'paypal_enabled', 'play_enabled'] as $key) {
+            $simple[$key] = $request->boolean($key);
+        }
+        $simple['paid_currency'] = strtoupper((string) ($validated['paid_currency'] ?? 'PKR'));
+        foreach ([
+            'promo_rate_status', 'promo_rate_channel', 'promo_rate_community', 'promo_rate_business', 'promo_rate_card', 'promo_rate_link',
+            'promo_min_coins', 'promo_max_coins', 'promo_max_active', 'promo_daily_cap', 'promo_weight', 'referral_reward', 'referral_welcome',
+            'referral_daily_cap', 'referral_ip_cap', 'badge_coin_price', 'badge_days', 'manual_expire_hours', 'proof_keep_days',
+        ] as $key) {
+            if (array_key_exists($key, $validated) && $validated[$key] !== null) {
+                $simple[$key] = (int) $validated[$key];
+            }
+        }
+        $simple['play_min_app_code'] = filled($validated['play_min_app_code'] ?? null) ? (int) $validated['play_min_app_code'] : null;
+        $simple['promo_placements'] = array_values($validated['promo_placements'] ?? []);
+        foreach (['promo_blocked_hosts', 'manual_jazzcash', 'manual_easypaisa', 'manual_bank', 'manual_note'] as $key) {
+            $simple[$key] = filled($validated[$key] ?? null) ? trim((string) $validated[$key]) : null;
+        }
+
+        $changed = [];
+        foreach ($simple as $key => $value) {
+            if (($before[$key] ?? null) != $value) {
+                $changed[] = $key;
+            }
+        }
+
+        return [$simple, $changed];
     }
 
     public function testSms(Request $request, SmsService $sms): RedirectResponse

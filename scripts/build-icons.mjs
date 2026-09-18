@@ -50,6 +50,8 @@ const ICONS = [
     'book-open', 'list-tree', 'route',
     // Ads (Y1)
     'badge-dollar-sign', 'target', 'square-arrow-out-up-right', 'image-plus', 'chart-no-axes-column',
+    // Paid features (Y2)
+    'coins', 'gift', 'receipt', 'wallet', 'banknote', 'hand-coins', 'credit-card', 'shopping-bag', 'arrow-right', 'circle-dollar-sign', 'plug-zap', 'ticket', 'party-popper', 'wand-sparkles', 'circle-slash', 'rocket',
 ];
 
 const pascal = (name) => name.replace(/(^|-)([a-z0-9])/g, (_, __, c) => c.toUpperCase());

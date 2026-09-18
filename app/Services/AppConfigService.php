@@ -61,6 +61,17 @@ class AppConfigService
         'turn_username' => ['config' => 'chat.calls.turn_username'],
         'turn_password' => ['config' => 'chat.calls.turn_password', 'secret' => true],
         'invite_url' => ['config' => 'chat.invite.url'],
+
+        // Paid features (Y2): payment providers. Secrets are encrypted and never echoed.
+        'stripe_publishable_key' => ['config' => 'services.stripe.key'],
+        'stripe_secret_key' => ['config' => 'services.stripe.secret', 'secret' => true],
+        'stripe_webhook_secret' => ['config' => 'services.stripe.webhook_secret', 'secret' => true],
+        'paypal_client_id' => ['config' => 'services.paypal.client_id'],
+        'paypal_secret' => ['config' => 'services.paypal.secret', 'secret' => true],
+        'paypal_mode' => ['config' => 'services.paypal.mode', 'options' => ['sandbox', 'live']],
+        'paypal_webhook_id' => ['config' => 'services.paypal.webhook_id'],
+        'play_package_name' => ['config' => 'services.play.package_name'],
+        'play_service_account_json' => ['config' => 'services.play.service_account', 'secret' => true],
     ];
 
     /** @var array<string, mixed>|null the .env values, to fall back to when a setting is emptied */
