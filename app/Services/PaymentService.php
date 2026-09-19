@@ -214,17 +214,29 @@ class PaymentService
      * The money was taken: pending|review → paid. Idempotent when already paid or fulfilled; a
      * final payment (cancelled, failed, …) cannot be paid any more.
      *
+     * `$revive` is the one exception: a gateway that has *verified* the money was really taken may
+     * bring a locally cancelled payment back (a Checkout Session that was paid after we cancelled
+     * it). Dropping it would leave a charged card with nothing delivered and no admin remedy, so
+     * the payment is paid and delivered instead and stamped `meta.paid_after_cancel` for review.
+     *
      * @param  array{gateway_ref?: string, gateway_capture_ref?: string, meta?: array}  $gateway
      */
-    public function markPaid(Payment $payment, array $gateway): Payment
+    public function markPaid(Payment $payment, array $gateway, bool $revive = false): Payment
     {
-        return DB::transaction(function () use ($payment, $gateway) {
+        return DB::transaction(function () use ($payment, $gateway, $revive) {
             $locked = Payment::query()->whereKey($payment->getKey())->lockForUpdate()->first();
             if (in_array($locked->status, ['paid', 'fulfilled'], true)) {
                 return $this->copy($payment, $locked);
             }
-            if (! in_array($locked->status, ['pending', 'review'], true)) {
+            $revived = $revive && $locked->status === 'cancelled';
+            if (! $revived && ! in_array($locked->status, ['pending', 'review'], true)) {
                 throw new PaymentException('invalid_state', "This payment is {$locked->status} and cannot be marked paid.", 409);
+            }
+
+            $meta = array_merge($locked->meta ?? [], $gateway['meta'] ?? []);
+            if ($revived) {
+                $meta['paid_after_cancel'] = (string) ($locked->meta['reason'] ?? 'cancelled');
+                Log::warning("Payment #{$locked->id} was cancelled here ({$meta['paid_after_cancel']}) but paid at {$locked->gateway}: delivering it and flagging it for review.");
             }
 
             $locked->forceFill(array_filter([
@@ -233,7 +245,7 @@ class PaymentService
             ]) + [
                 'status' => 'paid',
                 'paid_at' => now(),
-                'meta' => array_merge($locked->meta ?? [], $gateway['meta'] ?? []) ?: null,
+                'meta' => $meta ?: null,
             ])->save();
 
             return $this->copy($payment, $locked);
@@ -298,9 +310,9 @@ class PaymentService
     }
 
     /** markPaid then fulfil. A delivery failure is reported and leaves the payment `paid` (admin → Retry). */
-    public function settle(Payment $payment, array $gateway): Payment
+    public function settle(Payment $payment, array $gateway, bool $revive = false): Payment
     {
-        $this->markPaid($payment, $gateway);
+        $this->markPaid($payment, $gateway, $revive);
 
         try {
             $this->fulfil($payment);
@@ -321,15 +333,23 @@ class PaymentService
         if ($payment->gateway !== 'manual') {
             throw new PaymentException('not_manual', 'Only manual transfers are approved by hand.', 422);
         }
-        if ($payment->status !== 'review') {
-            throw new PaymentException('not_in_review', "This payment is {$payment->status}, not waiting for review.", 409);
-        }
+        $note = $note !== null && trim($note) !== '' ? mb_substr(trim($note), 0, 200) : null;
 
-        $payment->forceFill([
-            'reviewed_by' => $admin->getKey(),
-            'reviewed_at' => now(),
-            'review_note' => $note !== null && trim($note) !== '' ? mb_substr(trim($note), 0, 200) : null,
-        ])->save();
+        // The reviewer stamp claims the payment under the row lock, so two admins pressing Approve
+        // and Reject at the same moment cannot both win: the loser sees the state the other left.
+        DB::transaction(function () use ($payment, $admin, $note) {
+            $locked = Payment::query()->whereKey($payment->getKey())->lockForUpdate()->first();
+            if ($locked->status !== 'review') {
+                throw new PaymentException('not_in_review', "This payment is {$locked->status}, not waiting for review.", 409);
+            }
+
+            $locked->forceFill([
+                'reviewed_by' => $admin->getKey(),
+                'reviewed_at' => now(),
+                'review_note' => $note,
+            ])->save();
+            $this->copy($payment, $locked);
+        }, attempts: 3);
 
         $this->settle($payment, ['gateway_ref' => 'manual:'.$payment->id]);
 
@@ -344,17 +364,26 @@ class PaymentService
     /** Admin rejects a manual transfer (the note is shown to the person). */
     public function reject(Payment $payment, User $admin, string $note): Payment
     {
-        if (! in_array($payment->status, ['review', 'pending'], true)) {
-            throw new PaymentException('not_in_review', "This payment is {$payment->status} and cannot be rejected.", 409);
-        }
+        $note = mb_substr(trim($note), 0, 200);
 
-        $payment->forceFill([
-            'status' => 'rejected',
-            'reviewed_by' => $admin->getKey(),
-            'reviewed_at' => now(),
-            'review_note' => mb_substr(trim($note), 0, 200),
-            'meta' => array_merge($payment->meta ?? [], ['reason' => 'rejected']),
-        ])->save();
+        // Locked like every other transition: without it a reject could overwrite an approval that
+        // was committed (and delivered) a moment earlier, leaving delivered coins on a 'rejected'
+        // row that reverse() then refuses to claw back.
+        DB::transaction(function () use ($payment, $admin, $note) {
+            $locked = Payment::query()->whereKey($payment->getKey())->lockForUpdate()->first();
+            if (! in_array($locked->status, ['review', 'pending'], true)) {
+                throw new PaymentException('not_in_review', "This payment is {$locked->status} and cannot be rejected.", 409);
+            }
+
+            $locked->forceFill([
+                'status' => 'rejected',
+                'reviewed_by' => $admin->getKey(),
+                'reviewed_at' => now(),
+                'review_note' => $note,
+                'meta' => array_merge($locked->meta ?? [], ['reason' => 'rejected']),
+            ])->save();
+            $this->copy($payment, $locked);
+        }, attempts: 3);
 
         $this->audit()->record($admin, 'payment.rejected', $payment, sprintf('Rejected payment #%d (%s) for %s: %s', $payment->id, $payment->itemLabel(), $payment->user?->name ?? 'a deleted account', $note), ['note' => $note]);
 
@@ -385,15 +414,28 @@ class PaymentService
     /** Nobody finished this: pending → cancelled. Anything else is left alone. */
     public function cancel(Payment $payment, string $reason): Payment
     {
-        return DB::transaction(function () use ($payment, $reason) {
+        $cancelled = DB::transaction(function () use ($payment, $reason) {
             $locked = Payment::query()->whereKey($payment->getKey())->lockForUpdate()->first();
             if ($locked->status !== 'pending') {
-                return $this->copy($payment, $locked);
+                $this->copy($payment, $locked);
+
+                return false;
             }
             $locked->forceFill(['status' => 'cancelled', 'meta' => array_merge($locked->meta ?? [], ['reason' => $reason])])->save();
+            $this->copy($payment, $locked);
 
-            return $this->copy($payment, $locked);
+            return true;
         }, attempts: 3);
+
+        // A Stripe Checkout Session stays payable for 24 hours whatever we do here, so it is closed
+        // at Stripe as well — otherwise the tab the person still has open (superseded attempt, back
+        // button, the abandoned-checkout sweep) can charge the card for a payment we gave up on.
+        // 'expired' comes from Stripe itself, so there is nothing left to expire.
+        if ($cancelled && $payment->gateway === 'stripe' && $reason !== 'expired' && $payment->gateway_ref) {
+            app(StripeGateway::class)->expireSession($payment);
+        }
+
+        return $payment;
     }
 
     /**
@@ -413,7 +455,8 @@ class PaymentService
         $refundRef = $viaGateway ? $this->driver($payment->gateway)->refund($payment, $note) : null;
 
         $shortfall = 0;
-        DB::transaction(function () use ($payment, $reason, $admin, $note, $refundRef, &$shortfall) {
+        $planKept = false;
+        DB::transaction(function () use ($payment, $reason, $admin, $note, $refundRef, &$shortfall, &$planKept) {
             $locked = Payment::query()->whereKey($payment->getKey())->lockForUpdate()->first();
             if ($locked->status === 'refunded') {
                 $this->copy($payment, $locked);
@@ -432,7 +475,14 @@ class PaymentService
                     }
                 } elseif ($locked->purpose === 'plan' && $locked->subscription) {
                     $sub = $locked->subscription;
-                    if (in_array($sub->status, ['active', 'queued'], true)) {
+                    // A renewal runs on the same subscription row as the payments before it, so the
+                    // row keeps the periods those payments bought and only this one comes off.
+                    $shared = Payment::query()->where('subscription_id', $sub->getKey())
+                        ->where('id', '!=', $locked->getKey())->where('status', 'fulfilled')->exists();
+
+                    if ($shared && $locked->plan) {
+                        $planKept = $this->plans()->removePeriod($sub, $locked->plan, $reason, $admin) !== 'revoked';
+                    } elseif (in_array($sub->status, ['active', 'queued'], true)) {
                         $this->plans()->revoke($sub, $reason, $admin);
                     }
                 }
@@ -446,26 +496,74 @@ class PaymentService
                     'reason' => $reason,
                     'refund_note' => $note !== null && trim($note) !== '' ? mb_substr(trim($note), 0, 200) : null,
                     'shortfall' => $shortfall ?: null,
+                    'plan_kept' => $planKept ?: null,
                 ])),
             ])->save();
             $this->copy($payment, $locked);
         }, attempts: 3);
 
         if ($admin) {
-            $this->audit()->record($admin, 'payment.refunded', $payment, sprintf('Refunded payment #%d (%s) for %s%s', $payment->id, $payment->itemLabel(), $payment->user?->name ?? 'a deleted account', $note ? ': '.$note : ''), array_filter(['reason' => $reason, 'note' => $note, 'shortfall' => $shortfall, 'via_gateway' => $viaGateway]));
+            $this->audit()->record($admin, 'payment.refunded', $payment, sprintf('Refunded payment #%d (%s) for %s%s', $payment->id, $payment->itemLabel(), $payment->user?->name ?? 'a deleted account', $note ? ': '.$note : ''), array_filter(['reason' => $reason, 'note' => $note, 'shortfall' => $shortfall, 'plan_kept' => $planKept, 'via_gateway' => $viaGateway]));
         }
+
+        // What the person lost: a kept subscription still holds periods other payments paid for.
+        $what = $payment->purpose === 'coins'
+            ? 'The coins were taken back.'
+            : ($planKept ? 'Your plan keeps running for the time your other payments paid for.' : 'The plan was ended.');
 
         $payment->user?->notify(new MoneyNotification('payment_refunded', [
             'title' => 'Payment refunded',
             'body' => match ($reason) {
-                'play_void' => 'Google refunded this purchase. '.($payment->purpose === 'coins' ? 'The coins were taken back.' : 'The plan was ended.'),
-                'stripe_refund', 'paypal_refund' => 'Your payment was refunded. '.($payment->purpose === 'coins' ? 'The coins were taken back.' : 'The plan was ended.'),
-                default => 'Your payment for '.$payment->itemLabel().' was refunded.'.($payment->purpose === 'coins' ? ' The coins were taken back.' : ' The plan was ended.'),
+                'play_void' => 'Google refunded this purchase. '.$what,
+                'stripe_refund', 'paypal_refund' => 'Your payment was refunded. '.$what,
+                default => 'Your payment for '.$payment->itemLabel().' was refunded. '.$what,
             },
             'tab' => $payment->purpose === 'plan' ? 'premium' : 'wallet',
         ]));
 
         return $payment;
+    }
+
+    /**
+     * A gateway sent part of the money back (a goodwill refund made in the Stripe/PayPal dashboard).
+     * Nothing is clawed back for a partial refund — the person still paid for most of what they got
+     * — so the running total is kept on `meta.refunded_minor` for the admin page, and the caller
+     * only reverses the payment once the refunds cover the whole amount.
+     *
+     * @param  int  $refundedMinor  everything refunded on this payment so far, in minor units
+     * @return int the total now on record (never goes down, so events out of order are harmless)
+     */
+    public function recordRefundAmount(Payment $payment, int $refundedMinor): int
+    {
+        $total = 0;
+
+        DB::transaction(function () use ($payment, $refundedMinor, &$total) {
+            $locked = Payment::query()->whereKey($payment->getKey())->lockForUpdate()->first();
+            $total = max((int) ($locked->meta['refunded_minor'] ?? 0), max(0, $refundedMinor));
+            $locked->forceFill(['meta' => array_merge($locked->meta ?? [], ['refunded_minor' => $total])])->save();
+            $this->copy($payment, $locked);
+        }, attempts: 3);
+
+        return $total;
+    }
+
+    /**
+     * The provider says money moved on a payment we can no longer settle (rejected, failed,
+     * already refunded). Nothing can be done automatically, so it is stamped for the admin queue
+     * instead of disappearing into the log.
+     */
+    public function flagForReview(Payment $payment, string $reason, ?string $detail = null): Payment
+    {
+        return DB::transaction(function () use ($payment, $reason, $detail) {
+            $locked = Payment::query()->whereKey($payment->getKey())->lockForUpdate()->first();
+            $locked->forceFill(['meta' => array_merge($locked->meta ?? [], array_filter([
+                'needs_review' => $reason,
+                'needs_review_detail' => $detail !== null ? Str::limit($detail, 200) : null,
+            ]))])->save();
+            Log::warning("Payment #{$locked->id} needs an admin: {$reason}".($detail ? ' — '.$detail : ''));
+
+            return $this->copy($payment, $locked);
+        }, attempts: 3);
     }
 
     /** Admin retries delivery of a payment that was paid but not fulfilled. Exceptions bubble up. */
@@ -609,7 +707,10 @@ class PaymentService
         }
 
         if ($this->money->platform($request) === 'android') {
-            $playOk = (bool) AppSetting::get('play_enabled') && ($item === null || filled($item->play_product_id));
+            // `play_enabled` on its own is not enough: without the service-account JSON or the
+            // package name every verify answers 503 *after* Google has taken the money, and Google
+            // only refunds the unacknowledged purchase days later. available() checks all three.
+            $playOk = app(PlayGateway::class)->available() && ($item === null || filled($item->play_product_id));
 
             return $playOk ? ['play'] : [];
         }

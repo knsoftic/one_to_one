@@ -15,12 +15,14 @@ import { NativeBilling } from './plugins';
 
 /** Error the wallet / premium screens can show as-is (`message`), with a stable `code`. */
 export class BillingError extends Error {
-    constructor(message, code = 'error', { retry = false, status = null } = {}) {
+    constructor(message, code = 'error', { retry = false, status = null, terminal = false } = {}) {
         super(message);
         this.name = 'BillingError';
         this.code = code;
         /** True when trying again later may work (network / Google unavailable). */
         this.retry = retry;
+        /** True when the server has decided and will never deliver this token, however often it is sent. */
+        this.terminal = terminal;
         this.status = status;
     }
 }
@@ -45,7 +47,18 @@ const VERIFY_MESSAGES = {
     token_other_account: 'This purchase belongs to another account.',
 };
 
-const PENDING_MESSAGE = 'Waiting for Google Play to confirm your payment. Your coins arrive automatically once it goes through.';
+/**
+ * 422 codes the server has already recorded and will never change its mind about (Google voided
+ * or cancelled the purchase, or it was consumed before we saw it). The token must be consumed
+ * anyway: left in Play's queue it is re-sent on every app open, and — worse — Play keeps
+ * answering ITEM_ALREADY_OWNED, so the person can never buy that item again.
+ * `unknown_product`, `account_mismatch`, `order_reused` and `token_other_account` stay
+ * unconsumed: the purchase may still be delivered (another account, a re-listed item), and an
+ * unconsumed purchase is refunded by Google after three days.
+ */
+const TERMINAL_VERIFY_CODES = new Set(['voided', 'consumed', 'cancelled']);
+
+const PENDING_MESSAGE ='Waiting for Google Play to confirm your payment. Your coins arrive automatically once it goes through.';
 const RETRY_MESSAGE = 'Could not confirm your purchase with the server. Nothing was lost — try again in a moment.';
 
 /** True inside the app when Google Play Billing can be used on this phone. False on the web. */
@@ -115,7 +128,9 @@ async function verifyAndConsume(purchase, verifyUrl) {
             order_id: purchase.orderId ?? null,
         });
     } catch (error) {
-        throw verifyError(error);
+        const failure = verifyError(error);
+        if (failure.terminal) await NativeBilling.consume({ purchaseToken }).catch(() => ({ ok: false }));
+        throw failure;
     }
 
     if (response.status === 202) {
@@ -136,7 +151,10 @@ async function verifyAndConsume(purchase, verifyUrl) {
     };
 }
 
-/** Map a failed verify request to a BillingError; the token is never consumed on these paths. */
+/**
+ * Map a failed verify request to a BillingError. The token is kept (not consumed) on every path
+ * except the terminal 422 codes above, where the server has finished with it for good.
+ */
 function verifyError(error) {
     const status = error?.response?.status ?? null;
     const data = error?.response?.data ?? {};
@@ -152,7 +170,7 @@ function verifyError(error) {
     }
     if (status === 422) {
         const code = String(data.error ?? data.code ?? 'rejected');
-        return new BillingError(VERIFY_MESSAGES[code] ?? data.message ?? 'This purchase could not be verified.', code, { status });
+        return new BillingError(VERIFY_MESSAGES[code] ?? data.message ?? 'This purchase could not be verified.', code, { status, terminal: TERMINAL_VERIFY_CODES.has(code) });
     }
     if (status === 404) {
         return new BillingError(VERIFY_MESSAGES.gateway_unavailable, 'gateway_unavailable', { status });

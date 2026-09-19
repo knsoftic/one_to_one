@@ -7,7 +7,9 @@ use App\Models\AppSetting;
 use App\Models\Payment;
 use App\Models\PaymentEvent;
 use App\Services\PaymentService;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\URL;
 use Stripe\Checkout\Session;
 use Stripe\Event;
 use Stripe\Refund;
@@ -24,6 +26,9 @@ class StripeGateway implements PaymentGateway
 {
     /** Seconds a webhook signature may be old. */
     public const TOLERANCE = 300;
+
+    /** Seconds between two live session look-ups for the same payment (pay.show polling). */
+    public const SYNC_EVERY = 10;
 
     public function __construct(private readonly PaymentService $payments) {}
 
@@ -53,7 +58,9 @@ class StripeGateway implements PaymentGateway
             'client_reference_id' => $payment->uuid,
             'metadata' => ['payment_id' => (string) $payment->id],
             'success_url' => route('pay.return', ['payment' => $payment->id, 'gateway' => 'stripe']),
-            'cancel_url' => route('pay.return', ['payment' => $payment->id, 'gateway' => 'stripe', 'cancelled' => 1]),
+            // Signed: coming back cancelled changes the payment, so only a link we made may do it
+            // (a plain GET could otherwise be fired from any page the person visits).
+            'cancel_url' => URL::signedRoute('pay.return', ['payment' => $payment->id, 'gateway' => 'stripe', 'cancelled' => 1]),
             'expires_at' => now()->addHours(PaymentService::ABANDON_HOURS)->getTimestamp(),
         ], $payment->uuid);
 
@@ -120,11 +127,7 @@ class StripeGateway implements PaymentGateway
                 $payment = $intent !== '' ? Payment::query()->where('gateway', 'stripe')->where('gateway_capture_ref', $intent)->first() : null;
                 if ($payment) {
                     $row->payment_id = $payment->id;
-                    try {
-                        $this->payments->reverse($payment, 'stripe_refund', viaGateway: false);
-                    } catch (PaymentException $e) {
-                        Log::warning("Stripe refund for payment #{$payment->id} ignored: ".$e->getMessage());
-                    }
+                    $this->applyRefund($payment, $object);
                 }
 
                 return;
@@ -133,10 +136,59 @@ class StripeGateway implements PaymentGateway
         }
     }
 
+    /**
+     * `charge.refunded` fires for a partial refund too (a goodwill credit made in the dashboard).
+     * Only a refund that covers the whole charge reverses the payment; a partial one is recorded
+     * on the payment and flagged, so the person keeps what the money they still paid bought.
+     */
+    private function applyRefund(Payment $payment, array $charge): void
+    {
+        $charged = (int) ($charge['amount'] ?? 0);
+        $refunded = (int) ($charge['amount_refunded'] ?? 0);
+        // Stripe's amount_refunded is the running total for the charge; `refunded` is its "all of it"
+        // flag. An event without either (an older payload) is treated as a full refund, as before.
+        $full = ($charge['refunded'] ?? null) === true || $charged <= 0 || $refunded >= $charged;
+
+        if (! $full) {
+            $total = $this->payments->recordRefundAmount($payment, $refunded);
+            Log::warning("Stripe refunded {$total} of {$charged} on payment #{$payment->id}: partial, nothing clawed back.");
+
+            return;
+        }
+
+        try {
+            $this->payments->reverse($payment, 'stripe_refund', viaGateway: false);
+        } catch (PaymentException $e) {
+            Log::warning("Stripe refund for payment #{$payment->id} ignored: ".$e->getMessage());
+        }
+    }
+
+    /**
+     * Close the Checkout Session at Stripe so a payment we cancelled here cannot be paid any more.
+     * Best effort: a session Stripe already expired (or completed) answers with an error we ignore.
+     */
+    public function expireSession(Payment $payment): void
+    {
+        if ($payment->gateway !== 'stripe' || ! $payment->gateway_ref) {
+            return;
+        }
+
+        try {
+            $this->expireSessionAt($payment->gateway_ref);
+        } catch (Throwable $e) {
+            Log::info("Stripe session {$payment->gateway_ref} of payment #{$payment->id} was not expired: ".$e->getMessage());
+        }
+    }
+
     /** pay.show polling: ask Stripe about the session when the webhook has not arrived. */
     public function sync(Payment $payment): Payment
     {
         if ($payment->gateway !== 'stripe' || ! $payment->gateway_ref || $payment->status !== 'pending') {
+            return $payment;
+        }
+        // pay.show is polled; without this every poll would be a live Stripe call, and a loop could
+        // rate-limit the whole account (checkout creation and refunds included).
+        if (! Cache::add('stripe:sync:'.$payment->getKey(), true, self::SYNC_EVERY)) {
             return $payment;
         }
 
@@ -175,13 +227,18 @@ class StripeGateway implements PaymentGateway
         }
 
         try {
+            // The session was paid, so the money is real. A payment we cancelled here meanwhile
+            // (superseded attempt, the person pressed Cancel, the abandoned sweep) is revived and
+            // delivered rather than dropped — dropping it charged the card for nothing.
             $this->payments->settle($payment, [
                 'gateway_capture_ref' => is_string($session['payment_intent'] ?? null) ? $session['payment_intent'] : null,
                 'meta' => ['stripe' => $this->trim($session)],
-            ]);
+            ], revive: $payment->status === 'cancelled');
         } catch (PaymentException $e) {
-            // e.g. the person cancelled meanwhile: retrying the webhook would not help, so it counts as processed.
+            // Rejected / failed / already refunded: retrying the webhook would not help, so it counts
+            // as processed — but the money moved, so the payment is flagged for an admin.
             Log::warning("Stripe session for payment #{$payment->id} not settled: ".$e->getMessage());
+            $this->payments->flagForReview($payment, 'stripe_paid_not_settled', $e->getMessage());
         }
     }
 
@@ -221,6 +278,11 @@ class StripeGateway implements PaymentGateway
     public function retrieveSession(string $id): Session
     {
         return $this->client()->checkout->sessions->retrieve($id);
+    }
+
+    public function expireSessionAt(string $id): Session
+    {
+        return $this->client()->checkout->sessions->expire($id);
     }
 
     public function createRefund(array $params, string $idempotencyKey): Refund

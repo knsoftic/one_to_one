@@ -54,8 +54,11 @@ every plan you want to sell in the app:
 | Status | **Active** |
 
 Then in the admin panel put the same id in the item's *Play product id* field. An item without a
-Play id is simply not offered inside the app; an id Play does not know is skipped by the price
-lookup, so the item disappears from the app's list until the id is fixed.
+Play id is simply not offered inside the app. An **id Play does not know** comes back missing from
+the price lookup: a coin pack with such an id is left out of the Wallet list until the id is fixed,
+a plan card still shows (with "Price on Google Play" and no price) and fails at the moment of
+purchase with "This product is not available on Google Play". Either way the id is wrong — *Test
+connection* (1.3) names every id the Play Console does not have.
 
 Do **not** create them as subscriptions — the verification uses `purchases.products`, which only
 understands one-time products.
@@ -162,6 +165,12 @@ Useful while testing:
   gets their money back automatically and no coins — check *Test connection* first.
 - **Product ids are permanent.** A deleted Play product id cannot be recreated; use a new id and
   update the admin field.
+- **A refunded purchase Play still holds.** Once the sweep has recorded the refund, the app's next
+  verify of that token answers 422 `voided`, `cancelled` or `consumed` — answers that will never
+  change — and the app consumes the token on those three. Without that the purchase would sit in
+  Play's queue forever and Play would keep refusing to sell the item again
+  (`ITEM_ALREADY_OWNED`). Every other failure (503, network, 202, 409) still leaves the token
+  untouched.
 - **Prices**: the app shows Play's localised `ProductDetails` price; never mention web prices inside
   the app (anti-steering rule).
 - **New service account**: the Play API may answer 401 for up to 24 hours after inviting it.

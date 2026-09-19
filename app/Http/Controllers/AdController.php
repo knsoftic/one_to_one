@@ -97,9 +97,14 @@ class AdController extends Controller
         $placement = (string) $request->input('placement', 'chat_list');
         $this->ads->recordClick($campaign, $request->user(), $placement);
 
+        $open = $this->promotions->openPayload($campaign, $request->user());
+
         return response()->json([
-            'open' => $this->promotions->openPayload($campaign, $request->user()),
-            'url' => $campaign->target_url,
+            'open' => $open,
+            // An internal promotion's URL is its own promotions.go page: handing it back when
+            // there is nothing left to open would only bounce the app to a page that opens
+            // nothing. No target and no URL tells the app to say the promotion has ended.
+            'url' => $open === null && $campaign->isInternal() ? null : $campaign->target_url,
         ]);
     }
 

@@ -32,6 +32,12 @@ class AdCampaign extends Model
     /** Statuses a promotion (Y2) moves through; house ads keep STATUSES. */
     public const PROMO_STATUSES = ['pending', 'active', 'completed', 'stopped', 'rejected'];
 
+    /**
+     * Why a stopped promotion may still be tapped: the budget ran out, the owner stopped it, or
+     * the system took it down. An admin stop ("take this down now") and a rejection are not here.
+     */
+    public const TAPPABLE_STOP_REASONS = ['budget', 'user', 'target_gone', 'placements_off'];
+
     /** What a user can promote (Y2); `house` is the admin's own ad. */
     public const KINDS = [
         'house' => 'House ad',
@@ -104,10 +110,27 @@ class AdCampaign extends Model
         return $this->view_budget === null ? null : max(0, $this->view_budget - (int) $this->impressions);
     }
 
-    /** A tap on the last served card of a promotion that just finished still counts. */
+    /**
+     * A tap on the last served card of a promotion that just finished still counts — but only
+     * for a promotion an admin approved, and only when it stopped for a harmless reason. A
+     * rejected one, or one an admin took down, must never send anybody anywhere again, however
+     * long its card stays on somebody's screen.
+     */
     public function acceptsTap(): bool
     {
-        return $this->isLive() || ($this->isPromotion() && in_array($this->status, ['completed', 'stopped'], true));
+        if (! $this->isPromotion()) {
+            return $this->isLive();
+        }
+
+        if ($this->review_status !== 'approved') {
+            return false;
+        }
+
+        if ($this->isLive() || $this->status === 'completed') {
+            return true;
+        }
+
+        return $this->status === 'stopped' && in_array((string) $this->stop_reason, self::TAPPABLE_STOP_REASONS, true);
     }
 
     public function scopeHouse(Builder $query): Builder
@@ -149,10 +172,16 @@ class AdCampaign extends Model
         return $this->impressions > 0 ? round($this->clicks / $this->impressions * 100, 2) : 0.0;
     }
 
-    /** The placements this ad may run in — empty means every placement that is switched on. */
+    /**
+     * The placements this ad may run in. For a house ad, no placement ticked means "wherever ads
+     * are switched on" — the admin's shorthand for all of them. A promotion is different: its
+     * placements were worked out when it was booked (PromotionService::placementsFor), so an
+     * empty list means the admin has since switched off every screen it was allowed on — nowhere
+     * left, never everywhere (a status card must not turn into the banner inside open chats).
+     */
     public function placementList(): array
     {
-        $chosen = $this->placements ?: AdPlacement::keys();
+        $chosen = $this->placements ?: ($this->isPromotion() ? [] : AdPlacement::keys());
 
         return array_values(array_intersect(AdPlacement::enabled(), $chosen));
     }

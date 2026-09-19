@@ -1,10 +1,12 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import axios from '../../bootstrap';
+import { toast } from '../../lib/toast';
 import { AdsManager } from '../ads';
 
 vi.mock('../../bootstrap', () => ({ default: { post: vi.fn(async () => ({ data: {} })), get: vi.fn(async () => ({ data: { ad: null } })) } }));
 vi.mock('../../lib/native', () => ({ isNativeApp: () => false }));
+vi.mock('../../lib/toast', () => ({ toast: vi.fn() }));
 
 const AD = { title: 'Buy now', body: 'Cheap', cta: 'Shop', sponsor: 'ACME', image: 'https://x/y.jpg', click: '/ads/1/go', format: 'row' };
 
@@ -156,6 +158,43 @@ describe('Ads in the app', () => {
         vi.runAllTimers();
         vi.useRealTimers();
         expect(chat.statuses.openViewer).toHaveBeenCalledWith([{ user: { id: 1, name: 'Ali' }, statuses: [{ id: 3, type: 'text', text: 'Hi' }] }], 0, 0);
+    });
+
+    it('says the promotion has ended instead of following a link back to this same page', async () => {
+        // A promoted status whose update is gone: the server answers with nothing to open and no
+        // URL, because the card's own link is the page the app would end up on again.
+        const promoted = { ...AD, id: 7, promoted: true, internal: true, kind: 'status', click: '/promote/7/go', url: '/promote/7/go' };
+        axios.get.mockResolvedValue({ data: { ad: promoted } });
+        axios.post.mockImplementation(async (url) => (url === '/ads/7/tap' ? { data: { open: null, url: null } } : { data: {} }));
+        const chat = statusChat();
+        chat.statuses = { openViewer: vi.fn() };
+        new AdsManager(chat);
+        await settle();
+
+        const assign = vi.spyOn(window.location, 'assign').mockImplementation(() => {});
+        document.querySelector('[data-status-body] .ad-card').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+        await settle();
+
+        expect(axios.post).toHaveBeenCalledWith('/ads/7/tap', { placement: 'status_list' });
+        expect(toast).toHaveBeenCalledWith('This promotion has ended.');
+        expect(assign).not.toHaveBeenCalled();
+        expect(chat.statuses.openViewer).not.toHaveBeenCalled();
+        assign.mockRestore();
+    });
+
+    it('never reloads the page a promoted web link already points at', () => {
+        const chat = chatWith({ enabled: false });
+        chat.config.openTarget = { type: 'url', url: window.location.href };
+        const assign = vi.spyOn(window.location, 'assign').mockImplementation(() => {});
+
+        vi.useFakeTimers();
+        new AdsManager(chat);
+        vi.runAllTimers();
+        vi.useRealTimers();
+
+        expect(assign).not.toHaveBeenCalled();
+        expect(toast).toHaveBeenCalledWith('This promotion has ended.');
+        assign.mockRestore();
     });
 
     it('renders a banner placement without an image or body', async () => {

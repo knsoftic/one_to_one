@@ -37,6 +37,11 @@ class BanService
             'banned_by' => $admin->getKey(),
         ])->save();
 
+        // Nothing of a banned account keeps being shown to other people: their promoted cards
+        // come down now, and the coins for the views they will not get go back (E.14 treats a
+        // forced stop like any other).
+        app(PromotionService::class)->stopAllFor($user, 'owner_banned');
+
         $this->signOutEverywhere($user);
 
         return $user;

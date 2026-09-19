@@ -239,6 +239,22 @@ describe('Settings › Promote', () => {
         expect($('[data-wizard-submit]').disabled).toBe(false);
     });
 
+    it('refuses a kind the admin has left with no screen to run on', async () => {
+        const placements = { ...index().placements, card: [] };
+        axios.get.mockImplementation(async (url) => (url.includes('__') || /\/\d+$/.test(url) ? { data: { ...row(), days: [], placements: [] } } : { data: index({ placements }) }));
+        mount();
+        await flush();
+
+        $('[data-promote-new]').click();
+        $('[data-wizard-kind="card"]').click();
+
+        expect(toast).toHaveBeenCalledWith('Promotions are not being shown on any screen at the moment. Please try again later.', expect.anything());
+        expect($('[data-promote-wizard]').dataset.step).toBe('target');
+        // The kinds that still have a screen work as before.
+        $('[data-wizard-kind="status"]').click();
+        expect($('[data-promote-wizard]').dataset.step).toBe('card');
+    });
+
     it('shows Get coins again when the server says the balance is short', async () => {
         mount({ kind: 'channel', id: '9' });
         await flush();

@@ -53,6 +53,8 @@ export class Premium {
         this.loading = false;
         this.busy = false;
         this.playPrices = {};
+        /** The ids Google Play answered for, or null while Play could not be asked. */
+        this.playKnown = null;
         this.manual = null;
 
         root.addEventListener('click', (event) => this.onClick(event));
@@ -96,7 +98,11 @@ export class Premium {
         if (!ids.length) return;
         try {
             const { playProducts } = await import('../native/billing');
-            for (const product of await playProducts(ids)) this.playPrices[product.productId] = product.price;
+            const products = await playProducts(ids);
+            // An id Google does not know comes back missing: that plan cannot be sold here, so it
+            // is hidden rather than shown with a Choose button that would fail at the Play sheet.
+            this.playKnown = new Set(products.map((product) => product.productId));
+            for (const product of products) this.playPrices[product.productId] = product.price;
         } catch {
             /* Play not available: the cards show no price until it is */
         }
@@ -121,7 +127,9 @@ export class Premium {
     /** In the app only plans sold on Google Play can be bought; on the web every active plan. */
     purchasablePlans() {
         const plans = this.data?.plans ?? [];
-        return this.android ? plans.filter((plan) => plan.play_product_id) : plans;
+        if (!this.android) return plans;
+
+        return plans.filter((plan) => plan.play_product_id && (!this.playKnown || this.playKnown.has(plan.play_product_id)));
     }
 
     currentCard(active, queued) {

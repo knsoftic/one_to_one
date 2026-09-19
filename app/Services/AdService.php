@@ -6,6 +6,7 @@ use App\Models\AdCampaign;
 use App\Models\AdProfile;
 use App\Models\AdView;
 use App\Models\AppSetting;
+use App\Models\BlockedUser;
 use App\Models\User;
 use App\Support\AdPlacement;
 use App\Support\DialCode;
@@ -43,6 +44,12 @@ class AdService
         $country = $profile?->ip_country ?? $profile?->country ?? DialCode::country($user->phone);
         $age = $user->age();
 
+        // A promotion is somebody's own card, carrying their name and (for a status) their words:
+        // it never goes to a person either of them has blocked.
+        $blocked = BlockedUser::query()->where('user_id', $user->getKey())->pluck('blocked_user_id')
+            ->merge(BlockedUser::query()->where('blocked_user_id', $user->getKey())->pluck('user_id'))
+            ->map(fn ($id) => (int) $id)->unique()->values()->all();
+
         // Ads shown or tapped today, for frequency capping (across all placements).
         $todayViews = AdView::query()->where('user_id', $user->getKey())->whereDate('day', today())
             ->get(['campaign_id', 'views', 'clicked'])
@@ -54,6 +61,10 @@ class AdService
             ->where(fn ($q) => $q->whereNull('owner_id')->orWhere('review_status', 'approved'))
             ->where(fn ($q) => $q->whereNull('view_budget')->orWhereColumn('impressions', '<', 'view_budget'))
             ->where(fn ($q) => $q->whereNull('owner_id')->orWhere('owner_id', '!=', $user->getKey()))
+            // A banned, suspended or deleted owner stops showing immediately, even in the moment
+            // between the ban and the sweep that stops their promotions.
+            ->where(fn ($q) => $q->whereNull('owner_id')->orWhereHas('owner', fn ($o) => $o->where('status', User::STATUS_ACTIVE)))
+            ->where(fn ($q) => $q->whereNull('owner_id')->orWhereNotIn('owner_id', $blocked))
             ->where(fn ($q) => $q->whereNull('starts_at')->orWhere('starts_at', '<=', now()))
             ->where(fn ($q) => $q->whereNull('ends_at')->orWhere('ends_at', '>=', now()))
             ->get()

@@ -4,9 +4,12 @@ namespace App\Providers;
 
 use App\Broadcasting\ResilientBroadcastManager;
 use App\Services\AppConfigService;
+use App\Services\BadgeService;
 use App\Services\BrandService;
 use App\Services\ChatLockService;
 use App\Services\ConversationTypes;
+use App\Services\LimitService;
+use App\Services\PlanService;
 use App\Services\PrivacyService;
 use App\Services\PushService;
 use App\Services\ReadReceiptService;
@@ -53,6 +56,14 @@ class AppServiceProvider extends ServiceProvider
         // Remember privacy and read receipt checks for one request (Phase 6).
         $this->app->scoped(PrivacyService::class);
         $this->app->scoped(ReadReceiptService::class);
+
+        // Y2: one subscription, badge and limit lookup per person per request. Without this every
+        // app(BadgeService::class) in a payload builds a fresh PlanService and its memo never
+        // survives a single row. `scoped` (not `singleton`) so a queue worker never sees a stale
+        // subscription between jobs.
+        $this->app->scoped(PlanService::class);
+        $this->app->scoped(BadgeService::class);
+        $this->app->scoped(LimitService::class);
     }
 
     /**

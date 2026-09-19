@@ -117,6 +117,31 @@ describe('buyOnPlay', () => {
         expect(NativeBilling.consume).not.toHaveBeenCalled();
     });
 
+    it('consumes the token on the 422 codes the server will never deliver, so the item can be bought again', async () => {
+        for (const code of ['voided', 'consumed', 'cancelled']) {
+            vi.clearAllMocks();
+            axios.post.mockRejectedValueOnce(httpError(422, { code, message: 'Google refunded this purchase.' }));
+
+            const error = await buyOnPlay(args).catch((e) => e);
+
+            expect(error.code).toBe(code);
+            expect(error.terminal).toBe(true);
+            expect(NativeBilling.consume).toHaveBeenCalledWith({ purchaseToken: 'tok-1' });
+        }
+    });
+
+    it('keeps the token on a 422 that may still be delivered elsewhere', async () => {
+        for (const code of ['account_mismatch', 'unknown_product', 'order_reused']) {
+            vi.clearAllMocks();
+            axios.post.mockRejectedValueOnce(httpError(422, { code }));
+
+            const error = await buyOnPlay(args).catch((e) => e);
+
+            expect(error.terminal).toBe(false);
+            expect(NativeBilling.consume).not.toHaveBeenCalled();
+        }
+    });
+
     it('makes no request when the user cancels the Play sheet', async () => {
         NativeBilling.purchase.mockRejectedValueOnce(Object.assign(new Error('User canceled'), { code: 'cancelled' }));
 

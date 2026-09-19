@@ -31,7 +31,8 @@ class GroupController extends Controller
     /** G1: create a group with a name, people, and optionally a description and icon. */
     public function store(Request $request): JsonResponse
     {
-        $max = $this->groups->maxMembers() - 1;
+        // Y2: the creator's plan sets how big their groups may be.
+        $max = $this->groups->maxMembers($request->user()) - 1;
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:'.GroupService::MAX_NAME],
             'description' => ['nullable', 'string', 'max:'.GroupService::MAX_DESCRIPTION],
@@ -40,7 +41,7 @@ class GroupController extends Controller
             'avatar' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:'.config('chat.uploads.avatar.max_kb', 5120)],
         ], [
             'member_ids.required' => 'Add at least one person to the group.',
-            'member_ids.max' => "A group can have up to {$this->groups->maxMembers()} people.",
+            'member_ids.max' => "A group can have up to {$this->groups->maxMembers($request->user())} people.",
             'name.required' => 'Give the group a name.',
         ]);
 
@@ -82,7 +83,7 @@ class GroupController extends Controller
     {
         $group = $this->group($conversation);
         $validated = $request->validate([
-            'user_ids' => ['required', 'array', 'min:1', 'max:'.$this->groups->maxMembers()],
+            'user_ids' => ['required', 'array', 'min:1', 'max:'.$this->groups->maxMembers($group->creator)],
             'user_ids.*' => ['integer', 'distinct'],
         ]);
 

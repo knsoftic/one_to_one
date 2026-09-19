@@ -125,12 +125,27 @@ class PromotionController extends Controller
      */
     public function go(Request $request, AdCampaign $campaign): View
     {
-        abort_unless($campaign->isPromotion(), 404);
+        // Only a promotion an admin approved and that is (or has just been) running may send
+        // anyone anywhere. Without this, a rejected or still-pending link promotion would be a
+        // redirect to any address the submitter likes, wearing this app's own domain.
+        abort_unless(
+            $campaign->isPromotion()
+                && $campaign->review_status === 'approved'
+                && in_array($campaign->status, ['active', 'completed'], true),
+            404,
+        );
+
+        $open = $this->promotions->openPayload($campaign, $request->user());
+        if ($open === null) {
+            // A status or business promotion's web link is this very page, so falling back to
+            // target_url once there is nothing left to open would reload this page for ever.
+            $open = $campaign->isInternal() ? ['type' => 'gone'] : ['type' => 'url', 'url' => $campaign->target_url];
+        }
 
         return view('chat.index', [
             'user' => $request->user(),
             'initialConversationId' => null,
-            'openTarget' => $this->promotions->openPayload($campaign, $request->user()) ?? ['type' => 'url', 'url' => $campaign->target_url],
+            'openTarget' => $open,
         ]);
     }
 

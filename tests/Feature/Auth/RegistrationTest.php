@@ -114,4 +114,15 @@ class RegistrationTest extends TestCase
             ->get('/register')
             ->assertRedirect(route('chat.index'));
     }
+
+    /** Y2 — a referral code that is not a plain string must not break the page. */
+    public function test_a_malformed_referral_code_still_renders_the_form(): void
+    {
+        $this->get('/register?ref[]=ABCD2345')->assertOk()->assertSee('Create your account');
+
+        $this->post('/register', $this->payload(['ref' => ['ABCD2345']]))->assertSessionHasErrors('ref');
+        $this->followingRedirects()->post('/register', $this->payload(['ref' => ['ABCD2345']]))->assertOk();
+
+        $this->assertGuest();
+    }
 }

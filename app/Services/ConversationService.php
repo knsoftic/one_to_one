@@ -60,7 +60,9 @@ class ConversationService
             ->withCount(['messages as unread_count' => fn ($q) => $q->unreadFor($userId)])
             // Unread messages that @mention me (G4).
             ->withCount(['messages as unread_mentions' => fn ($q) => $q->unreadFor($userId)->whereJsonContains('attachment_meta->mention_ids', (int) $userId)])
-            ->with(['userOne', 'userTwo'])
+            // Y2: the creator's plan sets a group's and a broadcast list's maximum size, and the
+            // payloads read it per row — load it with the conversation.
+            ->with(['userOne', 'userTwo', 'creator'])
             // Chats with messages, plus cleared chats that were not deleted (they stay in the list, empty).
             ->havingRaw('latest_message_id IS NOT NULL OR (settings_cleared_at IS NOT NULL AND settings_deleted_at IS NULL)')
             ->orderByRaw('COALESCE(latest_message_at, settings_cleared_at) DESC')

@@ -45,7 +45,9 @@ class PlanService
         $id = $user->getKey();
 
         if (! array_key_exists($id, $this->active)) {
-            $this->active[$id] = $user->plan_until && $user->plan_until->isPast()
+            // `users.plan_until` is this service's own mirror of the active row: null means the
+            // person has no plan, so the vast majority of users cost no query at all here.
+            $this->active[$id] = ! $user->plan_until || $user->plan_until->isPast()
                 ? null
                 : Subscription::query()->where('user_id', $id)->active()->orderByDesc('ends_at')->first();
         }
@@ -340,6 +342,9 @@ class PlanService
             if ($current && (int) $current->plan_id === (int) $plan->getKey()) {
                 // Renewal: the same row runs on; the monthly coins keep counting from its start.
                 $current->forceFill(['ends_at' => $extend($current->ends_at)])->save();
+                // Anything already queued was bought to follow this row, so it moves with it —
+                // otherwise the renewal would run straight over a paid-for queued period.
+                $this->reanchorQueued($user, $current->ends_at);
                 $this->setMirror($user, $current);
                 $this->linkPayment($payment, $current);
 
@@ -433,6 +438,24 @@ class PlanService
     }
 
     /**
+     * Every queued row of this person is re-hung behind `$from`, each keeping its own length and
+     * its place in the queue. Used when the active row's end moves (a renewal), so a period that
+     * was already paid for is never swallowed by the row in front of it.
+     */
+    private function reanchorQueued(User $user, Carbon $from): void
+    {
+        $queued = Subscription::query()->where('user_id', $user->getKey())->where('status', 'queued')
+            ->orderBy('starts_at')->orderBy('id')->lockForUpdate()->get();
+
+        $cursor = $from->copy();
+        foreach ($queued as $row) {
+            $seconds = (int) $row->starts_at->diffInSeconds($row->ends_at, true);
+            $row->forceFill(['starts_at' => $cursor->copy(), 'ends_at' => $cursor->copy()->addSeconds($seconds)])->save();
+            $cursor = $row->ends_at->copy();
+        }
+    }
+
+    /**
      * The next queued row becomes active. With `$shiftToNow` its dates move so it starts now and
      * keeps its full length (used after a revoke); otherwise it only starts when its day has come.
      */
@@ -445,7 +468,9 @@ class PlanService
             return null;
         }
 
-        if ($shiftToNow) {
+        // A row that would go active already ended has no days left to give; keep its full length
+        // from now instead of activating a period that is over before it starts.
+        if ($shiftToNow || ! $next->ends_at->isFuture()) {
             $seconds = (int) $next->starts_at->diffInSeconds($next->ends_at, true);
             $next->forceFill(['starts_at' => now(), 'ends_at' => now()->addSeconds($seconds)]);
         }
@@ -495,5 +520,51 @@ class PlanService
     private function addPeriod(Carbon $from, Plan $plan): Carbon
     {
         return $from->copy()->addMonthsNoOverflow($plan->months());
+    }
+
+    /**
+     * One paid period comes off a subscription because the payment that bought it was refunded.
+     * A renewed row keeps the time other payments paid for; when nothing would be left the row is
+     * revoked instead. Returns 'shortened', 'revoked' or 'unchanged'.
+     */
+    public function removePeriod(Subscription $sub, Plan $plan, string $reason, ?User $by = null): string
+    {
+        $user = $sub->user;
+        if (! $user) {
+            return 'unchanged';
+        }
+
+        $outcome = DB::transaction(function () use ($sub, $plan, $user) {
+            $this->lockUser($user);
+            $row = Subscription::query()->whereKey($sub->getKey())->lockForUpdate()->first();
+            if (! $row || ! in_array($row->status, ['active', 'queued'], true)) {
+                return 'unchanged';
+            }
+
+            $ends = $row->ends_at->copy()->subMonthsNoOverflow($plan->months());
+            // Nothing of this row was paid for by anybody else: end it rather than leave a period
+            // that is already over.
+            if ($ends->lessThanOrEqualTo($row->starts_at) || $ends->isPast()) {
+                return 'revoke';
+            }
+
+            $row->forceFill(['ends_at' => $ends])->save();
+            $sub->setRawAttributes($row->getAttributes(), true);
+            if ($row->status === 'active') {
+                $this->setMirror($user, $row);
+            }
+
+            return 'shortened';
+        });
+
+        if ($outcome === 'revoke') {
+            $this->revoke($sub, $reason, $by);
+
+            return 'revoked';
+        }
+
+        $this->forget($user);
+
+        return $outcome;
     }
 }

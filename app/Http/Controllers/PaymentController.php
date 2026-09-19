@@ -71,6 +71,12 @@ class PaymentController extends Controller
     {
         $this->authorizeOwner($request, $payment);
 
+        // Google Play policy: the app is never handed a web payment method — no bank details, no
+        // screenshot form, no checkout link. The mirror of verifyPlay()'s web guard.
+        if ($payment->gateway !== 'play' && $this->money->platform($request) === 'android') {
+            return $this->error(new PaymentException('app_platform', 'This payment was started on the website; please finish it there.', 422));
+        }
+
         if ($payment->gateway === 'stripe' && $payment->status === 'pending' && $payment->created_at?->lte(now()->subSeconds(self::STRIPE_SYNC_AFTER))) {
             app(StripeGateway::class)->sync($payment);
         }
@@ -85,6 +91,10 @@ class PaymentController extends Controller
     public function proof(Request $request, Payment $payment): JsonResponse
     {
         $this->authorizeOwner($request, $payment);
+
+        if ($this->money->platform($request) === 'android') {
+            return $this->error(new PaymentException('app_platform', 'Upload the screenshot on the website.', 422));
+        }
 
         $data = $request->validate([
             'method' => ['required', Rule::in(array_keys(Payment::MANUAL_METHODS))],
@@ -117,9 +127,18 @@ class PaymentController extends Controller
             ->with($key, $message);
 
         if ($request->boolean('cancelled')) {
-            $this->payments->cancel($payment, 'user_cancelled');
+            // Cancelling changes the payment, so a plain GET must not do it: only the signed
+            // cancel_url the gateway driver built counts (PayPal appends `token` / `PayerID` on the
+            // way back, which are not part of the signature). Without a valid signature this is
+            // someone else's link — any page a signed-in person opens could otherwise cancel a
+            // checkout that is in flight — so the payment is only shown, never touched.
+            if ($request->hasValidSignatureWhileIgnoring(['token', 'PayerID'])) {
+                $this->payments->cancel($payment, 'user_cancelled');
+            }
 
-            return $to('cancelled', 'Payment cancelled. Nothing was charged.', 'error');
+            return $payment->status === 'fulfilled'
+                ? $to('ok', 'Thanks — your payment went through.')
+                : $to('cancelled', $payment->isFinal() ? 'Payment cancelled. Nothing was charged.' : 'Nothing was charged. You can finish this payment or cancel it from your wallet.', 'error');
         }
 
         if ($payment->gateway === 'paypal') {

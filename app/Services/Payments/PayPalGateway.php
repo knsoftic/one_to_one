@@ -13,6 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\URL;
 use Throwable;
 
 /**
@@ -60,7 +61,9 @@ class PayPalGateway implements PaymentGateway
                 'user_action' => 'PAY_NOW',
                 'shipping_preference' => 'NO_SHIPPING',
                 'return_url' => route('pay.return', ['payment' => $payment->id, 'gateway' => 'paypal']),
-                'cancel_url' => route('pay.return', ['payment' => $payment->id, 'gateway' => 'paypal', 'cancelled' => 1]),
+                // Signed: coming back cancelled changes the payment, so only a link we made may do
+                // it. PayPal appends `token` / `PayerID`, which the controller ignores when checking.
+                'cancel_url' => URL::signedRoute('pay.return', ['payment' => $payment->id, 'gateway' => 'paypal', 'cancelled' => 1]),
             ]]],
         ]);
 
@@ -204,15 +207,38 @@ class PayPalGateway implements PaymentGateway
                     $this->payments->settle($payment, ['gateway_capture_ref' => (string) $resource['id'], 'meta' => ['paypal' => $this->trim($resource)]]);
                 }
             } elseif ($type === 'PAYMENT.CAPTURE.REFUNDED') {
-                try {
-                    $this->payments->reverse($payment, 'paypal_refund', viaGateway: false);
-                } catch (PaymentException $e) {
-                    Log::warning("PayPal refund for payment #{$payment->id} ignored: ".$e->getMessage());
-                }
+                $this->applyRefund($payment, $resource);
             }
         });
 
         return true;
+    }
+
+    /**
+     * A refund webhook carries one refund, not the total: PayPal allows several partial refunds of
+     * the same capture. Only once they add up to the whole amount is the payment reversed; a
+     * partial refund keeps the coins/plan (most of the money was kept too) and is flagged instead.
+     */
+    private function applyRefund(Payment $payment, array $resource): void
+    {
+        $value = (string) ($resource['amount']['value'] ?? '');
+        $refunded = $value !== '' ? (int) round((float) $value * 100) : 0;
+        $sofar = (int) ($payment->meta['refunded_minor'] ?? 0);
+        // No amount in the payload (or the full price): treat it as the whole capture, as before.
+        $total = $value === '' ? $payment->amount_minor : $sofar + $refunded;
+
+        if ($total < $payment->amount_minor) {
+            $this->payments->recordRefundAmount($payment, $total);
+            Log::warning("PayPal refunded {$total} of {$payment->amount_minor} on payment #{$payment->id}: partial, nothing clawed back.");
+
+            return;
+        }
+
+        try {
+            $this->payments->reverse($payment, 'paypal_refund', viaGateway: false);
+        } catch (PaymentException $e) {
+            Log::warning("PayPal refund for payment #{$payment->id} ignored: ".$e->getMessage());
+        }
     }
 
     public function refund(Payment $payment, ?string $note): ?string

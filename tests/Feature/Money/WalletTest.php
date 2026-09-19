@@ -84,6 +84,21 @@ class WalletTest extends TestCase
         $this->actingAs($user)->getJson(route('wallet.show'), ['User-Agent' => 'Mozilla/5.0 One2OneApp/1.0'])->assertOk()->assertJsonPath('methods', []);
     }
 
+    /** Play policy: the app must never be given a web payment to continue, instruct or prove. */
+    public function test_the_app_is_only_told_about_google_play_payments(): void
+    {
+        $user = User::factory()->create();
+        $this->payment($user, ['status' => 'pending']);
+        $this->payment($user, ['gateway' => 'stripe', 'status' => 'pending', 'meta' => ['redirect' => 'https://checkout.stripe.test/s']]);
+        $play = $this->payment($user, ['gateway' => 'play', 'status' => 'pending', 'platform' => 'android', 'gateway_ref' => hash('sha256', 'tok')]);
+
+        $this->actingAs($user)->getJson(route('wallet.show'))->assertOk()->assertJsonCount(3, 'pending');
+
+        $app = $this->actingAs($user)->getJson(route('wallet.show'), ['User-Agent' => 'Mozilla/5.0 (Linux; Android 14) One2OneApp/1.0'])->assertOk();
+        $app->assertJsonCount(1, 'pending')->assertJsonPath('pending.0.id', $play->id)->assertJsonPath('pending.0.gateway', 'play');
+        $this->assertStringNotContainsString('checkout.stripe.test', $app->getContent());
+    }
+
     public function test_the_history_is_paginated(): void
     {
         $user = User::factory()->create();

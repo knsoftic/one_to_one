@@ -33,10 +33,15 @@ class GroupService
         private readonly LimitService $limits,
     ) {}
 
-    /** Most people in a group. A paid plan (Y2) of the group's creator raises it, never lowers it. */
+    /**
+     * Most people in a group. A paid plan (Y2) of the group's creator raises it, never lowers it.
+     * Without a person we fall back to whoever is making the request, so the validation rules at
+     * the edge (GroupController) allow exactly what this service will accept.
+     */
     public function maxMembers(?User $for = null): int
     {
         $base = max(3, (int) config('chat.groups.max_members', 256));
+        $for ??= request()->user();
 
         return $for ? max($base, $this->limits->groupMembers($for)) : $base;
     }

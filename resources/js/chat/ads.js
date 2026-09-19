@@ -2,6 +2,7 @@ import axios from '../bootstrap';
 import { html, raw } from '../lib/dom';
 import { icon } from '../lib/icons';
 import { isNativeApp } from '../lib/native';
+import { toast } from '../lib/toast';
 
 /**
  * Ads (Y1). Ads run for everyone — the admin decides whether they run at all and on which
@@ -209,7 +210,10 @@ export class AdsManager {
         if (route) {
             try {
                 const { data } = await axios.post(route, { placement });
-                target = data?.open ?? (data?.url ? { type: 'url', url: data.url } : null);
+                // The server answered: open what it says, or tell the person it is over. An
+                // answer with neither a target nor a URL means the promoted thing is gone — the
+                // card's own link points back at a page that would open nothing.
+                target = data?.open ?? (data?.url ? { type: 'url', url: data.url } : { type: 'gone' });
             } catch {
                 /* recorded or not, the person still gets where they tapped */
             }
@@ -225,11 +229,22 @@ export class AdsManager {
     openPromoted(target) {
         const chat = this.chat;
         const fallback = (url) => {
-            if (url) window.location.assign(url);
+            if (!url) return null;
+            // A status or business promotion whose target is gone links back to the page we are
+            // already on; assigning it again would reload this page for ever.
+            if (isCurrentPage(url)) {
+                toast(ENDED);
+                return null;
+            }
+            window.location.assign(url);
+            return null;
         };
         if (!target) return null;
 
         switch (target.type) {
+            case 'gone':
+                toast(ENDED);
+                return null;
             case 'status':
                 if (chat.statuses?.openViewer && target.status && target.user) {
                     return chat.statuses.openViewer([{ user: target.user, statuses: [target.status] }], 0, 0);
@@ -252,6 +267,17 @@ export class AdsManager {
                 break;
         }
         return fallback(target.url);
+    }
+}
+
+const ENDED = 'This promotion has ended.';
+
+/** True when this address is the page the app is already showing (query string and all). */
+function isCurrentPage(url) {
+    try {
+        return new URL(url, window.location.href).href === window.location.href;
+    } catch {
+        return false;
     }
 }
 

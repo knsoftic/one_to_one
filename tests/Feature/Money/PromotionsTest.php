@@ -144,6 +144,80 @@ class PromotionsTest extends TestCase
         $this->assertSame(['status_list'], $this->promotions->placementsFor('status'));
     }
 
+    public function test_nothing_can_be_booked_when_no_screen_is_left_for_that_kind(): void
+    {
+        $user = $this->user();
+        $status = $this->makeStatus($user);
+        // A status promotion runs in the Status list and the Chats list — neither is on.
+        AppSetting::put(['ad_placements' => ['calls', 'chat_top']]);
+
+        $this->assertSame([], $this->promotions->placementsFor('status'));
+        $this->actingAs($user)->postJson(route('promotions.store'), $this->data(['target_id' => $status->id]))
+            ->assertStatus(422)->assertJsonPath('code', 'placements');
+
+        // No row, no hold: the coins are still the person's.
+        $this->assertSame(0, AdCampaign::query()->promotions()->count());
+        $this->assertSame(1000, $this->balance($user));
+    }
+
+    public function test_a_status_shared_with_only_some_people_cannot_be_promoted(): void
+    {
+        $user = $this->user();
+        $friend = $this->user(coins: 0);
+        $only = $this->makeStatus($user, 'Only for Ali');
+        $only->forceFill(['privacy' => Status::PRIVACY_ONLY, 'privacy_user_ids' => [$friend->id]])->save();
+        $except = $this->makeStatus($user, 'Everyone but Ali');
+        $except->forceFill(['privacy' => Status::PRIVACY_EXCEPT, 'privacy_user_ids' => [$friend->id]])->save();
+        $open = $this->makeStatus($user, 'For everyone');
+
+        // Neither restricted update is offered…
+        $this->assertSame([$open->id], collect($this->promotions->targets($user))->where('kind', 'status')->pluck('id')->all());
+
+        // …and neither can be forced through by hand: the card copies the words into itself.
+        foreach ([$only, $except] as $status) {
+            $this->actingAs($user)->postJson(route('promotions.store'), $this->data(['target_id' => $status->id]))
+                ->assertStatus(422)->assertJsonPath('code', 'target');
+        }
+        $this->assertSame(0, AdCampaign::query()->promotions()->count());
+
+        // "My contacts except…" with nobody left out is just "my contacts".
+        $except->forceFill(['privacy_user_ids' => []])->save();
+        $this->actingAs($user)->postJson(route('promotions.store'), $this->data(['target_id' => $except->id]))->assertStatus(201);
+    }
+
+    public function test_the_sweep_stops_a_promotion_that_has_nowhere_left_to_run(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $user = $this->user();
+        $promo = $this->promotions->approve($admin, $this->promotions->create($user, $this->data(['target_id' => $this->makeStatus($user)->id, 'coins' => 100])));
+        AdCampaign::query()->whereKey($promo->id)->update(['impressions' => 10]);
+
+        // The admin switches off both screens this kind was booked for.
+        AppSetting::put(['ad_placements' => ['calls', 'chat_top']]);
+        $this->assertSame([], $promo->fresh()->placementList());
+
+        $this->assertSame(1, $this->promotions->sweepTargets());
+        $promo = $promo->fresh();
+        $this->assertSame('stopped', $promo->status);
+        $this->assertSame('placements_off', $promo->stop_reason);
+        $this->assertSame(99, $promo->coins_refunded);   // 10 views at 100 per 1,000 = 1 coin used
+        $this->assertSame(999, $this->balance($user));
+        $this->assertSame(0, $this->promotions->sweepTargets());
+    }
+
+    public function test_switching_ads_off_altogether_is_a_pause_and_stops_nobodys_promotion(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $user = $this->user();
+        $promo = $this->promotions->approve($admin, $this->promotions->create($user, $this->data(['target_id' => $this->makeStatus($user)->id, 'coins' => 100])));
+
+        AppSetting::put(['ads_enabled' => false, 'ad_placements' => ['calls']]);
+
+        $this->assertSame(0, $this->promotions->sweepTargets());
+        $this->assertSame('active', $promo->fresh()->status);
+        $this->assertSame(900, $this->balance($user));
+    }
+
     /* ------------------------------------------------------------------ */
     /* Create */
     /* ------------------------------------------------------------------ */

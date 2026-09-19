@@ -14,6 +14,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request as ClientRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -71,6 +72,12 @@ class PayPalCaptureTest extends TestCase
     private function return(Payment $payment, ?User $as = null, string $token = 'ORDER-1')
     {
         return $this->actingAs($as ?? $this->user)->get(route('pay.return', ['payment' => $payment, 'gateway' => 'paypal', 'token' => $token]));
+    }
+
+    /** The signed cancel link PayPal is given as `cancel_url`. */
+    private function cancelUrl(Payment $payment): string
+    {
+        return URL::signedRoute('pay.return', ['payment' => $payment->id, 'gateway' => 'paypal', 'cancelled' => 1]);
     }
 
     public function test_begin_creates_the_order_in_dollars_with_our_request_id(): void
@@ -170,8 +177,44 @@ class PayPalCaptureTest extends TestCase
         $this->assertSame('pending', $payment->fresh()->status);
         $this->assertSame(0, CoinTransaction::query()->count());
 
+        // Only our own signed cancel_url cancels; a plain GET with ?cancelled=1 just shows the state.
         $this->actingAs($this->user)->get(route('pay.return', ['payment' => $payment, 'gateway' => 'paypal', 'cancelled' => 1]))->assertRedirect();
+        $this->assertSame('pending', $payment->fresh()->status);
+
+        // PayPal appends `token` and `PayerID` to the cancel link; the signature ignores them.
+        $this->actingAs($this->user)->get($this->cancelUrl($payment).'&token=ORDER-1&PayerID=PAYER1')->assertRedirect();
         $this->assertSame('cancelled', $payment->fresh()->status);
+    }
+
+    public function test_a_partial_refund_keeps_the_coins_until_the_refunds_cover_the_whole_amount(): void
+    {
+        config(['services.paypal.webhook_id' => 'WH-1']);
+        $this->fake([
+            self::API.'/v2/checkout/orders/ORDER-1/capture' => Http::response($this->capturedOrder('ORDER-1'), 201),
+            self::API.'/v1/notifications/verify-webhook-signature' => Http::response(['verification_status' => 'SUCCESS']),
+        ]);
+        $payment = $this->begin();
+        $this->return($payment);
+        $this->assertSame(500, Wallet::query()->find($this->user->id)->balance);
+
+        $headers = ['HTTP_PAYPAL_AUTH_ALGO' => 'SHA256withRSA', 'HTTP_PAYPAL_CERT_URL' => 'https://api.paypal.com/cert', 'HTTP_PAYPAL_TRANSMISSION_ID' => 't1', 'HTTP_PAYPAL_TRANSMISSION_SIG' => 's', 'HTTP_PAYPAL_TRANSMISSION_TIME' => now()->toIso8601String(), 'CONTENT_TYPE' => 'application/json'];
+        $refund = fn (string $eventId, string $value) => json_encode(['id' => $eventId, 'event_type' => 'PAYMENT.CAPTURE.REFUNDED', 'resource' => [
+            'id' => 'REF-'.$eventId, 'status' => 'COMPLETED', 'custom_id' => $payment->uuid, 'amount' => ['value' => $value, 'currency_code' => 'USD'],
+            'links' => [['rel' => 'up', 'href' => self::API.'/v2/payments/captures/CAP-1']],
+        ]]);
+
+        // $0.99 of $1.99 sent back (a goodwill refund): the person keeps what the rest bought.
+        $this->call('POST', route('webhooks.paypal'), [], [], [], $headers, $refund('WH-R1', '0.99'))->assertOk();
+        $payment->refresh();
+        $this->assertSame('fulfilled', $payment->status);
+        $this->assertSame(99, $payment->meta['refunded_minor']);
+        $this->assertSame(500, Wallet::query()->find($this->user->id)->balance);
+        $this->assertSame(0, CoinTransaction::query()->where('type', 'payment_refund')->count());
+
+        // The remaining $1.00 completes the refund: now the coins go back.
+        $this->call('POST', route('webhooks.paypal'), [], [], [], $headers, $refund('WH-R2', '1.00'))->assertOk();
+        $this->assertSame('refunded', $payment->fresh()->status);
+        $this->assertSame(0, Wallet::query()->find($this->user->id)->balance);
     }
 
     public function test_an_item_without_a_dollar_price_hides_paypal_and_refuses_begin(): void

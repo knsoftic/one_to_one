@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\AppSetting;
 use App\Models\User;
+use App\Services\Payments\PlayGateway;
 use Illuminate\Http\Request;
 
 /**
@@ -90,7 +91,10 @@ class MonetisationService
             'verified' => $user ? app(BadgeService::class)->isVerified($user) : false,
             'plan' => $active ? ['name' => $active->plan?->name, 'until' => $active->ends_at?->toIso8601String()] : null,
             'play' => [
-                'enabled' => (bool) AppSetting::get('play_enabled'),
+                // The same gate as PaymentService::methodsFor(): switched on AND actually
+                // configured, or the app would open a Play sheet whose purchase can never be
+                // verified (and Google refunds it after three days).
+                'enabled' => app(PlayGateway::class)->available(),
                 'accountHash' => $user ? hash('sha256', $user->getKey().config('app.key')) : null,
                 'minAppCode' => AppSetting::get('play_min_app_code') ? (int) AppSetting::get('play_min_app_code') : null,
             ],

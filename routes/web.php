@@ -671,7 +671,7 @@ Route::middleware(['auth', 'active'])->group(function () {
 
         Route::post('/pay', [PaymentController::class, 'begin'])->middleware('throttle:chat-lock')->name('pay.begin');
         Route::post('/pay/play/verify', [PaymentController::class, 'verifyPlay'])->middleware('throttle:chat-lock')->name('pay.play.verify');
-        Route::get('/pay/{payment}', [PaymentController::class, 'show'])->whereNumber('payment')->name('pay.show');
+        Route::get('/pay/{payment}', [PaymentController::class, 'show'])->whereNumber('payment')->middleware('throttle:chat-sync')->name('pay.show');
         Route::post('/pay/{payment}/proof', [PaymentController::class, 'proof'])->whereNumber('payment')->middleware('throttle:chat-lock')->name('pay.proof');
         Route::get('/pay/{payment}/return', [PaymentController::class, 'return'])->whereNumber('payment')->name('pay.return');
         Route::delete('/pay/{payment}', [PaymentController::class, 'cancel'])->whereNumber('payment')->name('pay.cancel');

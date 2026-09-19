@@ -13,6 +13,7 @@ use App\Services\Payments\StripeGateway;
 use App\Services\PaymentService;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Mockery;
 use Mockery\MockInterface;
@@ -51,7 +52,14 @@ class StripeWebhookTest extends TestCase
         $this->stripe->shouldReceive('createSession')->andReturnUsing(fn (array $params, string $key) => Session::constructFrom([
             'id' => 'cs_test_'.substr(md5($key), 0, 8), 'object' => 'checkout.session', 'url' => 'https://checkout.stripe.com/c/pay/cs_test', 'status' => 'open',
         ]))->byDefault();
+        $this->stripe->shouldReceive('expireSessionAt')->andReturnUsing(fn (string $id) => Session::constructFrom(['id' => $id, 'object' => 'checkout.session', 'status' => 'expired']))->byDefault();
         $this->app->instance(StripeGateway::class, $this->stripe);
+    }
+
+    /** The signed cancel link Stripe is given as `cancel_url`. */
+    private function cancelUrl(Payment $payment): string
+    {
+        return URL::signedRoute('pay.return', ['payment' => $payment->id, 'gateway' => 'stripe', 'cancelled' => 1]);
     }
 
     private function begin(): Payment
@@ -250,9 +258,102 @@ class StripeWebhookTest extends TestCase
 
         $this->actingAs(User::factory()->create())->get(route('pay.return', ['payment' => $payment, 'gateway' => 'stripe']))->assertForbidden();
 
-        $this->actingAs($this->user)->get(route('pay.return', ['payment' => $payment, 'gateway' => 'stripe', 'cancelled' => 1]))
+        $this->actingAs($this->user)->get($this->cancelUrl($payment))
             ->assertRedirect(route('profile.edit', ['tab' => 'wallet', 'payment' => $payment->id, 'pay' => 'cancelled']))->assertSessionHas('error');
         $this->assertSame('cancelled', $payment->fresh()->status);
+    }
+
+    public function test_only_the_signed_cancel_link_cancels_and_cancelling_expires_the_session_at_stripe(): void
+    {
+        $payment = $this->begin();
+
+        // The session is closed at Stripe exactly once — by the signed link, not by the bare GET.
+        $this->stripe->shouldReceive('expireSessionAt')->once()->with($payment->gateway_ref)
+            ->andReturn(Session::constructFrom(['id' => $payment->gateway_ref, 'status' => 'expired']));
+
+        // A bare GET (an <img> on any page the person visits) must not cancel a checkout in flight.
+        $this->actingAs($this->user)->get(route('pay.return', ['payment' => $payment, 'gateway' => 'stripe', 'cancelled' => 1]))
+            ->assertRedirect(route('profile.edit', ['tab' => 'wallet', 'payment' => $payment->id, 'pay' => 'cancelled']));
+        $this->assertSame('pending', $payment->fresh()->status);
+
+        $this->actingAs($this->user)->get($this->cancelUrl($payment))->assertRedirect();
+        $this->assertSame('cancelled', $payment->fresh()->status);
+        $this->assertSame('user_cancelled', $payment->fresh()->meta['reason']);
+    }
+
+    public function test_a_superseded_checkout_is_expired_at_stripe_and_the_sweep_expires_abandoned_ones(): void
+    {
+        $first = $this->begin();
+        $this->stripe->shouldReceive('expireSessionAt')->once()->with($first->gateway_ref)
+            ->andReturn(Session::constructFrom(['id' => $first->gateway_ref, 'status' => 'expired']));
+
+        // Starting the same purchase again supersedes the first attempt: its session must die too.
+        $second = $this->begin();
+        $this->assertSame('cancelled', $first->fresh()->status);
+        $this->assertSame('superseded', $first->fresh()->meta['reason']);
+
+        // The abandoned-checkout sweep does the same after 24 hours.
+        Payment::query()->whereKey($second->id)->update(['created_at' => now()->subHours(PaymentService::ABANDON_HOURS + 1)]);
+        $this->stripe->shouldReceive('expireSessionAt')->once()->with($second->gateway_ref)
+            ->andReturn(Session::constructFrom(['id' => $second->gateway_ref, 'status' => 'expired']));
+        $this->assertSame(1, app(PaymentService::class)->expirePending());
+        $this->assertSame('cancelled', $second->fresh()->status);
+    }
+
+    public function test_a_session_paid_after_a_local_cancel_is_delivered_and_flagged_for_the_admin(): void
+    {
+        $payment = $this->begin();
+        $this->actingAs($this->user)->get($this->cancelUrl($payment))->assertRedirect();
+        $this->assertSame('cancelled', $payment->fresh()->status);
+
+        // Stripe still took the money (the old tab was left open): the webhook must not drop it.
+        $this->deliver($this->event('evt_1', 'checkout.session.completed', $this->sessionObject($payment)))->assertOk()->assertJsonPath('status', 'processed');
+
+        $payment->refresh();
+        $this->assertSame('fulfilled', $payment->status);
+        $this->assertSame('user_cancelled', $payment->meta['paid_after_cancel']);
+        $this->assertSame(500, Wallet::query()->find($this->user->id)->balance);
+        $this->assertSame(1, CoinTransaction::query()->count());
+
+        // And an admin can see it and refund it through the normal path.
+        $admin = User::factory()->admin()->create();
+        $this->actingAs($admin)->get(route('admin.payments.show', $payment))->assertOk()->assertSee('Paid after it was cancelled here');
+        $this->actingAs($admin)->get(route('admin.money'))->assertOk()->assertSee('needs a decision');
+        $this->actingAs($admin)->post(route('admin.payments.refund', $payment), ['note' => 'paid twice'])->assertRedirect();
+        $this->assertSame('refunded', $payment->fresh()->status);
+    }
+
+    public function test_a_partial_stripe_refund_keeps_the_coins_and_only_a_full_one_claws_them_back(): void
+    {
+        $payment = $this->begin();
+        $this->deliver($this->event('evt_1', 'checkout.session.completed', $this->sessionObject($payment)))->assertOk();
+
+        // Rs 50 goodwill credit on a Rs 499 charge: the person keeps what the rest of the money bought.
+        $this->deliver($this->event('evt_2', 'charge.refunded', ['id' => 'ch_1', 'object' => 'charge', 'payment_intent' => 'pi_123', 'amount' => 49900, 'amount_refunded' => 5000, 'refunded' => false, 'currency' => 'pkr']))->assertOk();
+
+        $payment->refresh();
+        $this->assertSame('fulfilled', $payment->status);
+        $this->assertSame(5000, $payment->meta['refunded_minor']);
+        $this->assertSame(500, Wallet::query()->find($this->user->id)->balance);
+        $this->assertSame(0, CoinTransaction::query()->where('type', 'payment_refund')->count());
+        $this->actingAs(User::factory()->admin()->create())->get(route('admin.payments.show', $payment))->assertOk()->assertSee('Partly refunded');
+
+        // The rest follows: now the whole charge is refunded, so the coins go back.
+        $this->deliver($this->event('evt_3', 'charge.refunded', ['id' => 'ch_1', 'object' => 'charge', 'payment_intent' => 'pi_123', 'amount' => 49900, 'amount_refunded' => 49900, 'refunded' => true, 'currency' => 'pkr']))->assertOk();
+        $this->assertSame('refunded', $payment->fresh()->status);
+        $this->assertSame(0, Wallet::query()->find($this->user->id)->balance);
+    }
+
+    public function test_pay_show_asks_stripe_at_most_once_every_few_seconds(): void
+    {
+        $payment = $this->begin();
+        $this->stripe->shouldReceive('retrieveSession')->once()->with($payment->gateway_ref)
+            ->andReturn(Session::constructFrom($this->sessionObject($payment, ['payment_status' => 'unpaid', 'status' => 'open'])));
+
+        $this->travel(21)->seconds();
+        for ($i = 0; $i < 5; $i++) {
+            $this->actingAs($this->user)->getJson(route('pay.show', $payment))->assertOk()->assertJsonPath('payment.status', 'pending');
+        }
     }
 
     public function test_the_webhook_routes_are_exempt_from_csrf(): void

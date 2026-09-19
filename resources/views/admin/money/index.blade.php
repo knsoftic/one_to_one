@@ -110,6 +110,24 @@
                             </ul>
                         </div>
                     @endif
+                    @if ($flags['attention']->isNotEmpty())
+                        <div class="money-flag">
+                            <h4 class="money-flag-title"><x-icon name="circle-alert" /> Money that needs a decision ({{ $days }} days)</h4>
+                            <ul class="money-mini-list">
+                                @foreach ($flags['attention'] as $p)
+                                    @php
+                                        $why = match (true) {
+                                            ($p->meta['needs_review'] ?? null) !== null => 'paid at the provider but could not be settled here',
+                                            ($p->meta['paid_after_cancel'] ?? null) !== null => 'paid after it was cancelled here — delivered, check for a double payment',
+                                            ($p->meta['plan_kept'] ?? null) !== null => 'refunded: one period came off a subscription other payments also paid for',
+                                            default => 'partly refunded at the provider ('.$money->formatMoney((int) ($p->meta['refunded_minor'] ?? 0), $p->currency).' of '.$money->formatMoney($p->amount_minor, $p->currency).') — nothing was clawed back',
+                                        };
+                                    @endphp
+                                    <li><a class="admin-link" href="{{ route('admin.payments.show', $p) }}">#{{ $p->id }}</a> {{ $p->itemLabel() }} · {{ \App\Models\Payment::GATEWAYS[$p->gateway] ?? $p->gateway }} <span class="admin-muted">— {{ $why }}</span></li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    @endif
                     @if ($flags['mismatch']->isNotEmpty())
                         <div class="money-flag">
                             <h4 class="money-flag-title"><x-icon name="triangle-alert" /> Amount mismatches (7 days)</h4>

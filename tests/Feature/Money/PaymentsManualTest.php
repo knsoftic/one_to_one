@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Money;
 
+use App\Exceptions\PaymentException;
 use App\Models\AdminAuditLog;
 use App\Models\AppSetting;
 use App\Models\CoinPack;
@@ -290,7 +291,11 @@ class PaymentsManualTest extends TestCase
     public function test_the_app_user_agent_gets_no_web_methods_and_the_web_gets_no_play(): void
     {
         AppSetting::put(['stripe_enabled' => true, 'paypal_enabled' => true, 'play_enabled' => true]);
-        config(['services.stripe.secret' => 'sk_test_x', 'services.paypal.client_id' => 'cid', 'services.paypal.secret' => 'sec']);
+        config([
+            'services.stripe.secret' => 'sk_test_x', 'services.paypal.client_id' => 'cid', 'services.paypal.secret' => 'sec',
+            'services.play.package_name' => 'com.hunario.chat',
+            'services.play.service_account' => json_encode(['client_email' => 'billing@test.iam.gserviceaccount.com', 'private_key' => 'key']),
+        ]);
         $this->pack->update(['price_usd_minor' => 199, 'play_product_id' => 'coins_500']);
 
         foreach (['manual', 'stripe', 'paypal'] as $gateway) {
@@ -305,6 +310,85 @@ class PaymentsManualTest extends TestCase
         $request = Request::create('/', 'GET', server: ['HTTP_USER_AGENT' => self::APP_UA]);
         $this->assertSame(['play'], app(PaymentService::class)->methodsFor($this->user, $request, $this->pack));
         $this->assertSame(['manual', 'stripe', 'paypal'], app(PaymentService::class)->methodsFor($this->user, Request::create('/'), $this->pack));
+    }
+
+    public function test_google_play_is_not_offered_until_the_service_account_and_package_are_set(): void
+    {
+        // Switched on before the service-account JSON was pasted: offering Play here means Google
+        // takes the money and every verify answers 503 until Google refunds it days later.
+        AppSetting::put(['play_enabled' => true]);
+        config(['services.play.package_name' => 'com.hunario.chat', 'services.play.service_account' => null]);
+        $this->pack->update(['play_product_id' => 'coins_500']);
+        $request = Request::create('/', 'GET', server: ['HTTP_USER_AGENT' => self::APP_UA]);
+
+        $this->assertSame([], app(PaymentService::class)->methodsFor($this->user, $request, $this->pack));
+
+        config(['services.play.service_account' => json_encode(['client_email' => 'billing@test.iam.gserviceaccount.com', 'private_key' => 'key'])]);
+        $this->assertSame(['play'], app(PaymentService::class)->methodsFor($this->user, $request, $this->pack));
+
+        // The package name matters too: without it every Play API URL is wrong.
+        config(['services.play.package_name' => '']);
+        $this->assertSame([], app(PaymentService::class)->methodsFor($this->user, $request, $this->pack));
+    }
+
+    public function test_a_reject_cannot_overwrite_an_approval_that_landed_first(): void
+    {
+        $payment = Payment::query()->find($this->begin()->json('payment.id'));
+        $this->proof($payment);
+        // Two admins with the same page open: B still holds the row as it was before A approved it.
+        $stale = Payment::query()->findOrFail($payment->id);
+
+        app(PaymentService::class)->approve($payment, $this->admin, null);
+        $this->assertSame('fulfilled', $payment->fresh()->status);
+
+        try {
+            app(PaymentService::class)->reject($stale, $this->admin, 'Looks fake');
+            $this->fail('A delivered payment was rejected.');
+        } catch (PaymentException $e) {
+            $this->assertSame('not_in_review', $e->errorCode);
+        }
+
+        $this->assertSame('fulfilled', $payment->fresh()->status);
+        $this->assertSame(550, Wallet::query()->find($this->user->id)->balance);
+        $this->assertDatabaseMissing(AdminAuditLog::class, ['action' => 'payment.rejected', 'target_id' => $payment->id]);
+    }
+
+    public function test_refunding_a_renewal_keeps_the_period_the_earlier_payment_paid_for(): void
+    {
+        Notification::fake();
+        $plan = Plan::query()->create(['name' => 'Pro', 'slug' => 'pro', 'period' => 'month', 'price_minor' => 99900, 'currency' => 'PKR', 'is_active' => true]);
+
+        $first = Payment::query()->find($this->begin(['purpose' => 'plan', 'item_id' => $plan->id])->json('payment.id'));
+        $this->proof($first, ['method' => 'bank', 'ref' => 'TXN-1']);
+        $this->actingAs($this->admin)->post(route('admin.payments.approve', $first));
+
+        // A renewal of the same plan runs on the same subscription row.
+        $second = Payment::query()->find($this->begin(['purpose' => 'plan', 'item_id' => $plan->id])->json('payment.id'));
+        $this->proof($second, ['method' => 'bank', 'ref' => 'TXN-2']);
+        $this->actingAs($this->admin)->post(route('admin.payments.approve', $second));
+
+        $sub = Subscription::query()->firstOrFail();
+        $this->assertSame(1, Subscription::query()->count());
+        $this->assertSame($sub->id, $second->fresh()->subscription_id);
+        $endsAt = $sub->fresh()->ends_at;
+
+        // Refunding the renewal must not take away the month the first payment paid for.
+        $this->actingAs($this->admin)->post(route('admin.payments.refund', $second), ['note' => 'Paid twice by mistake'])->assertRedirect();
+
+        $this->assertSame('refunded', $second->fresh()->status);
+        $this->assertTrue((bool) $second->fresh()->meta['plan_kept']);
+        $this->assertSame('active', $sub->fresh()->status);
+        // Exactly the refunded month comes off; the month the first payment bought stays.
+        $this->assertTrue($endsAt->copy()->subMonthsNoOverflow(1)->equalTo($sub->fresh()->ends_at));
+        $this->assertNotNull($this->user->fresh()->plan_until);
+        $this->assertTrue($sub->fresh()->ends_at->equalTo($this->user->fresh()->plan_until));
+        $this->actingAs($this->admin)->get(route('admin.payments.show', $second))->assertOk()->assertSee('One period came off');
+
+        // Refunding the only payment left that paid for it does end the subscription.
+        $this->actingAs($this->admin)->post(route('admin.payments.refund', $first), ['note' => 'Refunded too'])->assertRedirect();
+        $this->assertSame('revoked', $sub->fresh()->status);
+        $this->assertNull($this->user->fresh()->plan_until);
+        $this->assertNull($first->fresh()->meta['plan_kept'] ?? null);
     }
 
     public function test_everything_is_404_while_paid_features_are_off(): void

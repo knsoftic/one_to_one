@@ -69,6 +69,13 @@ class MoneyController extends Controller
             'mismatch' => Payment::query()->where('status', 'failed')->where('updated_at', '>=', $week)->where('meta->reason', 'amount_mismatch')->orderByDesc('id')->limit(10)->get(),
             'shortfall' => Payment::query()->where('status', 'refunded')->where('refunded_at', '>=', $since)->whereNotNull('meta->shortfall')->orderByDesc('id')->limit(10)->get(),
             'undelivered' => Payment::query()->where('status', 'paid')->orderBy('paid_at')->limit(10)->get(),
+            // Money moved in a way nothing could settle on its own: a session paid after we
+            // cancelled it, a partial gateway refund, a refund that could not revoke a shared
+            // subscription, or a paid session we could not settle at all.
+            'attention' => Payment::query()->where('updated_at', '>=', $since)
+                ->where(fn ($q) => $q->whereNotNull('meta->needs_review')->orWhereNotNull('meta->paid_after_cancel')
+                    ->orWhereNotNull('meta->plan_kept')->orWhereNotNull('meta->refunded_minor'))
+                ->orderByDesc('id')->limit(10)->get(),
             'callback_errors' => PaymentEvent::query()->whereNull('processed_at')->whereNotNull('error')->where('created_at', '>=', $week)->orderByDesc('id')->limit(10)->get(),
         ];
 

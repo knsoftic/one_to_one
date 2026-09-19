@@ -1,8 +1,11 @@
 @php
     $emailMode = \App\Models\AppSetting::get('signup_email');
     $countryCode = \App\Models\AppSetting::get('default_country_code');
-    // Refer & earn (Y2): the inviter's code from the link, the session or the cookie.
-    $refCode = strtoupper((string) (old('ref') ?: request('ref') ?: \App\Http\Controllers\ReferralController::rememberedCode(request()) ?: ''));
+    // Refer & earn (Y2): the inviter's code from the link, the session or the cookie. Anything
+    // that is not a plain string (e.g. ?ref[]=x) is ignored rather than crashing the page.
+    $refInput = collect([old('ref'), request('ref'), \App\Http\Controllers\ReferralController::rememberedCode(request())])
+        ->first(fn ($value) => is_string($value) && $value !== '');
+    $refCode = strtoupper((string) $refInput);
     $refCode = preg_match('/^[A-Z2-9]{8}$/', $refCode) ? $refCode : '';
     $referrals = app(\App\Services\ReferralService::class);
     $inviter = $refCode !== '' && $referrals->enabled() ? $referrals->resolve($refCode) : null;

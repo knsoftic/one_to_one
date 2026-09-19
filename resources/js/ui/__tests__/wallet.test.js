@@ -4,7 +4,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('../../bootstrap', () => ({ default: { get: vi.fn(), post: vi.fn(), delete: vi.fn() } }));
 vi.mock('../../lib/toast', () => ({ toast: vi.fn() }));
 const buyOnPlay = vi.fn();
-vi.mock('../../native/billing', () => ({ buyOnPlay: (...args) => buyOnPlay(...args) }));
+const playProducts = vi.fn(async () => []);
+vi.mock('../../native/billing', () => ({
+    buyOnPlay: (...args) => buyOnPlay(...args),
+    playProducts: (...args) => playProducts(...args),
+}));
 
 import axios from '../../bootstrap';
 import { toast } from '../../lib/toast';
@@ -177,8 +181,9 @@ describe('Wallet', () => {
         expect(axios.get.mock.calls.filter(([u]) => u === '/pay/4')).toHaveLength(2);
     });
 
-    it('on Android renders only Google Play and buys through the native bridge', async () => {
+    it('on Android shows Play\'s own prices and buys through the native bridge', async () => {
         axios.get.mockResolvedValue({ data: payload({ methods: ['play'], play: { enabled: true, accountHash: 'hash1', minAppCode: null } }) });
+        playProducts.mockResolvedValue([{ productId: 'coins_1', price: 'Rs 550.00' }, { productId: 'coins_2', price: 'Rs 1,100.00' }]);
         buyOnPlay.mockResolvedValue({ status: 'fulfilled', message: 'Coins added.' });
         mount({ paid: { enabled: true, platform: 'android', withdraw: false, play: { enabled: true, accountHash: 'hash1', minAppCode: null } } });
         await vi.waitFor(() => expect(document.querySelector('[data-wallet-pack="2"]')).not.toBeNull());
@@ -186,13 +191,34 @@ describe('Wallet', () => {
         expect(document.body.innerHTML).not.toContain('JazzCash');
         expect(document.body.innerHTML).not.toContain('Stripe');
         expect(document.body.innerHTML).not.toContain('PayPal');
-        expect(text('[data-wallet-pack="2"] .wallet-pack-price')).toBe('Google Play');
+        // Play's localised price, never the admin's web price (anti-steering).
+        expect(playProducts).toHaveBeenCalledWith(['coins_1', 'coins_2']);
+        expect(text('[data-wallet-pack="2"] .wallet-pack-price')).toBe('Rs 1,100.00');
+        expect(document.body.innerHTML).not.toContain('Rs 998');
 
         document.querySelector('[data-wallet-pack="2"]').click();
         await vi.waitFor(() => expect(buyOnPlay).toHaveBeenCalledWith({ productId: 'coins_2', accountHash: 'hash1', verifyUrl: routes.payPlayVerify }));
         expect(document.querySelector('[data-wallet-method]')).toBeNull();
         expect(axios.post).not.toHaveBeenCalled();
         await vi.waitFor(() => expect(toast).toHaveBeenCalledWith('Coins added.', expect.objectContaining({ type: 'success' })));
+    });
+
+    it('in the app leaves out a pack Google Play does not sell, and never offers a web payment method', async () => {
+        const webPending = { id: 3, status: 'pending', gateway: 'manual', purpose: 'coins', item: '500 coins', amount_display: 'Rs 499', redirect: 'https://checkout.stripe.test/s', created_at: '2026-09-10T10:00:00Z' };
+        axios.get.mockResolvedValue({ data: payload({ methods: ['play'], pending: [webPending], play: { enabled: true, accountHash: 'hash1', minAppCode: null } }) });
+        // Play knows coins_1 but not the typo'd coins_2.
+        playProducts.mockResolvedValue([{ productId: 'coins_1', price: 'Rs 550.00' }]);
+        mount({ paid: { enabled: true, platform: 'android', withdraw: false, play: { enabled: true, accountHash: 'hash1' } } });
+        await vi.waitFor(() => expect(document.querySelector('[data-wallet-pack="1"]')).not.toBeNull());
+
+        expect(document.querySelector('[data-wallet-pack="2"]')).toBeNull();
+
+        // The stray web payment is a bare status line: no instructions, no proof form, no link out.
+        expect(text('[data-wallet-pending="3"]')).toContain('Started on the website');
+        expect(document.querySelector('[data-wallet-proof="3"]')).toBeNull();
+        expect(document.querySelector('[data-wallet-instructions="3"]')).toBeNull();
+        expect(document.body.innerHTML).not.toContain('checkout.stripe.test');
+        expect(document.body.innerHTML).not.toContain('Rs 499');
     });
 
     it('loads more history', async () => {

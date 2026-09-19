@@ -12,9 +12,6 @@ use Illuminate\Support\Facades\DB;
 /**
  * The verified badge (Y2): bought with coins (users.verified_until), granted by an admin, or
  * included in the active plan (computed from the subscription snapshot, so it follows the plan).
- *
- * NOTE: buy/grant/remove are implemented by the wallet slice; the reads below are the contract
- * every payload relies on.
  */
 class BadgeService
 {
@@ -32,24 +29,21 @@ class BadgeService
         return $until !== null && $until->year >= self::LIFETIME_YEAR;
     }
 
-    /** @var array<int, bool> memoised per request */
-    private array $verified = [];
-
     public function __construct(
         private readonly PlanService $plans,
         private readonly CoinService $coins,
         private readonly AdminAuditService $audit,
     ) {}
 
+    /**
+     * Read fresh every time: the person's own badge date is already in memory, and the plan half
+     * comes from PlanService's memo, so this costs nothing to recompute. Memoising it here as
+     * well would only hand back a stale answer after the column was written from somewhere else
+     * in the same request.
+     */
     public function isVerified(User $user): bool
     {
-        $id = $user->getKey();
-
-        if (! array_key_exists($id, $this->verified)) {
-            $this->verified[$id] = ($user->verified_until?->isFuture() ?? false) || $this->plans->hasBenefit($user, 'verified_badge');
-        }
-
-        return $this->verified[$id];
+        return ($user->verified_until?->isFuture() ?? false) || $this->plans->hasBenefit($user, 'verified_badge');
     }
 
     public function price(): int
@@ -63,9 +57,10 @@ class BadgeService
         return max(0, (int) AppSetting::get('badge_days'));
     }
 
+    /** The plan half is what is remembered; drop it after a write that can change the badge. */
     public function forget(User $user): void
     {
-        unset($this->verified[$user->getKey()]);
+        $this->plans->forget($user);
     }
 
     public function state(User $user): array

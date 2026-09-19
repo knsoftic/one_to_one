@@ -135,6 +135,9 @@ class PromotionService
         $out = [];
 
         foreach (Status::query()->active()->where('user_id', $user->getKey())->orderBy('created_at')->get() as $status) {
+            if (! $this->promotableStatus($status)) {
+                continue;
+            }
             $out[] = [
                 'kind' => 'status',
                 'id' => $status->id,
@@ -237,6 +240,12 @@ class PromotionService
             throw new PromotionException('max_active', sprintf('You already have %d promotions running. Wait for one to finish or stop it first.', $running));
         }
 
+        // Nowhere to show it means nothing to sell: never take coins for views that cannot happen.
+        $placements = $this->placementsFor($kind);
+        if ($placements === []) {
+            throw new PromotionException('placements', 'Promotions are not being shown on any screen at the moment. Please try again later.');
+        }
+
         // What the card says and where it goes, worked out from the target.
         $card = $this->cardFor($user, $kind, $data, $image);
 
@@ -260,7 +269,7 @@ class PromotionService
             'min_age' => null,
             'max_age' => null,
             'gender' => null,
-            'placements' => $this->placementsFor($kind),
+            'placements' => $placements,
             'per_user_daily_cap' => max(1, (int) AppSetting::get('promo_daily_cap')),
             'weight' => max(1, (int) AppSetting::get('promo_weight')),
             'owner_id' => $user->getKey(),
@@ -425,6 +434,8 @@ class PromotionService
                 'title' => 'Your promotion was stopped',
                 'body' => sprintf('"%s" stopped after %s views%s.', $promo->title, number_format((int) $promo->impressions), match (true) {
                     $reason === 'target_gone' => ' because what it promoted is no longer there',
+                    $reason === 'placements_off' => ' because there is no longer a screen it can be shown on',
+                    $reason === 'owner_banned' => ' because your account was suspended',
                     $reason === 'admin' => ' by the admin',
                     default => '',
                 }).($promo->coins_refunded > 0 ? sprintf(' %s unused coins are back in your wallet.', number_format($promo->coins_refunded)) : ''),
@@ -524,18 +535,33 @@ class PromotionService
         return $count;
     }
 
-    /** Scheduled: promotions whose target quietly disappeared. */
+    /**
+     * Scheduled: promotions that can no longer do what they were paid for — their target quietly
+     * disappeared, or the admin has since switched off every screen they were booked for, so
+     * they would sit "running" for ever without ever being picked. Both stop with the unused
+     * share refunded and the owner told why.
+     *
+     * Ads being switched off altogether is a pause, not a reason to stop anybody's promotion, so
+     * the placement check is skipped while `ads_enabled` is off.
+     */
     public function sweepTargets(): int
     {
         $count = 0;
-        AdCampaign::query()->promotions()->whereIn('kind', self::INTERNAL_KINDS)->whereIn('status', ['pending', 'active'])
-            ->chunkById(100, function (Collection $rows) use (&$count) {
+        $adsOn = (bool) AppSetting::get('ads_enabled');
+
+        AdCampaign::query()->promotions()->whereIn('status', ['pending', 'active'])
+            ->chunkById(100, function (Collection $rows) use (&$count, $adsOn) {
                 foreach ($rows as $promo) {
-                    if ($this->targetExists($promo)) {
+                    $reason = match (true) {
+                        in_array($promo->kind, self::INTERNAL_KINDS, true) && ! $this->targetExists($promo) => 'target_gone',
+                        $adsOn && $promo->placementList() === [] => 'placements_off',
+                        default => null,
+                    };
+                    if ($reason === null) {
                         continue;
                     }
                     try {
-                        $this->stop($promo, null, 'target_gone');
+                        $this->stop($promo, null, $reason);
                         $count++;
                     } catch (PromotionException) {
                         // Already finished.
@@ -630,6 +656,13 @@ class PromotionService
                 if (! $status || ! $status->user) {
                     return null;
                 }
+                // The promotion is what lets people outside the owner's contacts see this update
+                // (canView() knows about it), but it never overrules the rest: somebody the owner
+                // blocked, or left off the update's own privacy list, still sees nothing — and
+                // neither does anyone once the promotion is no longer granting the view.
+                if (! app(StatusService::class)->canView($status, $viewer)) {
+                    return null;
+                }
 
                 return [
                     'type' => 'status',
@@ -706,6 +739,9 @@ class PromotionService
                 $status = $targetId ? Status::query()->active()->where('user_id', $user->getKey())->find($targetId) : null;
                 if (! $status) {
                     throw new PromotionException('target', 'This status update is not yours or has expired.');
+                }
+                if (! $this->promotableStatus($status)) {
+                    throw new PromotionException('target', 'A status update you only share with some people cannot be promoted — a promoted update is shown to everyone.');
                 }
                 $this->assertNotPromoted('status', $status->id);
                 $title = $title ?? 'Status by '.$user->name;
@@ -865,6 +901,23 @@ class PromotionService
         return Community::query()
             ->whereHas('announcement', fn ($q) => $q->whereNull('ended_at')->whereHas('members', fn ($m) => $m->where('user_id', $user->getKey())->where('role', ConversationMember::ROLE_ADMIN)->whereNull('left_at')))
             ->orderBy('name');
+    }
+
+    /**
+     * A promoted status update is shown to everyone, and its text and picture are copied into the
+     * card itself — so an update the owner deliberately narrowed to a list of people ("Only share
+     * with…", or "My contacts except…" with somebody left out) may not be promoted at all. The
+     * card would hand its contents to exactly the people who were meant not to see it.
+     */
+    private function promotableStatus(Status $status): bool
+    {
+        $restricted = array_map('intval', $status->privacy_user_ids ?? []);
+
+        return match ($status->privacy) {
+            Status::PRIVACY_ONLY => false,
+            Status::PRIVACY_EXCEPT => $restricted === [],
+            default => true,
+        };
     }
 
     private function targetExists(AdCampaign $promo): bool

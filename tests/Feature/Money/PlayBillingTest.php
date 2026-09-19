@@ -14,15 +14,18 @@ use App\Models\Wallet;
 use App\Notifications\MoneyNotification;
 use App\Services\CoinService;
 use App\Services\Payments\PlayGateway;
+use App\Services\PaymentService;
 use App\Services\PlanService;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Http\Client\Request as ClientRequest;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
+use RuntimeException;
 use Tests\TestCase;
 
 /**
@@ -77,7 +80,7 @@ class PlayBillingTest extends TestCase
     {
         return array_merge([
             'kind' => 'androidpublisher#productPurchase', 'purchaseTimeMillis' => (string) (now()->getTimestampMs()), 'purchaseState' => 0, 'consumptionState' => 0,
-            'orderId' => 'GPA.1234-5678-9012-34567', 'acknowledgementState' => 0, 'obfuscatedExternalAccountId' => app(PlayGateway::class)->accountHash($this->user), 'regionCode' => 'PK',
+            'productId' => 'coins_500', 'orderId' => 'GPA.1234-5678-9012-34567', 'acknowledgementState' => 0, 'obfuscatedExternalAccountId' => app(PlayGateway::class)->accountHash($this->user), 'regionCode' => 'PK',
         ], $overrides);
     }
 
@@ -191,6 +194,28 @@ class PlayBillingTest extends TestCase
         $this->assertSame(1, Payment::query()->count());
     }
 
+    /** The client only picks the lookup URL: what was bought and which order it is come from Google. */
+    public function test_the_product_and_order_of_a_token_are_taken_from_google_not_from_the_client(): void
+    {
+        // The token of the cheap pack, presented as the expensive plan: Google's productId wins.
+        $this->fakeGoogle($this->purchase());
+        $this->verify(['product_id' => 'plan_pro_month'])->assertStatus(422)->assertJsonPath('code', 'invalid_token');
+        $this->assertSame(0, Payment::query()->count());
+        $this->assertSame(0, CoinTransaction::query()->count());
+
+        // A made-up order id is ignored; the payment carries the one Google reports.
+        $response = $this->verify(['order_id' => 'GPA.0000-FAKE'])->assertOk();
+        $payment = Payment::query()->find($response->json('payment.id'));
+        $this->assertSame('GPA.1234-5678-9012-34567', $payment->gateway_capture_ref);
+        $this->assertSame('coins_500', $payment->meta['google']['productId']);
+
+        // So another buyer's order id cannot be pre-claimed to block their purchase either.
+        $other = User::factory()->create();
+        $this->fakeGoogle($this->purchase(['orderId' => 'GPA.9999-REAL', 'obfuscatedExternalAccountId' => app(PlayGateway::class)->accountHash($other)]));
+        $this->verify(['purchase_token' => 'tok-other', 'order_id' => 'GPA.0000-FAKE'], $other)->assertOk();
+        $this->assertSame('GPA.9999-REAL', Payment::query()->where('user_id', $other->id)->sole()->gateway_capture_ref);
+    }
+
     public function test_google_being_down_is_503_and_nothing_is_written(): void
     {
         $this->fakeGoogle([], 500);
@@ -217,7 +242,7 @@ class PlayBillingTest extends TestCase
                 ->withArgs(fn (User $u, Plan $p, string $source, ?Payment $pay) => $u->id === $this->user->id && $p->id === $this->plan->id && $source === 'play' && $pay?->purpose === 'plan')
                 ->andReturn($sub);
         });
-        $this->fakeGoogle($this->purchase(['orderId' => 'GPA.plan-1']));
+        $this->fakeGoogle($this->purchase(['productId' => 'plan_pro_month', 'orderId' => 'GPA.plan-1']));
 
         $response = $this->verify(['product_id' => 'plan_pro_month', 'purchase_token' => 'tok-plan', 'order_id' => 'GPA.plan-1'])->assertOk()->assertJsonPath('status', 'fulfilled')->assertJsonPath('payment.purpose', 'plan');
         $payment = Payment::query()->find($response->json('payment.id'));
@@ -312,5 +337,34 @@ class PlayBillingTest extends TestCase
         // A replay of the voided token is refused.
         $this->fakeGoogle($this->purchase());
         $this->verify()->assertStatus(422)->assertJsonPath('code', 'voided');
+    }
+
+    /** A reversal that blew up must not be lost: the cursor may not move past an unapplied void. */
+    public function test_a_void_the_sweep_could_not_apply_is_still_listed_for_the_next_run(): void
+    {
+        $this->fakeGoogle($this->purchase());
+        $payment = Payment::query()->find($this->verify()->assertOk()->json('payment.id'));
+
+        $voidedAt = now()->subDay();
+        Http::fake([
+            'oauth2.googleapis.com/token' => Http::response(['access_token' => 'ya29.test', 'expires_in' => 3599]),
+            self::API.'/purchases/voidedpurchases*' => Http::response(['voidedPurchases' => [
+                ['purchaseToken' => 'tok-abc', 'orderId' => 'GPA.1234-5678-9012-34567', 'voidedTimeMillis' => (string) $voidedAt->getTimestampMs()],
+            ]]),
+        ]);
+
+        // The reversal fails (deadlock after the retries, DB timeout…).
+        $this->partialMock(PaymentService::class, fn ($mock) => $mock->shouldReceive('reverse')->once()->andThrow(new RuntimeException('deadlock')));
+        $this->assertSame(0, app(PlayGateway::class)->sweepVoided());
+        $this->assertSame('fulfilled', $payment->fresh()->status);
+
+        $cursor = Carbon::parse(Cache::get(PlayGateway::SWEEP_SINCE_KEY));
+        $this->assertTrue($cursor->lessThanOrEqualTo($voidedAt), "the cursor moved to {$cursor}, past the void at {$voidedAt}");
+
+        // Working again: the same void is applied, once.
+        $this->app->forgetInstance(PaymentService::class);
+        $this->assertSame(1, app(PlayGateway::class)->sweepVoided());
+        $this->assertSame('refunded', $payment->fresh()->status);
+        $this->assertSame(1, CoinTransaction::query()->where('type', 'payment_refund')->count());
     }
 }

@@ -25,6 +25,13 @@ class ChatConfigComposer
         $user = $request->user();
         $id = '__ID__';
 
+        // Y2: one LimitService for the whole config. A plan raises this person's upload sizes and
+        // group/broadcast sizes, and every client-side check below has to use the same numbers.
+        $limits = app(LimitService::class);
+        $uploadKb = fn (string $type): int => $user
+            ? $limits->uploadKb($user, $type)
+            : (int) config("chat.uploads.{$type}.max_kb", 0);
+
         $routes = [
             'chat' => route('chat.index'),
             'chatShow' => $this->template('chat.show', ['conversation' => $id]),
@@ -229,21 +236,24 @@ class ChatConfigComposer
             ],
             // Limits a paid plan may raise (Y2) — the pickers show this person's own numbers.
             'groups' => [
-                'maxMembers' => $user ? app(LimitService::class)->groupMembers($user) : (int) config('chat.groups.max_members', 256),
-                'maxBroadcastRecipients' => $user ? app(LimitService::class)->broadcastRecipients($user) : (int) config('chat.groups.max_broadcast_recipients', 256),
+                'maxMembers' => $user ? $limits->groupMembers($user) : (int) config('chat.groups.max_members', 256),
+                'maxBroadcastRecipients' => $user ? $limits->broadcastRecipients($user) : (int) config('chat.groups.max_broadcast_recipients', 256),
             ],
             'routes' => $routes,
             'limits' => [
                 'messageLength' => config('chat.max_message_length'),
                 'perPage' => config('chat.messages_per_page'),
-                'image' => config('chat.uploads.image'),
-                'document' => config('chat.uploads.document'),
+                // The picker, the photo resizer and the voice recorder all refuse a file client-side
+                // before it is ever posted, so these have to be this person's own caps (Y2) —
+                // otherwise a plan's bigger upload_mb could never actually be used from the app.
+                'image' => ['max_kb' => $uploadKb('image')] + config('chat.uploads.image'),
+                'document' => ['max_kb' => $uploadKb('document')] + config('chat.uploads.document'),
                 'video' => [
                     'extensions' => config('chat.uploads.video.extensions'),
-                    'max_kb' => config('chat.uploads.video.max_kb'),
+                    'max_kb' => $uploadKb('video'),
                 ],
                 'voice' => [
-                    'max_kb' => config('chat.uploads.voice.max_kb'),
+                    'max_kb' => $uploadKb('voice'),
                     'max_seconds' => config('chat.uploads.voice.max_seconds'),
                 ],
                 'editWindowMinutes' => config('chat.edit_window_minutes'),

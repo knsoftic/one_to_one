@@ -24,7 +24,7 @@ class BroadcastController extends Controller
     {
         $validated = $request->validate([
             'name' => ['nullable', 'string', 'max:'.GroupService::MAX_NAME],
-            'user_ids' => ['required', 'array', 'min:'.BroadcastService::MIN_RECIPIENTS, 'max:'.$this->broadcasts->maxRecipients()],
+            'user_ids' => ['required', 'array', 'min:'.BroadcastService::MIN_RECIPIENTS, 'max:'.$this->broadcasts->maxRecipients($request->user())],
             'user_ids.*' => ['integer', 'distinct'],
         ], [
             'user_ids.min' => 'A broadcast list needs at least '.BroadcastService::MIN_RECIPIENTS.' people.',
@@ -39,7 +39,7 @@ class BroadcastController extends Controller
     {
         $validated = $request->validate([
             'name' => ['sometimes', 'nullable', 'string', 'max:'.GroupService::MAX_NAME],
-            'user_ids' => ['sometimes', 'array', 'min:'.BroadcastService::MIN_RECIPIENTS, 'max:'.$this->broadcasts->maxRecipients()],
+            'user_ids' => ['sometimes', 'array', 'min:'.BroadcastService::MIN_RECIPIENTS, 'max:'.$this->broadcasts->maxRecipients($conversation->creator)],
             'user_ids.*' => ['integer', 'distinct'],
         ]);
 

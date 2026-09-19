@@ -29,10 +29,15 @@ class BroadcastService
         private readonly LimitService $limits,
     ) {}
 
-    /** Most people in a broadcast list. The owner's paid plan (Y2) raises it, never lowers it. */
+    /**
+     * Most people in a broadcast list. The owner's paid plan (Y2) raises it, never lowers it.
+     * Without a person we fall back to whoever is making the request, so the validation rules at
+     * the edge (BroadcastController) allow exactly what this service will accept.
+     */
     public function maxRecipients(?User $for = null): int
     {
         $base = max(self::MIN_RECIPIENTS, (int) config('chat.groups.max_broadcast_recipients', 256));
+        $for ??= request()->user();
 
         return $for ? max($base, $this->limits->broadcastRecipients($for)) : $base;
     }
@@ -202,7 +207,7 @@ class BroadcastService
             'name' => $list->name,
             'recipient_count' => $recipients->count(),
             'is_owner' => (int) $list->created_by === (int) $viewer->getKey(),
-            'max_recipients' => $this->maxRecipients(),
+            'max_recipients' => $this->maxRecipients($list->creator),
         ];
 
         if ($withRecipients) {
@@ -233,8 +238,10 @@ class BroadcastService
             throw new HttpException(422, 'A broadcast list needs at least '.self::MIN_RECIPIENTS.' people.');
         }
 
-        if ($people->count() > $this->maxRecipients()) {
-            throw new HttpException(422, "A broadcast list can have up to {$this->maxRecipients()} people.");
+        // The list belongs to its owner, so the owner's plan sets the size (like a group's creator).
+        $max = $this->maxRecipients($owner);
+        if ($people->count() > $max) {
+            throw new HttpException(422, "A broadcast list can have up to {$max} people.");
         }
 
         return $people;

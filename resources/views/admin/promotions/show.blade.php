@@ -50,7 +50,7 @@
                             <div><dt>Note</dt><dd>{{ $campaign->review_note }}</dd></div>
                         @endif
                         @if ($campaign->stop_reason)
-                            <div><dt>Stopped because</dt><dd>{{ ['budget' => 'the budget was used up', 'user' => 'the owner stopped it', 'admin' => 'an admin stopped it', 'target_gone' => 'what it promoted is gone', 'rejected' => 'it was rejected', 'owner_deleted' => 'the account was deleted'][$campaign->stop_reason] ?? $campaign->stop_reason }}</dd></div>
+                            <div><dt>Stopped because</dt><dd>{{ ['budget' => 'the budget was used up', 'user' => 'the owner stopped it', 'admin' => 'an admin stopped it', 'target_gone' => 'what it promoted is gone', 'rejected' => 'it was rejected', 'owner_deleted' => 'the account was deleted', 'owner_banned' => 'the owner was banned', 'placements_off' => 'no screen it was booked for is switched on any more'][$campaign->stop_reason] ?? $campaign->stop_reason }}</dd></div>
                         @endif
                     </dl>
                 </div>

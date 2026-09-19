@@ -333,19 +333,28 @@ public class BillingPlugin extends Plugin implements PurchasesUpdatedListener {
             return;
         }
 
+        // Play can deliver several purchases in one call: the one this flow bought, plus e.g. a
+        // pending purchase that has just gone through. Only the matching one answers the call;
+        // every other purchase is still emitted so the web app verifies and consumes it now
+        // instead of waiting for the next app open.
         Purchase match = null;
+        List<Purchase> others = new ArrayList<>();
         if (purchases != null) {
             for (Purchase purchase : purchases) {
-                if (productId != null && purchase.getProducts().contains(productId)) {
+                if (match == null && productId != null && purchase.getProducts().contains(productId)) {
                     match = purchase;
-                    break;
+                } else {
+                    others.add(purchase);
                 }
             }
-            if (match == null && !purchases.isEmpty()) {
-                match = purchases.get(0);
-            }
+        }
+        if (!others.isEmpty()) {
+            JSObject data = new JSObject();
+            data.put("purchases", describeAll(others));
+            notifyListeners("purchaseUpdated", data, true);
         }
         if (match == null) {
+            // Never hand back an unrelated purchase as the result of this flow.
             finishPurchase(null, "Google Play returned no purchase.", CODE_ERROR);
             return;
         }

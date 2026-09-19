@@ -19,6 +19,9 @@ export const quoteViews = (coins, rate) => Math.floor((Math.max(0, Math.trunc(Nu
 
 const DRAFT_KEY = 'promote:draft';
 
+/** Said when the admin has left this kind of promotion with no screen to run on. */
+const NO_PLACEMENT = 'Promotions are not being shown on any screen at the moment. Please try again later.';
+
 const KIND_META = {
     status: { label: 'Status update', icon: 'circle-dashed', text: 'Shown to people outside your contacts', cta: 'View status' },
     channel: { label: 'Channel', icon: 'megaphone', text: 'Get more followers', cta: 'Follow channel' },
@@ -347,6 +350,12 @@ export class Promote {
     chooseKind(kind, { keep = false } = {}) {
         const w = this.wizard;
         if (!w || !KIND_META[kind]) return;
+        // The admin has switched off every screen this kind runs on: there is nothing to buy, and
+        // the server refuses it too. A restored draft says so at the next step instead (problem()).
+        if (!keep && !(this.data?.placements?.[kind] ?? []).length) {
+            toast(NO_PLACEMENT, { type: 'error' });
+            return;
+        }
         if (w.kind !== kind) {
             w.kind = kind;
             w.targetId = null;
@@ -412,6 +421,9 @@ export class Promote {
     problem() {
         const w = this.wizard;
         const step = STEPS[w.step];
+        // No screen left for this kind means the card could never be shown: the server refuses
+        // it too, so never let anyone spend coins on it (PromotionService::create).
+        if (w.kind && !(this.data?.placements?.[w.kind] ?? []).length) return NO_PLACEMENT;
         if (step === 'target') {
             if (!w.kind) return 'Choose what to promote.';
             if (!['card', 'link'].includes(w.kind) && !w.targetId) return 'Choose one to promote.';

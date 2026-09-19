@@ -47,6 +47,10 @@ export class Wallet {
         this.busy = false;
         this.sheetPack = null;
         this.instructions = {};
+        /** Play's localised price per play_product_id (Android only). */
+        this.playPrices = {};
+        /** The ids Google Play answered for, or null while Play could not be asked. */
+        this.playKnown = null;
         this.polls = new Map();
         this.history = { rows: [], page: 1, hasMore: false, loading: false };
 
@@ -65,6 +69,7 @@ export class Wallet {
             const { data } = await axios.get(this.routes.wallet ?? this.root.dataset.route);
             this.data = data;
             this.history = { rows: data.history?.data ?? [], page: data.history?.page ?? 1, hasMore: Boolean(data.history?.has_more), loading: false };
+            await this.loadPlayPrices();
             this.render();
             this.updateChip();
             this.startPolling();
@@ -75,6 +80,37 @@ export class Wallet {
         }
     }
 
+    get android() {
+        return this.paid.platform === 'android';
+    }
+
+    /**
+     * In the app the price has to be Google Play's own localised string — the admin's currency is
+     * a web price and must never be shown there (anti-steering). An id Play does not know comes
+     * back missing from the lookup: that pack is left out of the list instead of offering a
+     * purchase that can only fail.
+     */
+    async loadPlayPrices() {
+        if (!this.android || !(this.data?.play?.enabled ?? this.paid.play?.enabled)) return;
+        const ids = (this.data?.packs ?? []).map((pack) => pack.play_product_id).filter(Boolean);
+        if (!ids.length) return;
+        try {
+            const { playProducts } = await import('../native/billing');
+            const products = await playProducts(ids);
+            this.playKnown = new Set(products.map((product) => product.productId));
+            for (const product of products) this.playPrices[product.productId] = product.price;
+        } catch {
+            /* Play cannot be asked right now: keep whatever the last lookup found */
+        }
+    }
+
+    /** Packs that can actually be bought here: in the app, only ones Google Play sells. */
+    sellablePacks() {
+        const packs = this.data?.packs ?? [];
+        if (!this.android) return packs;
+        return packs.filter((pack) => pack.play_product_id && (this.playKnown === null || this.playKnown.has(pack.play_product_id)));
+    }
+
     updateChip() {
         const chip = document.querySelector('[data-wallet-chip]');
         if (chip && this.data) chip.textContent = coins(this.data.summary?.balance);
@@ -83,7 +119,8 @@ export class Wallet {
     /* ---------------------------------------------------------------- render */
 
     render() {
-        const { summary = {}, packs = [], pending = [], refund_url: refundUrl } = this.data;
+        const { summary = {}, pending = [], refund_url: refundUrl } = this.data;
+        const packs = this.sellablePacks();
         const withdraw = Boolean(this.paid.withdraw || summary.withdraw_enabled);
 
         this.root.innerHTML = html`
@@ -134,9 +171,10 @@ export class Wallet {
     }
 
     packHtml(pack) {
-        const android = this.paid.platform === 'android';
-        const price = android ? (pack.play_price ?? 'Google Play') : pack.price_display;
-        const canBuy = (this.data.methods ?? []).length > 0 && (!android || pack.play_product_id);
+        const android = this.android;
+        // Play's own price; 'Google Play' only while the price lookup has not answered yet.
+        const price = android ? (this.playPrices[pack.play_product_id] ?? 'Google Play') : pack.price_display;
+        const canBuy = (this.data.methods ?? []).length > 0 && (!android || Boolean(pack.play_product_id));
 
         return html`
             <button type="button" class="wallet-pack" data-wallet-pack="${pack.id}" ${raw(canBuy ? '' : 'disabled')}>
@@ -149,10 +187,16 @@ export class Wallet {
 
     pendingHtml(payment) {
         const manual = payment.gateway === 'manual';
-        const title = `${payment.item} · ${payment.amount_display}`;
+        // In the app the amount is Google's, not ours, so only the item is named (anti-steering).
+        const title = this.android ? payment.item : `${payment.item} · ${payment.amount_display}`;
         let body;
 
-        if (payment.status === 'review' || (manual && payment.has_proof)) {
+        if (this.android && payment.gateway !== 'play') {
+            // The server leaves web payments out of the app's payload; if one ever arrives, say
+            // that it is in progress and nothing more — no instructions, no proof form, no link
+            // to a web checkout (Google Play payments policy).
+            body = html`<span class="wallet-pending-text">Started on the website — finish it there.</span>`;
+        } else if (payment.status === 'review' || (manual && payment.has_proof)) {
             body = html`<span class="wallet-pending-text">Waiting for review — we check transfers within a day.${payment.proof_ref ? ` Transaction ${payment.proof_ref}.` : ''}</span>`;
         } else if (manual) {
             const info = this.instructions[payment.id];

@@ -5,15 +5,18 @@ namespace Tests\Feature\Money;
 use App\Models\AdCampaign;
 use App\Models\AdView;
 use App\Models\AppSetting;
+use App\Models\BlockedUser;
 use App\Models\BusinessProfile;
 use App\Models\Status;
 use App\Models\User;
 use App\Services\AdService;
+use App\Services\BanService;
 use App\Services\ChannelService;
 use App\Services\CoinService;
 use App\Services\CommunityService;
 use App\Services\PromotionService;
 use App\Services\StatusService;
+use App\Support\AdPlacement;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -171,6 +174,62 @@ class PromotionServingTest extends TestCase
         $this->assertSame(2, AdView::query()->where('campaign_id', $promo->id)->count());
     }
 
+    public function test_a_promotion_whose_placements_were_switched_off_runs_nowhere_at_all(): void
+    {
+        $owner = $this->user();
+        $viewer = $this->user(coins: 0);
+        $promo = $this->promote($owner, ['kind' => 'card', 'title' => 'Eid sale', 'url' => 'https://93.184.216.34/eid'], views: 100);
+        $this->assertSame(['chat_list'], $promo->placements);
+
+        // The admin switches the Chats list off. The card was booked for that screen only, so it
+        // now has nowhere to run — it must not fall back to "every screen".
+        AppSetting::put(['ad_placements' => ['status_list', 'channels', 'calls', 'chat_top']]);
+        $this->assertSame([], $promo->fresh()->placementList());
+        foreach (AdPlacement::keys() as $placement) {
+            $this->assertNull($this->ads->pickForUser($viewer, $placement), "the promotion was served in {$placement}");
+        }
+
+        // Same for a row booked with no placement at all (nothing was ticked at the time): for a
+        // promotion an empty list is "nowhere", never "everywhere" — a user's card must never end
+        // up as the banner inside open chats or between the calls.
+        AdCampaign::query()->whereKey($promo->id)->update(['placements' => json_encode([])]);
+        $this->assertSame([], $promo->fresh()->placementList());
+        foreach (AdPlacement::keys() as $placement) {
+            $this->assertNull($this->ads->pickForUser($viewer, $placement), "the promotion was served in {$placement}");
+        }
+
+        // A house ad with nothing ticked still means "wherever ads are switched on" (Y1).
+        $house = $this->house();
+        $this->assertSame(['status_list', 'channels', 'calls', 'chat_top'], $house->placementList());
+        $this->assertSame($house->id, $this->ads->pickForUser($viewer, 'calls')?->id);
+    }
+
+    public function test_a_banned_owner_stops_being_promoted(): void
+    {
+        $owner = $this->user();
+        $viewer = $this->user(coins: 0);
+        $promo = $this->promote($owner, ['kind' => 'status', 'target_id' => $this->makeStatus($owner, 'Cheap phones')->id], views: 100);
+        $this->assertSame($promo->id, $this->ads->pickForUser($viewer, 'status_list')?->id);
+
+        // An account that is not active is never served, even before anything stops its rows.
+        $owner->forceFill(['status' => User::STATUS_SUSPENDED])->save();
+        $this->assertNull($this->ads->pickForUser($viewer, 'status_list'));
+        $owner->forceFill(['status' => User::STATUS_ACTIVE])->save();
+
+        app(BanService::class)->ban($owner, $this->admin, 7, 'Spam');
+
+        $stopped = $promo->fresh();
+        $this->assertSame('stopped', $stopped->status);
+        $this->assertSame('owner_banned', $stopped->stop_reason);
+        $this->assertSame(100, $stopped->coins_refunded);
+        $this->assertNull($this->ads->pickForUser($viewer, 'status_list'));
+        $this->assertNull($this->ads->pickForUser($viewer, 'chat_list'));
+
+        // And the card still on somebody's screen hands out nothing of theirs.
+        $this->actingAs($viewer)->postJson(route('ads.tap', $promo), ['placement' => 'status_list'])->assertNotFound();
+        $this->actingAs($viewer)->get(route('promotions.go', $promo))->assertNotFound();
+    }
+
     /* ------------------------------------------------------------------ */
     /* Taps */
     /* ------------------------------------------------------------------ */
@@ -270,6 +329,81 @@ class PromotionServingTest extends TestCase
         $this->promotions->stop($promo, $owner, 'user');
         $this->assertFalse($this->promotions->grantsStatusView($status, $stranger));
         $this->actingAs($this->user(coins: 0))->postJson(route('statuses.view', $status))->assertNotFound();
+    }
+
+    public function test_a_promoted_status_still_obeys_blocks_and_the_owners_privacy_list(): void
+    {
+        $owner = $this->user();
+        $blocked = $this->user(coins: 0);
+        $stranger = $this->user(coins: 0);
+        $status = $this->makeStatus($owner, 'Secret');
+        $promo = $this->promote($owner, ['kind' => 'status', 'target_id' => $status->id], views: 100);
+        BlockedUser::query()->create(['user_id' => $owner->id, 'blocked_user_id' => $blocked->id]);
+
+        // A stranger is exactly who the promotion is for.
+        $this->actingAs($stranger)->postJson(route('ads.tap', $promo), ['placement' => 'status_list'])->assertOk()
+            ->assertJsonPath('open.type', 'status')
+            ->assertJsonPath('open.status.text', 'Secret');
+
+        // The blocked person is never shown the card and never gets its contents.
+        $this->assertNull($this->ads->pickForUser($blocked, 'status_list'));
+        $this->actingAs($blocked)->postJson(route('ads.tap', $promo), ['placement' => 'status_list'])->assertOk()
+            ->assertJsonPath('open', null)
+            ->assertJsonPath('url', null);
+        $this->assertSame(['type' => 'gone'], $this->actingAs($blocked)->get(route('promotions.go', $promo))->assertOk()->viewData('openTarget'));
+
+        // Once the promotion is over the grant is gone, so the words go with it.
+        $this->promotions->stop($promo, $owner, 'user');
+        $this->actingAs($stranger)->postJson(route('ads.tap', $promo), ['placement' => 'status_list'])->assertOk()
+            ->assertJsonPath('open', null)
+            ->assertJsonPath('url', null);
+    }
+
+    public function test_a_promotion_whose_target_is_gone_neither_loops_nor_falls_back_to_its_own_page(): void
+    {
+        $owner = $this->user();
+        $viewer = $this->user(coins: 0);
+        BusinessProfile::query()->create(['user_id' => $owner->id, 'category' => 'shop']);
+        $promo = $this->promote($owner, ['kind' => 'business'], views: 100);
+        $this->assertSame(route('promotions.go', $promo), $promo->target_url);
+
+        BusinessProfile::query()->where('user_id', $owner->id)->delete();   // no service, no hook
+
+        // The tap answers with nothing rather than with the page the app is already on.
+        $this->actingAs($viewer)->postJson(route('ads.tap', $promo))->assertOk()
+            ->assertJsonPath('open', null)
+            ->assertJsonPath('url', null);
+
+        $target = $this->actingAs($viewer)->get(route('promotions.go', $promo))->assertOk()->viewData('openTarget');
+        $this->assertSame(['type' => 'gone'], $target);
+    }
+
+    public function test_a_promotion_that_was_never_approved_can_never_send_anybody_anywhere(): void
+    {
+        $owner = $this->user(coins: 5000);
+        $viewer = $this->user(coins: 0);
+
+        // Pending review: the app-domain link must not redirect to the submitted address.
+        $pending = $this->promote($owner, ['kind' => 'card', 'title' => 'Win a phone', 'url' => 'https://93.184.216.34/phish'], approve: false);
+        $this->actingAs($viewer)->get(route('promotions.go', $pending))->assertNotFound();
+        $this->actingAs($viewer)->postJson(route('ads.tap', $pending))->assertNotFound();
+
+        $this->promotions->reject($this->admin, $pending, 'Phishing');
+        $this->actingAs($viewer)->get(route('promotions.go', $pending))->assertNotFound();
+        $this->actingAs($viewer)->postJson(route('ads.tap', $pending))->assertNotFound();
+
+        // An admin taking a running one down means down, cards already on screen included.
+        $live = $this->promote($owner, ['kind' => 'card', 'title' => 'Win a phone', 'url' => 'https://93.184.216.34/phish']);
+        $this->promotions->stop($live, $this->admin, 'admin', refund: false);
+        $this->actingAs($viewer)->postJson(route('ads.tap', $live))->assertNotFound();
+        $this->actingAs($viewer)->get(route('ads.click', ['campaign' => $live]))->assertNotFound();
+        $this->actingAs($viewer)->get(route('promotions.go', $live))->assertNotFound();
+
+        // The owner stopping their own card is not a take-down: a tap on it still counts.
+        $mine = $this->promote($owner, ['kind' => 'card', 'title' => 'Eid', 'url' => 'https://93.184.216.34/eid']);
+        $this->promotions->stop($mine, $owner, 'user');
+        $this->actingAs($viewer)->postJson(route('ads.tap', $mine))->assertOk()
+            ->assertJsonPath('url', 'https://93.184.216.34/eid');
     }
 
     /* ------------------------------------------------------------------ */

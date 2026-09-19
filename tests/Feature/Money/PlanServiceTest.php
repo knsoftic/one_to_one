@@ -11,14 +11,17 @@ use App\Models\Subscription;
 use App\Models\User;
 use App\Notifications\MoneyNotification;
 use App\Services\BadgeService;
+use App\Services\BroadcastService;
 use App\Services\CoinService;
 use App\Services\GroupService;
 use App\Services\LimitService;
 use App\Services\PlanService;
 use App\Services\StorageUsageService;
+use Closure;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Notifications\DatabaseNotification;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpKernel\Exception\HttpException;
@@ -56,6 +59,27 @@ class PlanServiceTest extends TestCase
     private function balance(User $user): int
     {
         return (int) app(CoinService::class)->wallet($user)->balance;
+    }
+
+    /** The chat page's config as ChatConfigComposer builds it for a real request. */
+    private function chatConfigFor(User $user): array
+    {
+        return $this->actingAs($user)->get(route('chat.index'))->assertOk()->viewData('chatConfig');
+    }
+
+    /** How many queries touching `$table` one piece of work costs (N+1 guard). */
+    private function countQueries(string $table, Closure $work): int
+    {
+        $count = 0;
+        DB::listen(function ($query) use ($table, &$count) {
+            if (str_contains($query->sql, $table)) {
+                $count++;
+            }
+        });
+
+        $work();
+
+        return $count;
     }
 
     /* ------------------------------------------------------------------ */
@@ -141,6 +165,39 @@ class PlanServiceTest extends TestCase
         $this->assertSame($queued->fresh()->ends_at->timestamp, $user->plan_until->timestamp);
         $this->assertSame(350, $this->balance($user)); // Plus period 0
         $this->assertFalse($this->plans()->hasBenefit($user, 'ads_off'));
+    }
+
+    public function test_renewing_the_active_plan_pushes_a_queued_plan_forward_instead_of_burying_it(): void
+    {
+        $user = $this->user();
+        $pro = $this->plan(['name' => 'Pro']);
+        $gold = $this->plan(['name' => 'Gold', 'monthly_coins' => 250]);
+
+        $current = $this->plans()->activate($user, $pro, 'manual');   // now → +1 month
+        $queued = $this->plans()->activate($user, $gold, 'manual');   // +1 month → +2 months
+        $this->assertSame('queued', $queued->status);
+        $length = (int) $queued->starts_at->diffInSeconds($queued->ends_at, true);
+
+        // The person renews Pro while it still runs: Pro now ends where Gold used to.
+        $this->plans()->activate($user, $pro, 'manual');
+        $current->refresh();
+        $queued->refresh();
+
+        // Gold keeps its whole month and still starts the day Pro ends.
+        $this->assertSame('queued', $queued->status);
+        $this->assertSame($current->ends_at->timestamp, $queued->starts_at->timestamp);
+        $this->assertSame($length, (int) $queued->starts_at->diffInSeconds($queued->ends_at, true));
+
+        // Two months on, Pro ends and the Gold month the person paid for actually runs.
+        $this->travel(63)->days();
+        $this->artisan('chat:expire-plans')->assertSuccessful();
+
+        $queued->refresh();
+        $this->assertSame('expired', $current->fresh()->status);
+        $this->assertSame('active', $queued->status);
+        $this->assertTrue($queued->ends_at->isFuture());
+        $this->assertTrue($this->plans()->hasBenefit($user->fresh(), 'ads_off'));
+        $this->assertSame(350, $this->balance($user));   // Pro period 0 + Gold period 0
     }
 
     public function test_activation_is_idempotent_per_payment(): void
@@ -367,5 +424,84 @@ class PlanServiceTest extends TestCase
         // No quota for the free plan (0 = unlimited): only the size limit applies.
         config(['chat.uploads.document.max_kb' => 64]);
         $send($free, $friend, $pdf())->assertCreated();
+    }
+
+    public function test_a_broadcast_list_is_sized_by_its_owners_plan(): void
+    {
+        config(['chat.groups.max_broadcast_recipients' => 3]);
+        $broadcasts = app(BroadcastService::class);
+        $free = $this->user();
+        $paid = $this->user();
+        $this->plans()->activate($paid, $this->plan(['limits' => ['broadcast_recipients' => 10]]), 'manual');
+        $people = collect(range(1, 4))->map(fn () => $this->user()->id)->all();
+
+        try {
+            $broadcasts->create($free, 'Too big', $people);
+            $this->fail('The broadcast list should have been refused.');
+        } catch (HttpException $e) {
+            $this->assertSame(422, $e->getStatusCode());
+            $this->assertStringContainsString('up to 3 people', $e->getMessage());
+        }
+
+        // The whole request path, not just the service: the validation rule used to cap everyone
+        // at the app default, so the paid limit could never be reached.
+        $response = $this->actingAs($paid)->postJson(route('broadcasts.store'), ['name' => 'Big enough', 'user_ids' => $people]);
+        $response->assertCreated();
+
+        $list = Conversation::query()->whereKey($response->json('id'))->firstOrFail();
+        $this->assertSame(4, $list->broadcastRecipients()->count());
+        // The list reports the owner's ceiling, so the picker in the app shows the right number.
+        $this->assertSame(10, $broadcasts->payload($list, $paid, false)['max_recipients']);
+    }
+
+    public function test_the_chat_page_config_carries_this_persons_upload_limits(): void
+    {
+        config([
+            'chat.uploads.image.max_kb' => 5120, 'chat.uploads.video.max_kb' => 16384,
+            'chat.uploads.document.max_kb' => 20480, 'chat.uploads.voice.max_kb' => 10240,
+            'chat.groups.max_broadcast_recipients' => 256,
+        ]);
+        AppSetting::put(['paid_enabled' => true]);
+
+        $free = $this->user();
+        $paid = $this->user();
+        $this->plans()->activate($paid, $this->plan(['limits' => ['upload_mb' => 100, 'broadcast_recipients' => 500]]), 'manual');
+
+        $freeLimits = $this->chatConfigFor($free)['limits'];
+        $this->assertSame(5120, (int) $freeLimits['image']['max_kb']);
+        $this->assertSame(16384, (int) $freeLimits['video']['max_kb']);
+
+        $paidConfig = $this->chatConfigFor($paid);
+        // 100 MB of plan, in KB — the client refuses files before posting them, so these numbers
+        // have to match what SendMessageRequest will accept.
+        $this->assertSame(102400, (int) $paidConfig['limits']['image']['max_kb']);
+        $this->assertSame(102400, (int) $paidConfig['limits']['video']['max_kb']);
+        $this->assertSame(102400, (int) $paidConfig['limits']['document']['max_kb']);
+        $this->assertSame(102400, (int) $paidConfig['limits']['voice']['max_kb']);
+        $this->assertSame(500, (int) $paidConfig['groups']['maxBroadcastRecipients']);
+        // The extension lists still come through untouched.
+        $this->assertSame(config('chat.uploads.image.extensions'), $paidConfig['limits']['image']['extensions']);
+    }
+
+    public function test_people_without_a_plan_cost_no_subscription_lookup(): void
+    {
+        $viewer = $this->user();
+        $this->user(['name' => 'Zarwa Paid']);
+        $this->plans()->activate(User::query()->where('name', 'Zarwa Paid')->sole(), $this->plan(), 'manual');
+        collect(range(1, 6))->each(fn (int $n) => $this->user(['name' => "Zarwa Free {$n}"]));
+
+        // Every row rendered asks BadgeService whether the person is verified. Six results used to
+        // mean six `subscriptions` queries; `users.plan_until` (this service's own mirror) answers
+        // for nothing when it is null.
+        $free = $this->countQueries('subscriptions', function () use ($viewer) {
+            $this->actingAs($viewer)->getJson('/users/search?q=Zarwa+Free')->assertOk()->assertJsonCount(6);
+        });
+        $this->assertSame(0, $free);
+
+        // The mirror is trusted the other way too: a real plan is still found (one lookup).
+        $withPlan = $this->countQueries('subscriptions', function () use ($viewer) {
+            $this->actingAs($viewer)->getJson('/users/search?q=Zarwa+Paid')->assertOk()->assertJsonPath('0.verified', true);
+        });
+        $this->assertSame(1, $withPlan);
     }
 }

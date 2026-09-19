@@ -10,6 +10,10 @@
     $reason = $payment->meta['reason'] ?? null;
     $shortfall = (int) ($payment->meta['shortfall'] ?? 0);
     $fulfilError = $payment->meta['fulfil_error'] ?? null;
+    $paidAfterCancel = $payment->meta['paid_after_cancel'] ?? null;
+    $needsReview = $payment->meta['needs_review'] ?? null;
+    $partialRefund = (int) ($payment->meta['refunded_minor'] ?? 0);
+    $planKept = (bool) ($payment->meta['plan_kept'] ?? false);
     $canApprove = $payment->gateway === 'manual' && $payment->status === 'review';
     $canReject = in_array($payment->status, ['review', 'pending'], true);
     $canRefund = in_array($payment->status, ['fulfilled', 'paid'], true);
@@ -21,6 +25,18 @@
     @endif
     @if ($payment->status === 'paid')
         <p class="admin-backup-note is-warning"><x-icon name="triangle-alert" /> <span><strong>Money taken, nothing delivered.</strong> {{ $fulfilError ? 'Delivery failed: '.$fulfilError : 'Delivery did not finish.' }} Press <strong>Retry delivery</strong> below.</span></p>
+    @endif
+    @if ($paidAfterCancel)
+        <p class="admin-backup-note is-warning"><x-icon name="triangle-alert" /> <span><strong>Paid after it was cancelled here.</strong> The checkout was cancelled ({{ $paidAfterCancel }}) but {{ $gatewayLabel }} still took the money, so it was delivered anyway. Check whether the same thing was paid for twice — if so, refund this one.</span></p>
+    @endif
+    @if ($needsReview)
+        <p class="admin-backup-note is-warning"><x-icon name="triangle-alert" /> <span><strong>{{ $gatewayLabel }} took the money but it could not be applied here.</strong> {{ $payment->meta['needs_review_detail'] ?? '' }} Refund it in the {{ $gatewayLabel }} dashboard.</span></p>
+    @endif
+    @if ($partialRefund > 0 && $payment->status !== 'refunded')
+        <p class="admin-backup-note is-warning"><x-icon name="triangle-alert" /> <span><strong>Partly refunded at {{ $gatewayLabel }}:</strong> {{ $money->formatMoney($partialRefund, $payment->currency) }} of {{ $money->formatMoney($payment->amount_minor, $payment->currency) }}. Nothing was taken back here — use <strong>Refund</strong> below if the rest should go too.</span></p>
+    @endif
+    @if ($planKept)
+        <p class="admin-backup-note"><x-icon name="circle-check" /> <span><strong>One period came off the subscription.</strong> It also holds periods that other payments paid for and nobody refunded, so those were kept and only this payment's period was removed. End it from the person's page if it should stop now.</span></p>
     @endif
     @if ($shortfall > 0)
         <p class="admin-backup-note is-warning"><x-icon name="triangle-alert" /> <span><strong>{{ number_format($shortfall) }} coins short.</strong> They had already been spent when the payment was refunded; the rest was taken back.</span></p>

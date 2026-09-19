@@ -89,6 +89,10 @@ class PlayGateway implements PaymentGateway
     /**
      * The app bought (or restored) a purchase: check it with Google and deliver it once.
      *
+     * Nothing the client says about *what* was bought is trusted: the product id and the order id
+     * are taken from Google's answer whenever it carries them (`$productId` only picks the lookup
+     * URL and must match; `$orderId` is used for logging alone).
+     *
      * Throws a PaymentException the controller answers with: 409 `token_other_account`,
      * 503 `google_unavailable` (the app must NOT consume), 422 `unknown_product` / `cancelled` /
      * `consumed` / `account_mismatch` / `order_reused` / `invalid_token` / `voided`.
@@ -132,6 +136,24 @@ class PlayGateway implements PaymentGateway
         // (3) Ask Google.
         $purchase = $this->fetchPurchase($productId, $purchaseToken);
 
+        // (3a) Google's own product id wins over the client's claim. Google answers 200 for a
+        // token looked up under a product the buyer never bought, so without this a cheap pack's
+        // token could be presented as `product_id` of the most expensive one.
+        $googleProductId = is_string($purchase['productId'] ?? null) && $purchase['productId'] !== '' ? $purchase['productId'] : null;
+        if ($googleProductId !== null && $googleProductId !== $productId) {
+            Log::warning("Play purchase token is for product {$googleProductId} but was verified as {$productId}: user #{$user->id}.");
+            throw new PaymentException('invalid_token', 'Google Play did not recognise this purchase.', 422);
+        }
+
+        // (3b) The same for the order id: an attacker could otherwise store a made-up one (which
+        // admins reconcile against the Play Console) or pre-claim someone else's real order id
+        // and make that buyer's verify fail with `order_reused`.
+        $googleOrderId = is_string($purchase['orderId'] ?? null) && $purchase['orderId'] !== '' ? $purchase['orderId'] : null;
+        if ($orderId !== null && $googleOrderId !== null && $orderId !== $googleOrderId) {
+            Log::warning("Play verify claimed order {$orderId} but Google reports {$googleOrderId}: user #{$user->id}, product {$productId}.");
+        }
+        $orderId = $googleOrderId; // null while the purchase is PENDING; filled in on the re-verify.
+
         // (4) Checks.
         $state = (int) ($purchase['purchaseState'] ?? -1);
         if ($state === 1) {
@@ -157,7 +179,6 @@ class PlayGateway implements PaymentGateway
         if ($reported !== '' && ! hash_equals($expected, $reported)) {
             throw new PaymentException('account_mismatch', 'This purchase was made from a different account.', 422);
         }
-        $orderId = $orderId ?: (is_string($purchase['orderId'] ?? null) ? $purchase['orderId'] : null);
         if ($orderId && Payment::query()->where('gateway', 'play')->where('gateway_capture_ref', $orderId)
             ->when($existing, fn ($q) => $q->where('id', '!=', $existing->id))->exists()) {
             throw new PaymentException('order_reused', 'This Google Play order was already used.', 422);
@@ -225,6 +246,8 @@ class PlayGateway implements PaymentGateway
         $since = is_string($last) ? Carbon::parse($last)->subDays(2) : now()->subDays(30);
         $startedAt = now();
         $n = 0;
+        /** The oldest void this run could not apply; the cursor never moves past it. */
+        $oldestFailure = null;
 
         foreach ($this->voidedPurchases($since) as $void) {
             $hash = hash('sha256', (string) $void['purchaseToken']);
@@ -244,10 +267,17 @@ class PlayGateway implements PaymentGateway
             } catch (Throwable $e) {
                 report($e);
                 Log::warning("Play void for payment #{$payment->id} not applied: ".$e->getMessage());
+                // Keep the cursor at or before this void so the next runs list it again. Moving
+                // the cursor to "now" would let it fall out of the two-day overlap after two
+                // failed runs and the refunded coins would never be clawed back.
+                $failedAt = is_numeric($void['voidedTimeMillis'] ?? null) ? Carbon::createFromTimestampMs((int) $void['voidedTimeMillis']) : $since;
+                if ($oldestFailure === null || $failedAt->lt($oldestFailure)) {
+                    $oldestFailure = $failedAt;
+                }
             }
         }
 
-        Cache::forever(self::SWEEP_SINCE_KEY, $startedAt->toIso8601String());
+        Cache::forever(self::SWEEP_SINCE_KEY, ($oldestFailure && $oldestFailure->lt($startedAt) ? $oldestFailure : $startedAt)->toIso8601String());
 
         return $n;
     }
@@ -362,7 +392,7 @@ class PlayGateway implements PaymentGateway
     private function trim(array $purchase): array
     {
         return array_filter(array_intersect_key($purchase, array_flip([
-            'orderId', 'purchaseState', 'consumptionState', 'acknowledgementState', 'purchaseTimeMillis', 'priceAmountMicros', 'priceCurrencyCode', 'regionCode', 'quantity',
+            'productId', 'orderId', 'purchaseState', 'consumptionState', 'acknowledgementState', 'purchaseTimeMillis', 'priceAmountMicros', 'priceCurrencyCode', 'regionCode', 'quantity',
         ])), fn ($v) => $v !== null && ! is_array($v));
     }
 

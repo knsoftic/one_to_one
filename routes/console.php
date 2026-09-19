@@ -132,8 +132,8 @@ Artisan::command('chat:payments-sweep', function () {
 
 Artisan::command('chat:promotions-sweep', function () {
     $n = app(PromotionService::class)->sweepTargets();
-    $this->info("{$n} promotion(s) stopped because their target is gone.");
-})->purpose('Stop promotions whose status, channel, community or business no longer exists');
+    $this->info("{$n} promotion(s) stopped because their target is gone or no screen is left for them.");
+})->purpose('Stop promotions whose target no longer exists, or that have no switched-on placement left');
 
 Artisan::command('chat:play-sweep', function () {
     $n = app(PlayGateway::class)->sweepVoided();
@@ -143,10 +143,12 @@ Artisan::command('chat:play-sweep', function () {
 Artisan::command('chat:referral-codes', function () {
     $referrals = app(ReferralService::class);
     $n = 0;
-    User::query()->whereNull('referral_code')->each(function (User $user) use ($referrals, &$n) {
+    // Keyed on the id: codeFor() fills the column this query filters on, so an offset-based
+    // chunk would step over every second batch.
+    User::query()->whereNull('referral_code')->eachById(function (User $user) use ($referrals, &$n) {
         $referrals->codeFor($user);
         $n++;
-    });
+    }, 500);
     $this->info("{$n} referral code(s) created.");
 })->purpose('Give every existing account a referral code');
 

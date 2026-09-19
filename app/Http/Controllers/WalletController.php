@@ -9,6 +9,7 @@ use App\Models\Payment;
 use App\Models\User;
 use App\Services\CoinService;
 use App\Services\MonetisationService;
+use App\Services\Payments\PlayGateway;
 use App\Services\PaymentService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\JsonResponse;
@@ -46,9 +47,9 @@ class WalletController extends Controller
                     'play_product_id' => $pack->play_product_id,
                 ])->values(),
             'methods' => $this->payments->methodsFor($user, $request),
-            'pending' => $this->pending($user),
+            'pending' => $this->pending($user, $this->money->platform($request)),
             'play' => [
-                'enabled' => (bool) AppSetting::get('play_enabled'),
+                'enabled' => app(PlayGateway::class)->available(),
                 'accountHash' => hash('sha256', $user->getKey().config('app.key')),
                 'minAppCode' => AppSetting::get('play_min_app_code') ? (int) AppSetting::get('play_min_app_code') : null,
             ],
@@ -72,10 +73,18 @@ class WalletController extends Controller
         return response()->json(['code' => 'coming_soon', 'message' => 'Withdrawals are not available yet.'], 409);
     }
 
-    /** Payments the person still has to finish, wait for, or that are being delivered. */
-    private function pending(User $user): array
+    /**
+     * Payments the person still has to finish, wait for, or that are being delivered.
+     *
+     * In the Android app only Google Play payments are listed: a manual / Stripe / PayPal payment
+     * started on the website would otherwise put bank instructions, a screenshot form or a
+     * "Continue payment" link to a web checkout inside the app, which Play's payments policy
+     * (anti-steering) forbids. They stay visible on the website, where they were started.
+     */
+    private function pending(User $user, string $platform): array
     {
         return Payment::query()->where('user_id', $user->getKey())->whereIn('status', ['pending', 'review', 'paid'])
+            ->when($platform === 'android', fn ($q) => $q->where('gateway', 'play'))
             ->with(['plan', 'coinPack'])->latest('id')->limit(10)->get()
             ->map(fn (Payment $p) => [
                 'id' => $p->id,
