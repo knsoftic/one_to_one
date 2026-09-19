@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use App\Models\Message;
 use App\Models\User;
+use App\Services\BadgeService;
 use App\Services\ContactService;
 use App\Services\PrivacyService;
 use App\Support\ChatPreferences;
@@ -51,7 +52,7 @@ class NewMessageNotification extends Notification
                 'message_id' => $this->message->id,
                 'message_type' => Message::TYPE_TEXT,
                 'locked' => true,
-                'sender' => ['id' => 0, 'name' => config('app.name'), 'display_name' => config('app.name'), 'username' => null, 'avatar_url' => null, 'initials' => '', 'avatar_hue' => 0],
+                'sender' => ['id' => 0, 'name' => config('app.name'), 'display_name' => config('app.name'), 'username' => null, 'avatar_url' => null, 'initials' => '', 'avatar_hue' => 0, 'verified' => false],
             ];
         }
 
@@ -82,6 +83,7 @@ class NewMessageNotification extends Notification
                 'avatar_url' => app(PrivacyService::class)->canSeePhoto($sender, $notifiable) ? $sender->avatar_url : null,
                 'initials' => $sender->initials,
                 'avatar_hue' => $sender->avatar_hue,
+                'verified' => app(BadgeService::class)->isVerified($sender),
             ],
         ];
     }

@@ -3,11 +3,17 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\Admin\UpdateUserStatusRequest;
+use App\Models\AdCampaign;
 use App\Models\AdminAuditLog;
 use App\Models\Call;
 use App\Models\ChatSetting;
+use App\Models\CoinTransaction;
 use App\Models\Conversation;
 use App\Models\Message;
+use App\Models\Payment;
+use App\Models\Plan;
+use App\Models\Referral;
+use App\Models\Subscription;
 use App\Models\User;
 use App\Models\UserLogin;
 use App\Models\UserReport;
@@ -16,6 +22,8 @@ use App\Services\AdminContentService;
 use App\Services\AdminInsightsService;
 use App\Services\AdminService;
 use App\Services\BackupService;
+use App\Services\BadgeService;
+use App\Services\CoinService;
 use App\Services\SessionService;
 use App\Services\StorageUsageService;
 use App\Services\TwoStepService;
@@ -123,10 +131,31 @@ class AdminController extends Controller
                 'reportsMade' => UserReport::query()->where('reporter_id', $user->getKey())->with('reportedUser')->latest('id')->paginate(20, ['*'], 'made')->withQueryString(),
             ],
             'settings' => $this->settingsTab($user),
+            'money' => $this->moneyTab($user),
             'history' => ['logs' => AdminAuditLog::query()->with('admin')->where('target_type', 'User')->where('target_id', $user->getKey())->latest('id')->paginate(25)->withQueryString()],
         };
 
         return view('admin.users.show', $data);
+    }
+
+    /**
+     * Person → Money (Y2): wallet, plan, badge, referrals, ledger, payments and promotions.
+     * The plan/badge/wallet actions post to their own controllers; this only reads.
+     */
+    private function moneyTab(User $user): array
+    {
+        return [
+            'wallet' => app(CoinService::class)->summary($user),
+            'badge' => app(BadgeService::class)->state($user),
+            'subscriptions' => Subscription::query()->where('user_id', $user->getKey())->whereIn('status', ['active', 'queued'])->with('plan')->orderBy('starts_at')->get(),
+            'plans' => Plan::query()->where('is_active', true)->orderBy('sort')->orderBy('id')->get(),
+            'referrals' => Referral::query()->where('referrer_id', $user->getKey())->with('referred:id,name,username')->latest('id')->limit(20)->get(),
+            'referralCounts' => Referral::query()->where('referrer_id', $user->getKey())->select('status')->selectRaw('COUNT(*) AS n')->groupBy('status')->pluck('n', 'status'),
+            'referredBy' => $user->referredBy,
+            'ledger' => CoinTransaction::query()->where('user_id', $user->getKey())->with('creator:id,name')->orderByDesc('id')->paginate(20, ['*'], 'ledger_page')->withQueryString(),
+            'payments' => Payment::query()->where('user_id', $user->getKey())->with(['plan', 'coinPack'])->latest('id')->limit(20)->get(),
+            'promotions' => AdCampaign::query()->where('owner_id', $user->getKey())->latest('id')->limit(20)->get(),
+        ];
     }
 
     private function userChats(Request $request, User $user)

@@ -6,6 +6,7 @@ use App\Models\BusinessProfile;
 use App\Models\QuickReply;
 use App\Models\User;
 use App\Services\BusinessService;
+use App\Services\PromotionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -76,6 +77,8 @@ class BusinessController extends Controller
     public function destroy(Request $request): RedirectResponse
     {
         BusinessProfile::query()->where('user_id', $request->user()->getKey())->delete();
+        // A promoted business profile (Y2) stops showing and the unused coins come back.
+        app(PromotionService::class)->stopForTarget('user', (int) $request->user()->getKey(), 'target_gone');
 
         return redirect()->route('profile.edit', ['tab' => 'business'])->with('status', 'Business account turned off.');
     }

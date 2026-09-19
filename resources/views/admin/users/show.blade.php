@@ -27,7 +27,7 @@
         <div class="admin-user-strip card">
             <x-avatar :user="$user" size="md" status />
             <span class="min-w-0">
-                <span class="admin-person-name">{{ $user->name }}</span>
+                <span class="admin-person-name">{{ $user->name }} <x-verified-badge :user="$user" /></span>
                 <span class="admin-person-meta">{{ $user->phone }} @if ($user->email)· {{ $user->email }}@endif</span>
             </span>
             <x-admin.status-badge :user="$user" />

@@ -4,12 +4,14 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\DeviceController;
+use App\Http\Controllers\ReferralController;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RegisterRequest;
 use App\Models\AppSetting;
 use App\Services\AccountService;
 use App\Services\BanService;
 use App\Services\PresenceService;
+use App\Services\ReferralService;
 use App\Services\TwoStepService;
 use App\Services\WebPushService;
 use Illuminate\Auth\Events\Registered;
@@ -78,6 +80,10 @@ class AuthController extends Controller
             $request->safe()->only(['name', 'username', 'email', 'phone', 'password']),
             $request->file('profile_image'),
         );
+
+        // Refer & earn (Y2): remember who invited them; the reward waits for phone verification.
+        app(ReferralService::class)->attach($user, $request->input('ref') ?: ReferralController::rememberedCode($request), $request);
+        $request->session()->forget(['referral_code', 'referral_code_until']);
 
         event(new Registered($user));
 

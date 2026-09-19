@@ -26,11 +26,15 @@ class BroadcastService
     public function __construct(
         private readonly ConversationService $conversations,
         private readonly ContactService $contacts,
+        private readonly LimitService $limits,
     ) {}
 
-    public function maxRecipients(): int
+    /** Most people in a broadcast list. The owner's paid plan (Y2) raises it, never lowers it. */
+    public function maxRecipients(?User $for = null): int
     {
-        return max(self::MIN_RECIPIENTS, (int) config('chat.groups.max_broadcast_recipients', 256));
+        $base = max(self::MIN_RECIPIENTS, (int) config('chat.groups.max_broadcast_recipients', 256));
+
+        return $for ? max($base, $this->limits->broadcastRecipients($for)) : $base;
     }
 
     /**

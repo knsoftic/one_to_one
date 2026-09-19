@@ -1,1 +1,90 @@
-/* Paid features (Y2): promote — styles of this slice live here. */
+/* Paid features (Y2): promote — the Promote settings screen, promoted cards and the admin review pages. */
+
+/* Promoted cards in the app get a small accent so they read differently from house ads. */
+.ad-card.is-promoted .ad-card-tag { color: var(--c-primary); }
+
+/* Settings › Promote */
+.promote-head { padding-bottom: 0.9rem; }
+.promote-balance { display: flex; align-items: center; gap: 0.85rem; padding: 0.6rem var(--wa-pad); }
+.promote-balance-icon { flex: none; display: grid; place-items: center; width: 2.75rem; height: 2.75rem; border-radius: 999px; color: var(--c-on-fab, #fff); background: var(--c-fab); }
+.promote-balance-icon .icon { width: 1.25rem; height: 1.25rem; }
+.promote-actions { display: flex; flex-wrap: wrap; gap: 0.6rem; padding: 0.25rem var(--wa-pad) 0; }
+.promote-actions .btn { flex: 1; }
+
+.promote-row { text-align: start; }
+.promote-thumb { flex: none; width: 3rem; height: 3rem; border-radius: 0.75rem; background: var(--c-surface-2) center / cover no-repeat; }
+.promote-thumb.is-empty { display: grid; place-items: center; color: var(--c-subtle); }
+.promote-thumb.is-empty .icon { width: 1.25rem; height: 1.25rem; }
+.promote-chip { display: inline-flex; align-items: center; padding: 0.05rem 0.5rem; border-radius: 999px; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase; background: var(--c-surface-2); color: var(--c-muted); }
+.promote-chip.is-pending { background: color-mix(in srgb, var(--c-warning, #d97706) 15%, transparent); color: var(--c-warning, #b45309); }
+.promote-chip.is-active { background: var(--c-primary-soft); color: var(--c-primary); }
+.promote-chip.is-rejected { background: color-mix(in srgb, var(--c-danger) 12%, transparent); color: var(--c-danger); }
+
+.promote-budget { display: block; width: 100%; }
+.promote-budget-bar { display: block; height: 0.35rem; border-radius: 999px; background: var(--c-surface-2); overflow: hidden; }
+.promote-budget-bar > span { display: block; height: 100%; border-radius: inherit; background: var(--c-primary); transition: width 0.3s ease; }
+.promote-budget.is-wide { display: flex; flex-direction: column; gap: 0.35rem; padding: 0.5rem var(--wa-pad) 0.75rem; }
+
+.promote-preview { padding: 0.75rem var(--wa-pad); }
+.promote-preview .ad-card { pointer-events: none; }
+.promote-status-line { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; padding: 0 var(--wa-pad) 0.5rem; }
+.promote-note { display: flex; gap: 0.4rem; align-items: flex-start; color: var(--c-danger); }
+.promote-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.6rem; padding: 0.25rem var(--wa-pad) 0.5rem; }
+.promote-tile { display: flex; flex-direction: column; align-items: center; gap: 0.1rem; padding: 0.7rem 0.5rem; border: 1px solid var(--c-border); border-radius: 0.9rem; background: var(--c-surface); }
+.promote-tile strong { font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+.promote-tile span { font-size: 0.75rem; color: var(--c-muted); }
+.promote-days { display: flex; align-items: flex-end; gap: 2px; height: 5.5rem; padding: 0.25rem var(--wa-pad) 0.75rem; }
+.promote-day { flex: 1; display: flex; align-items: flex-end; height: 100%; }
+.promote-day > span { display: block; width: 100%; border-radius: 2px 2px 0 0; background: var(--c-primary); opacity: 0.85; }
+
+/* Wizard */
+.promote-wizard { display: flex; flex-direction: column; }
+.promote-wizard-head { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem var(--wa-pad); }
+.promote-wizard-title { font-weight: 600; }
+.promote-stepper { display: inline-flex; gap: 0.35rem; }
+.promote-step { display: grid; place-items: center; width: 1.5rem; height: 1.5rem; border-radius: 999px; font-size: 0.72rem; font-weight: 700; background: var(--c-surface-2); color: var(--c-muted); }
+.promote-step.is-done { background: var(--c-primary-soft); color: var(--c-primary); }
+.promote-step.is-current { background: var(--c-primary); color: #fff; }
+.promote-wizard-body { display: flex; flex-direction: column; }
+.promote-wizard-body .wa-form { padding: 0 var(--wa-pad); }
+.promote-wizard-actions { display: flex; gap: 0.6rem; padding: 0.75rem var(--wa-pad) 0.5rem; }
+.promote-wizard-actions .btn { flex: 1; }
+.promote-wizard-actions .btn:only-child { flex: none; margin-inline-start: auto; }
+
+.promote-kinds { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.6rem; padding: 0.25rem var(--wa-pad) 0.5rem; }
+.promote-kind { display: flex; flex-direction: column; align-items: flex-start; gap: 0.25rem; padding: 0.8rem; border: 1px solid var(--c-border); border-radius: 0.9rem; background: var(--c-surface); text-align: start; color: inherit; cursor: pointer; }
+.promote-kind:hover { background: var(--c-surface-2); }
+.promote-kind.is-selected { border-color: var(--c-primary); background: var(--c-primary-soft); }
+.promote-kind-icon { display: grid; place-items: center; width: 2rem; height: 2rem; border-radius: 0.6rem; background: var(--c-surface-2); color: var(--c-primary); }
+.promote-kind-icon .icon { width: 1.1rem; height: 1.1rem; }
+.promote-kind-label { font-weight: 600; }
+.promote-kind-text { font-size: 0.78rem; line-height: 1.35; color: var(--c-muted); }
+.promote-target.is-selected { background: var(--c-primary-soft); }
+.promote-target[aria-disabled="true"] { opacity: 0.6; }
+.promote-thumb.is-bg-teal { background: #0d9488; } .promote-thumb.is-bg-indigo { background: #4f46e5; } .promote-thumb.is-bg-violet { background: #7c3aed; }
+.promote-thumb.is-bg-rose { background: #e11d48; } .promote-thumb.is-bg-amber { background: #d97706; } .promote-thumb.is-bg-emerald { background: #059669; }
+.promote-thumb.is-bg-sky { background: #0284c7; } .promote-thumb.is-bg-slate { background: #475569; }
+.promote-thumb[class*="is-bg-"] { color: #fff; }
+
+.promote-presets { display: flex; flex-wrap: wrap; gap: 0.5rem; padding: 0.25rem var(--wa-pad) 0.5rem; }
+.promote-quote { margin: 0; padding: 0.35rem var(--wa-pad); font-size: 1rem; }
+.promote-quote strong { font-size: 1.25rem; font-variant-numeric: tabular-nums; }
+.promote-quote-short { display: block; margin-top: 0.2rem; font-size: 0.85rem; color: var(--c-danger); }
+.promote-agree input { flex: none; width: 1.1rem; height: 1.1rem; margin-top: 0.15rem; accent-color: var(--c-primary); }
+
+/* Admin → Promotions */
+.admin-promo-budget { display: flex; flex-direction: column; gap: 0.25rem; min-width: 7rem; }
+.admin-promo-budget.is-wide { margin: 0.5rem 0 1rem; }
+.admin-promo-budget small { color: var(--c-muted); font-size: 0.75rem; }
+.admin-promo-budget-bar { display: block; height: 0.4rem; border-radius: 999px; background: var(--c-surface-2); overflow: hidden; }
+.admin-promo-budget-bar > span { display: block; height: 100%; border-radius: inherit; background: var(--c-primary); }
+.admin-kv { display: grid; gap: 0.55rem; margin: 0; }
+.admin-kv > div { display: grid; grid-template-columns: 8rem 1fr; gap: 0.75rem; align-items: baseline; }
+.admin-kv dt { margin: 0; font-size: 0.8rem; color: var(--c-muted); }
+.admin-kv dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.admin-kv dd .badge + .badge { margin-inline-start: 0.25rem; }
+
+@media (max-width: 640px) {
+    .promote-kinds { grid-template-columns: 1fr; }
+    .admin-kv > div { grid-template-columns: 1fr; gap: 0.15rem; }
+}

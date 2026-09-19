@@ -47,6 +47,7 @@ class ChatCardService
                     'avatar_url' => $other && ($self || $this->privacy->canSeePhoto($other, $user)) ? $other->avatar_url : null,
                     'initials' => $other?->initials ?? '?',
                     'avatar_hue' => (int) ($other?->avatar_hue ?? 0),
+                    'verified' => $other ? app(BadgeService::class)->isVerified($other) : false,
                 ]];
             }
 

@@ -1,1 +1,46 @@
-/* Paid features (Y2): payments — styles of this slice live here. */
+/* Paid features (Y2): payments — admin payment list/detail, coin packs table, settings check buttons. */
+
+/* Settings → Test connection result */
+[data-pay-check-result] { display: flex; align-items: center; gap: 0.4rem; }
+[data-pay-check-result] .icon { width: 1rem; height: 1rem; flex: none; }
+[data-pay-check-result][data-state='ok'] { color: var(--c-success); }
+[data-pay-check-result][data-state='bad'] { color: var(--c-danger); }
+[data-pay-check-result][data-state='busy'] .icon { animation: spin 1s linear infinite; }
+.admin-webhook-url code[data-copy] { cursor: pointer; user-select: all; }
+.admin-webhook-url code[data-copy]:hover, .admin-webhook-url code.is-copied { color: var(--c-primary-text); }
+
+/* Payments list */
+.money-payments-table td { vertical-align: middle; }
+.money-payments-table .badge + .badge { margin-inline-start: 0.25rem; }
+
+/* Payment detail */
+.money-payment-layout { align-items: start; }
+@media (min-width: 1000px) { .money-payment-layout { grid-template-columns: minmax(0, 3fr) minmax(18rem, 2fr); } }
+.money-proof-link { display: block; max-width: 24rem; border: 1px solid var(--c-border); border-radius: 12px; overflow: hidden; background: var(--c-surface-2); }
+.money-proof-image { display: block; width: 100%; height: auto; max-height: 32rem; object-fit: contain; }
+.money-actions { display: flex; flex-direction: column; gap: 0.9rem; }
+.money-action-form { display: flex; flex-direction: column; gap: 0.5rem; padding: 0.75rem; border: 1px solid var(--c-border); border-radius: 12px; background: var(--c-surface-2); }
+.money-action-form .btn { align-self: flex-start; }
+.money-check { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: var(--c-muted); cursor: pointer; }
+.money-mini-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; font-size: 0.85rem; line-height: 1.45; }
+.money-mini-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; min-width: 0; overflow-wrap: anywhere; }
+.money-mini-list .text-success { color: var(--c-success); font-weight: 600; }
+.money-mini-list .text-danger { font-weight: 600; }
+
+/* Overview flags */
+.money-flags { display: grid; gap: 1rem; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 900px) { .money-flags { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.money-flag { padding: 0.75rem 0.9rem; border: 1px solid color-mix(in srgb, var(--c-danger) 35%, var(--c-border)); border-radius: 12px; background: color-mix(in srgb, var(--c-danger-soft) 35%, var(--c-surface)); }
+.money-flag-title { display: flex; align-items: center; gap: 0.4rem; margin: 0 0 0.5rem; font-size: 0.88rem; font-weight: 600; }
+.money-flag-title .icon { width: 1rem; height: 1rem; color: var(--c-danger); }
+
+/* Coin packs inline table */
+.money-packs-table td { vertical-align: middle; padding-top: 0.45rem; padding-bottom: 0.45rem; }
+.money-packs-table .form-control { min-width: 6rem; padding: 0.35rem 0.5rem; font-size: 0.85rem; }
+.money-packs-table .money-num { min-width: 5.5rem; max-width: 7rem; text-align: end; font-variant-numeric: tabular-nums; }
+.money-packs-table .money-num.is-short { min-width: 4rem; max-width: 4.5rem; }
+.money-packs-table .money-select { min-width: 5rem; }
+.money-packs-table .money-play { min-width: 9rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8rem; }
+.money-pack-actions { display: flex; align-items: center; gap: 0.4rem; white-space: nowrap; }
+.money-pack-actions form { display: inline-flex; margin: 0; }
+.money-pack-row.is-new td { border-top: 2px dashed var(--c-border); background: var(--c-surface-2); }

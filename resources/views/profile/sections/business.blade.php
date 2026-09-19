@@ -214,6 +214,21 @@
         </a>
     </div>
 
+    @if (($paid['promote'] ?? false) && Route::has('promotions.index'))
+        {{-- Promote (Y2): a "Promoted" card for my business, paid with coins. --}}
+        <div class="wa-group">
+            <h3 class="wa-group-title">Reach more people</h3>
+            <a href="{{ route('profile.edit', ['tab' => 'promote', 'kind' => 'business', 'id' => $user->id]) }}" class="wa-row is-link" data-settings-promote-business>
+                <x-icon name="megaphone" class="wa-row-icon" />
+                <span class="wa-row-body">
+                    <span class="wa-row-title">Promote my business</span>
+                    <span class="wa-row-text">Show your business as a card in the app and let people message you. Paid with coins.</span>
+                </span>
+                <x-icon name="chevron-right" class="wa-row-chevron" />
+            </a>
+        </div>
+    @endif
+
     <form method="POST" action="{{ route('business.destroy') }}" class="wa-group" data-confirm="Your business profile and automatic messages will be removed. Quick replies and lists stay." data-confirm-title="Turn off business account?" data-confirm-label="Turn off" data-confirm-danger>
         @csrf
         @method('DELETE')

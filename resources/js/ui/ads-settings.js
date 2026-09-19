@@ -41,7 +41,7 @@ export function initAdsSettings(root = document.querySelector('[data-ads-setting
             await save({ location_allowed: true, lat: position.coords.latitude, lng: position.coords.longitude });
         } catch {
             location.checked = !wanted;
-            toast(wanted ? 'Your device did not allow location.' : 'Could not save that. Try again.', 'error');
+            toast(wanted ? 'Your device did not allow location.' : 'Could not save that. Try again.', { type: 'error' });
         }
     });
 

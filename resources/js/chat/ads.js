@@ -21,6 +21,11 @@ export class AdsManager {
         this.ads = {};
         this.pending = new Set();
 
+        // Opened from a promoted card's web link (promotions.go): open the same way as a tap,
+        // whether or not ads are on for this person.
+        const target = chat.config.openTarget;
+        if (target) setTimeout(() => this.openPromoted(target), 300);
+
         if (!this.config.enabled) return;
 
         this.placements = this.config.placements ?? {};
@@ -186,19 +191,104 @@ export class AdsManager {
         const slot = document.createElement('div');
         slot.className = 'ad-slot';
         slot.dataset.placement = placement;
-        // A same-origin tracking link that records the tap and forwards to the advertiser; opening
-        // in a new tab keeps the chat open (and the app hands external hosts to the browser).
-        slot.innerHTML = html`
-            <a class="ad-card ad-card-${ad.format ?? 'row'}" href="${ad.click}" target="_blank" rel="noopener nofollow sponsored" aria-label="Sponsored: ${ad.title}">
-                ${ad.image ? raw(html`<span class="ad-card-media" style="background-image:url('${ad.image}')"></span>`) : ''}
-                <span class="ad-card-body">
-                    <span class="ad-card-tag">Sponsored${ad.sponsor ? ` · ${ad.sponsor}` : ''}</span>
-                    <span class="ad-card-title">${ad.title}</span>
-                    ${ad.body ? raw(html`<span class="ad-card-text">${ad.body}</span>`) : ''}
-                    <span class="ad-card-cta">${ad.cta} ${raw(icon('square-arrow-out-up-right'))}</span>
-                </span>
-            </a>
-        `;
+        slot.innerHTML = adCardHtml(ad);
+        // A promoted status, channel, community or business (Y2) opens inside the app: the link
+        // stays as the no-JS fallback, the tap is recorded and the real screen opens.
+        slot.addEventListener('click', (event) => {
+            if (!event.target.closest('[data-ad-internal]')) return;
+            event.preventDefault();
+            this.tap(placement, ad);
+        });
         return slot;
     }
+
+    /** Record the tap on a promoted card and open what it promotes (Y2). */
+    async tap(placement, ad) {
+        const route = this.routes.adsTap?.replace('__ID__', String(ad.id));
+        let target = null;
+        if (route) {
+            try {
+                const { data } = await axios.post(route, { placement });
+                target = data?.open ?? (data?.url ? { type: 'url', url: data.url } : null);
+            } catch {
+                /* recorded or not, the person still gets where they tapped */
+            }
+        }
+        this.openPromoted(target ?? { type: 'url', url: ad.url ?? ad.click });
+    }
+
+    /**
+     * Open a promoted target through the app's own screens — the status viewer, the channel
+     * preview, the community join sheet or the business chat. Anything the app cannot open
+     * in place (or a missing manager) falls back to the plain page.
+     */
+    openPromoted(target) {
+        const chat = this.chat;
+        const fallback = (url) => {
+            if (url) window.location.assign(url);
+        };
+        if (!target) return null;
+
+        switch (target.type) {
+            case 'status':
+                if (chat.statuses?.openViewer && target.status && target.user) {
+                    return chat.statuses.openViewer([{ user: target.user, statuses: [target.status] }], 0, 0);
+                }
+                break;
+            case 'channel':
+                if (chat.channels?.preview) return chat.channels.preview(Number(target.id));
+                break;
+            case 'community':
+                if (chat.communities?.offerToJoin && target.invite) return chat.communities.offerToJoin(target.invite);
+                break;
+            case 'business':
+                if (chat.startConversationWith) {
+                    return Promise.resolve(chat.startConversationWith(Number(target.user_id))).then(() => {
+                        if (chat.active?.id && chat.contactInfo?.open) chat.contactInfo.open(chat.active.id);
+                    });
+                }
+                break;
+            default:
+                break;
+        }
+        return fallback(target.url);
+    }
+}
+
+/**
+ * The link to Settings › Promote with a target preselected (Y2), or null when paid promotions
+ * are off for this app. Used by the status viewer, channel info and community info.
+ */
+export function promoteLink(kind, id) {
+    const app = window.App?.config;
+    if (!app?.paid?.promote || !app.routes?.settings) return null;
+
+    return `${app.routes.settings}?tab=promote&kind=${encodeURIComponent(kind)}&id=${encodeURIComponent(id)}`;
+}
+
+/**
+ * The card markup, shared with the Promote screen's preview (resources/js/ui/promote.js). A
+ * promotion says "Promoted · name"; a house ad says "Sponsored". Internal kinds carry
+ * `data-ad-internal` and no target so the tap can be handled in the app; external ones open in
+ * a new tab (the native shell hands them to the browser).
+ */
+export function adCardHtml(ad) {
+    const promoted = Boolean(ad.promoted);
+    const internal = Boolean(ad.internal);
+    const sponsor = ad.sponsor ? ` · ${ad.sponsor}` : '';
+    const tag = promoted ? `Promoted${sponsor}` : `Sponsored${sponsor}`;
+    const href = ad.click ?? ad.url ?? '#';
+    const attrs = internal ? html`data-ad-internal` : html`target="_blank" rel="noopener nofollow sponsored"`;
+
+    return html`
+        <a class="ad-card ad-card-${ad.format ?? 'row'}${promoted ? ' is-promoted' : ''}" href="${href}" ${raw(attrs)} data-ad-card="${ad.id ?? ''}" aria-label="${promoted ? 'Promoted' : 'Sponsored'}: ${ad.title}">
+            ${ad.image ? raw(html`<span class="ad-card-media" style="background-image:url('${ad.image}')"></span>`) : ''}
+            <span class="ad-card-body">
+                <span class="ad-card-tag">${tag}</span>
+                <span class="ad-card-title">${ad.title}</span>
+                ${ad.body ? raw(html`<span class="ad-card-text">${ad.body}</span>`) : ''}
+                <span class="ad-card-cta">${ad.cta} ${raw(icon(internal ? 'arrow-right' : 'square-arrow-out-up-right'))}</span>
+            </span>
+        </a>
+    `;
 }

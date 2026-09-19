@@ -2,8 +2,11 @@
 
 namespace App\Console\Commands;
 
+use App\Models\AppSetting;
 use App\Models\Call;
 use App\Models\DeviceToken;
+use App\Models\Payment;
+use App\Services\PaymentService;
 use App\Services\PushService;
 use App\Services\TurnServerService;
 use Illuminate\Console\Command;
@@ -45,6 +48,9 @@ class ChatDoctor extends Command
 
         $this->section('Scheduler (cron)');
         $this->checkScheduler();
+
+        $this->section('Paid features (Y2)');
+        $this->checkPaid();
 
         $this->newLine();
         if ($this->failures === 0 && $this->warnings === 0) {
@@ -191,6 +197,38 @@ class ChatDoctor extends Command
             $lastRun ? 'Scheduler last ran '.now()->parse($lastRun)->diffForHumans() : 'Scheduler has run',
             'Add the cron task from guide step 12 (runs php artisan schedule:run every minute).',
         );
+    }
+
+    /** Plans, coins and payments: the master switch, and providers that are on but have no keys. */
+    private function checkPaid(): void
+    {
+        $on = (bool) AppSetting::get('paid_enabled');
+        $this->line($on ? '  <fg=green>✔</> Paid features are on' : '  <fg=gray>·</> Paid features are off (Admin → App settings → Paid features)');
+
+        if (! $on) {
+            return;
+        }
+
+        $gateways = [
+            'manual' => [(bool) AppSetting::get('manual_enabled'), (bool) app(PaymentService::class)->manualMethods(), 'Write the JazzCash / EasyPaisa / bank instructions, or turn manual payments off.'],
+            'stripe' => [(bool) AppSetting::get('stripe_enabled'), filled(config('services.stripe.secret')) && filled(config('services.stripe.webhook_secret')), 'Enter the Stripe secret key and webhook signing secret.'],
+            'paypal' => [(bool) AppSetting::get('paypal_enabled'), filled(config('services.paypal.client_id')) && filled(config('services.paypal.secret')), 'Enter the PayPal client ID and secret.'],
+            'play' => [(bool) AppSetting::get('play_enabled'), filled(config('services.play.service_account')), 'Paste the Google Play service-account JSON.'],
+        ];
+        $any = false;
+        foreach ($gateways as $name => [$enabled, $configured, $hint]) {
+            if (! $enabled) {
+                continue;
+            }
+            $any = true;
+            $this->result($configured, ucfirst($name).' is on'.($configured ? ' and configured' : ' but not configured'), $hint, warnOnly: true);
+        }
+        if (! $any) {
+            $this->result(false, 'A payment method is on', 'Nobody can buy coins or plans until a payment method is on and configured.', warnOnly: true);
+        }
+
+        $unfulfilled = Payment::query()->where('status', 'paid')->count();
+        $this->result($unfulfilled === 0, $unfulfilled ? "{$unfulfilled} payment(s) taken but not delivered" : 'Every paid payment was delivered', 'Open Admin → Payments and press Retry on each one.', warnOnly: true);
     }
 
     /* ------------------------------------------------------------------ */

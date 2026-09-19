@@ -1,6 +1,11 @@
 @php
     $emailMode = \App\Models\AppSetting::get('signup_email');
     $countryCode = \App\Models\AppSetting::get('default_country_code');
+    // Refer & earn (Y2): the inviter's code from the link, the session or the cookie.
+    $refCode = strtoupper((string) (old('ref') ?: request('ref') ?: \App\Http\Controllers\ReferralController::rememberedCode(request()) ?: ''));
+    $refCode = preg_match('/^[A-Z2-9]{8}$/', $refCode) ? $refCode : '';
+    $referrals = app(\App\Services\ReferralService::class);
+    $inviter = $refCode !== '' && $referrals->enabled() ? $referrals->resolve($refCode) : null;
 @endphp
 <x-layouts.guest title="Create account">
     <ol class="signup-steps" aria-label="Sign-up steps">
@@ -15,6 +20,13 @@
         @csrf
 
         <x-alerts />
+
+        @if ($inviter)
+            <input type="hidden" name="ref" value="{{ $refCode }}">
+            <p class="form-hint auth-invited" data-invited-by><x-icon name="gift" /> Invited by <strong>{{ $inviter->name }}</strong></p>
+        @elseif ($refCode !== '')
+            <input type="hidden" name="ref" value="{{ $refCode }}">
+        @endif
 
         <x-field name="name" label="Your name" icon="user" placeholder="Awais Ahmed" autocomplete="name" maxlength="100" required autofocus />
 

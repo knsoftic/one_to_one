@@ -116,6 +116,20 @@ class StorageUsageService
         return ['deleted' => $messages->count(), 'bytes' => (int) $messages->sum('attachment_size')];
     }
 
+    /**
+     * Bytes the person's own sent attachments take on the server (Y2 storage quota). Files they
+     * deleted for themselves or for everyone no longer count, so "Manage storage" frees space.
+     */
+    public function usedBytes(User $user): int
+    {
+        return (int) Message::query()
+            ->where('sender_id', $user->getKey())
+            ->where('deleted_for_everyone', false)
+            ->where('deleted_for_sender', false)
+            ->whereNotNull('attachment')
+            ->sum('attachment_size');
+    }
+
     /** Media and documents the person can still see (view once media is never kept). */
     private function files(User $user): Builder
     {

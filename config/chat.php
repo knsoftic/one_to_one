@@ -211,6 +211,11 @@ return [
         'max_video_seconds' => (int) env('CHAT_STATUS_MAX_VIDEO_SECONDS', 60),
     ],
 
+    // Storage quota per person (Y2): the attachments they sent. 0 = unlimited; a paid plan may raise it.
+    'storage' => [
+        'default_mb' => (int) env('CHAT_STORAGE_MB', 0),
+    ],
+
     'groups' => [
         // Most people in one group chat (Phase 4).
         'max_members' => (int) env('CHAT_GROUP_MAX_MEMBERS', 256),

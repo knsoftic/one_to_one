@@ -96,6 +96,68 @@ describe('Ads in the app', () => {
         expect(document.querySelector('.ad-slot')).toBeNull();
     });
 
+    /** The Status tab placement, on its own container so instances from earlier tests never touch it. */
+    function statusChat() {
+        document.body.innerHTML = `<div data-status-body>${'<button class="status-row"></button>'.repeat(8)}</div>`;
+        return {
+            config: {
+                ads: { enabled: true, placements: { status_list: { format: 'row', container: '[data-status-body]', item: '.status-row' } }, every: 6 },
+                routes: { adsNext: '/ads/next', adsOpen: '/ads/open', adsTap: '/ads/__ID__/tap' },
+            },
+            listMode: 'all',
+            el: {},
+        };
+    }
+
+    it('tags a promotion "Promoted · name" and opens an internal one in the app after posting the tap', async () => {
+        const promoted = { ...AD, id: 12, title: 'Cricket', sponsor: 'Ali', promoted: true, internal: true, kind: 'channel', click: '/ads/12/go', url: '/channels/abc' };
+        axios.get.mockResolvedValue({ data: { ad: promoted } });
+        axios.post.mockImplementation(async (url) => (url === '/ads/12/tap' ? { data: { open: { type: 'channel', id: 9 }, url: '/channels/abc' } } : { data: {} }));
+        const chat = statusChat();
+        chat.channels = { preview: vi.fn() };
+        new AdsManager(chat);
+        await settle();
+
+        const card = document.querySelector('[data-status-body] .ad-card');
+        expect(card.querySelector('.ad-card-tag').textContent).toBe('Promoted · Ali');
+        expect(card.classList.contains('is-promoted')).toBe(true);
+        // The link stays as the no-JS fallback, but it is handled in the app: no new tab.
+        expect(card.getAttribute('href')).toBe('/ads/12/go');
+        expect(card.hasAttribute('target')).toBe(false);
+        expect(card.hasAttribute('data-ad-internal')).toBe(true);
+
+        const click = new MouseEvent('click', { bubbles: true, cancelable: true });
+        card.dispatchEvent(click);
+        expect(click.defaultPrevented).toBe(true);
+        await settle();
+
+        expect(axios.post).toHaveBeenCalledWith('/ads/12/tap', { placement: 'status_list' });
+        expect(chat.channels.preview).toHaveBeenCalledWith(9);
+    });
+
+    it('keeps external cards on a new tab and opens a status through the viewer', async () => {
+        axios.get.mockResolvedValue({ data: { ad: { ...AD, promoted: true, sponsor: 'Shop', internal: false, kind: 'link' } } });
+        new AdsManager(statusChat());
+        await settle();
+
+        const card = document.querySelector('[data-status-body] .ad-card');
+        expect(card.getAttribute('target')).toBe('_blank');
+        expect(card.getAttribute('rel')).toBe('noopener nofollow sponsored');
+        expect(card.querySelector('.ad-card-tag').textContent).toBe('Promoted · Shop');
+        expect(card.hasAttribute('data-ad-internal')).toBe(false);
+
+        // A promoted status opened from its web link (promotions.go) goes straight to the viewer.
+        document.body.innerHTML = '';
+        const chat = chatWith({ enabled: false });
+        chat.statuses = { openViewer: vi.fn() };
+        chat.config.openTarget = { type: 'status', user: { id: 1, name: 'Ali' }, status: { id: 3, type: 'text', text: 'Hi' } };
+        vi.useFakeTimers();
+        new AdsManager(chat);
+        vi.runAllTimers();
+        vi.useRealTimers();
+        expect(chat.statuses.openViewer).toHaveBeenCalledWith([{ user: { id: 1, name: 'Ali' }, statuses: [{ id: 3, type: 'text', text: 'Hi' }] }], 0, 0);
+    });
+
     it('renders a banner placement without an image or body', async () => {
         axios.get.mockResolvedValue({ data: { ad: { ...AD, image: null, body: '', format: 'banner' } } });
         document.body.innerHTML = '<div data-message-list></div>';

@@ -37,7 +37,7 @@ class LimitService
                 (int) config('chat.uploads.document.max_kb', 0),
             ) / 1024),
             'group_members' => (int) config('chat.groups.max_members', 256),
-            'broadcast_recipients' => (int) config('chat.broadcasts.max_recipients', 256),
+            'broadcast_recipients' => (int) config('chat.groups.max_broadcast_recipients', 256),
             'storage_mb' => (int) config('chat.storage.default_mb', 0),
         ];
     }

@@ -35,7 +35,7 @@
             <label class="wa-field" for="profile-{{ $field['name'] }}">
                 <x-icon :name="$field['icon']" class="wa-field-icon" />
                 <span class="wa-field-body">
-                    <span class="wa-field-label">{{ $field['label'] }}</span>
+                    <span class="wa-field-label">{{ $field['label'] }}@if ($field['name'] === 'name') <x-verified-badge :user="$user" hint />@endif</span>
                     <input id="profile-{{ $field['name'] }}" name="{{ $field['name'] }}" type="{{ $field['type'] ?? 'text' }}"
                            value="{{ old($field['name'], $field['value']) }}" @class(['wa-field-input', 'is-invalid' => $invalid])
                            @foreach ($field['attrs'] as $attr => $attrValue) {!! $attrValue === true ? e($attr) : e($attr).'="'.e($attrValue).'"' !!} @endforeach

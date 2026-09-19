@@ -30,7 +30,7 @@ class NotificationController extends Controller
                 'id' => $notification->id,
                 'data' => in_array((int) ($notification->data['conversation_id'] ?? 0), $locked, true)
                     ? ['type' => $notification->data['type'] ?? 'new_message', 'title' => 'New message', 'body' => '', 'conversation_id' => (int) $notification->data['conversation_id'], 'locked' => true,
-                        'sender' => ['id' => 0, 'name' => config('app.name'), 'display_name' => config('app.name'), 'username' => null, 'avatar_url' => null, 'initials' => '', 'avatar_hue' => 0]]
+                        'sender' => ['id' => 0, 'name' => config('app.name'), 'display_name' => config('app.name'), 'username' => null, 'avatar_url' => null, 'initials' => '', 'avatar_hue' => 0, 'verified' => false]]
                     : $notification->data,
                 'read' => $notification->read_at !== null,
                 'created_at' => $notification->created_at?->toIso8601String(),

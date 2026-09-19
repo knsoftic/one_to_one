@@ -6,19 +6,57 @@ use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\PollVote;
 use App\Rules\DocumentType;
+use App\Services\LimitService;
+use App\Services\StorageUsageService;
 use Illuminate\Auth\Access\Response;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 /**
  * Text, image, document or voice message.
  *
  * Files are validated by detected content type ("mimes"/"mimetypes") AND by
- * client extension ("extensions"), with per-type size limits from config/chat.php.
+ * client extension ("extensions"), with per-type size limits from config/chat.php —
+ * raised by the sender's paid plan (Y2, LimitService), which may also cap their storage.
  */
 class SendMessageRequest extends FormRequest
 {
+    /** The biggest file of one kind this sender may upload, in KB (the app's limit or the plan's). */
+    private function maxKb(string $type): int
+    {
+        $user = $this->user();
+
+        return $user ? app(LimitService::class)->uploadKb($user, $type) : (int) config("chat.uploads.{$type}.max_kb", 0);
+    }
+
+    /**
+     * Storage quota (Y2): the sender's files on the server plus this one may not exceed their
+     * plan's storage, when a quota is set at all (0 = unlimited).
+     */
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator) {
+            $field = $this->hasFile('voice') ? 'voice' : 'attachment';
+            $file = $this->file($field);
+            $user = $this->user();
+            if (! $file || ! $user || $validator->errors()->isNotEmpty()) {
+                return;
+            }
+
+            $quotaMb = app(LimitService::class)->storageMb($user);
+            if ($quotaMb <= 0) {
+                return;
+            }
+
+            $used = app(StorageUsageService::class)->usedBytes($user);
+            if ($used + (int) $file->getSize() > $quotaMb * 1024 * 1024) {
+                $validator->errors()->add($field, "You have used your {$quotaMb} MB of storage. Delete some files in Settings → Storage and data, or get a bigger plan.");
+            }
+        });
+    }
+
     /**
      * Authorization runs before validation, so non-participants learn nothing
      * about the conversation (404) and blocked users get a clear message (403).
@@ -108,7 +146,7 @@ class SendMessageRequest extends FormRequest
             'voice' => [
                 'nullable', 'file',
                 'mimetypes:'.implode(',', $uploads['voice']['mimetypes']),
-                'max:'.$uploads['voice']['max_kb'],
+                'max:'.$this->maxKb('voice'),
             ],
             'duration' => ['nullable', 'numeric', 'min:0', 'max:'.($this->attachmentType() === Message::TYPE_VIDEO
                 ? $uploads['video']['max_seconds']
@@ -124,7 +162,7 @@ class SendMessageRequest extends FormRequest
             array_push($rules['attachment'],
                 'mimetypes:'.implode(',', $uploads['video']['mimetypes']),
                 'extensions:'.implode(',', $uploads['video']['extensions']),
-                'max:'.$uploads['video']['max_kb'],
+                'max:'.$this->maxKb('video'),
             );
         } elseif ($this->attachmentType() === Message::TYPE_IMAGE && $this->hasFile('attachment')) {
             $extensions = implode(',', $uploads['image']['extensions']);
@@ -134,14 +172,14 @@ class SendMessageRequest extends FormRequest
                 'image',
                 'mimes:'.$extensions,
                 'extensions:'.$extensions,
-                'max:'.$uploads['image']['max_kb'],
+                'max:'.$this->maxKb('image'),
                 "dimensions:max_width={$max},max_height={$max}",
             );
         } elseif ($this->hasFile('attachment')) {
             array_push($rules['attachment'],
                 'extensions:'.implode(',', array_keys($uploads['document']['types'])),
                 new DocumentType,
-                'max:'.$uploads['document']['max_kb'],
+                'max:'.$this->maxKb('document'),
             );
         }
 
@@ -208,9 +246,9 @@ class SendMessageRequest extends FormRequest
             'attachment.extensions' => $allowed,
             'attachment.image' => 'The image file is not valid.',
             'attachment.max' => match ($this->attachmentType()) {
-                Message::TYPE_IMAGE => 'Images may not be larger than '.round($uploads['image']['max_kb'] / 1024).' MB.',
-                Message::TYPE_VIDEO => 'Videos may not be larger than '.round($uploads['video']['max_kb'] / 1024).' MB.',
-                default => 'Documents may not be larger than '.round($uploads['document']['max_kb'] / 1024).' MB.',
+                Message::TYPE_IMAGE => 'Images may not be larger than '.round($this->maxKb('image') / 1024).' MB.',
+                Message::TYPE_VIDEO => 'Videos may not be larger than '.round($this->maxKb('video') / 1024).' MB.',
+                default => 'Documents may not be larger than '.round($this->maxKb('document') / 1024).' MB.',
             },
             'thumbnail.*' => 'The video preview image is not valid.',
             'sticker_id.exists' => 'This sticker is no longer in your stickers.',
@@ -218,7 +256,7 @@ class SendMessageRequest extends FormRequest
             'poll.options.min' => 'A poll needs at least 2 options.',
             'poll.options.*.distinct' => 'Poll options must be different.',
             'voice.mimetypes' => 'The voice message format is not supported.',
-            'voice.max' => 'Voice messages may not be larger than '.round($uploads['voice']['max_kb'] / 1024).' MB.',
+            'voice.max' => 'Voice messages may not be larger than '.round($this->maxKb('voice') / 1024).' MB.',
         ];
     }
 }

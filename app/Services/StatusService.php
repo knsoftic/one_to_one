@@ -98,6 +98,8 @@ class StatusService
         $ownerId = (int) $status->user_id;
         $audience = $this->audienceIds($status);
         $this->deleteFiles($status->attachment, $status->attachment_meta['thumbnail'] ?? null);
+        // A promoted update (Y2) stops showing and the unused coins come back.
+        app(PromotionService::class)->stopForTarget('status', (int) $status->getKey(), 'target_gone');
         $status->delete();
 
         broadcast(new StatusUpdated($ownerId, [...$audience, $ownerId]));
@@ -111,6 +113,8 @@ class StatusService
         Status::query()->where('expires_at', '<=', now())->chunkById(200, function (Collection $statuses) use (&$count) {
             foreach ($statuses as $status) {
                 $this->deleteFiles($status->attachment, $status->attachment_meta['thumbnail'] ?? null);
+                // A promoted update (Y2) stops showing and the unused coins come back.
+                app(PromotionService::class)->stopForTarget('status', (int) $status->getKey(), 'target_gone');
             }
             Status::query()->whereKey($statuses->modelKeys())->delete();
             $count += $statuses->count();
@@ -171,7 +175,9 @@ class StatusService
             return false;
         }
 
-        return $this->isConnection((int) $status->user_id, $viewerId);
+        // A promoted update (Y2) is shown to people outside the owner's contacts while it runs.
+        return $this->isConnection((int) $status->user_id, $viewerId)
+            || app(PromotionService::class)->grantsStatusView($status, $viewer);
     }
 
     /**

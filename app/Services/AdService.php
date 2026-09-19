@@ -18,6 +18,8 @@ use Illuminate\Support\Facades\DB;
  */
 class AdService
 {
+    public function __construct(private readonly PromotionService $promotions) {}
+
     /** Master switch, set in Admin → App settings → Ads. */
     public function enabled(): bool
     {
@@ -155,12 +157,30 @@ class AdService
                 if ($seen >= max(1, $campaign->per_user_daily_cap)) {
                     return;
                 }
-                $campaign->increment('impressions');
+                // Promotions (Y2) have a view budget: the increment is conditional on views being
+                // left, which serialises concurrent impressions on the row — the (N+1)th never
+                // lands and is not counted anywhere. House ads (null budget) count as before.
+                $counted = AdCampaign::query()->whereKey($campaign->id)
+                    ->where(fn ($q) => $q->whereNull('view_budget')->orWhereColumn('impressions', '<', 'view_budget'))
+                    ->increment('impressions');
+                if ($counted === 0) {
+                    return;
+                }
+                $campaign->impressions = (int) $campaign->impressions + 1;
                 $this->stat($campaign->id, $today, impressions: 1);
                 $this->placementStat($campaign->id, $placement, impressions: 1);
                 $view->views = ($view->views ?? 0) + 1;
             }
             $view->save();
+
+            // The view that used the last of the budget finishes the promotion, in the same
+            // transaction, so it is completed exactly once by exactly that view.
+            if (! $clicked && $campaign->view_budget !== null) {
+                $fresh = AdCampaign::query()->whereKey($campaign->id)->first(['id', 'impressions', 'view_budget', 'status']);
+                if ($fresh && (int) $fresh->impressions >= (int) $fresh->view_budget) {
+                    $this->promotions->complete($fresh);
+                }
+            }
         });
     }
 

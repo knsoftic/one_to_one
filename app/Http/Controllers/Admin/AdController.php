@@ -24,12 +24,13 @@ class AdController extends Controller
 
     public function index(): View
     {
-        $campaigns = AdCampaign::query()->latest()->paginate(20);
-        $totals = AdCampaign::query()->selectRaw('SUM(impressions) i, SUM(clicks) c')->first();
+        // House ads only: user promotions (Y2) have their own review queue.
+        $campaigns = AdCampaign::query()->house()->latest()->paginate(20);
+        $totals = AdCampaign::query()->house()->selectRaw('SUM(impressions) i, SUM(clicks) c')->first();
 
         return view('admin.ads.index', [
             'campaigns' => $campaigns,
-            'live' => AdCampaign::query()->where('status', 'active')->count(),
+            'live' => AdCampaign::query()->house()->where('status', 'active')->count(),
             'impressions' => (int) ($totals->i ?? 0),
             'clicks' => (int) ($totals->c ?? 0),
         ]);

@@ -9,6 +9,7 @@ use App\Models\StatusView;
 use App\Models\User;
 use App\Rules\SingleEmoji;
 use App\Services\ContactService;
+use App\Services\LimitService;
 use App\Services\StatusService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -51,6 +52,8 @@ class StatusController extends Controller
     {
         $uploads = config('chat.uploads');
         $type = $this->typeOf($request);
+        // Upload sizes: the app's limit, raised by the person's paid plan (Y2).
+        $limits = app(LimitService::class);
         $rules = [
             'text' => ['nullable', 'string', 'max:'.StatusService::MAX_TEXT, 'required_without:attachment'],
             'background' => ['nullable', Rule::in(Status::BACKGROUNDS)],
@@ -62,10 +65,10 @@ class StatusController extends Controller
         ];
 
         if ($type === Status::TYPE_VIDEO) {
-            array_push($rules['attachment'], 'mimetypes:'.implode(',', $uploads['video']['mimetypes']), 'extensions:'.implode(',', $uploads['video']['extensions']), 'max:'.$uploads['video']['max_kb']);
+            array_push($rules['attachment'], 'mimetypes:'.implode(',', $uploads['video']['mimetypes']), 'extensions:'.implode(',', $uploads['video']['extensions']), 'max:'.$limits->uploadKb($request->user(), 'video'));
         } elseif ($request->hasFile('attachment')) {
             $max = $uploads['image']['max_dimension'];
-            array_push($rules['attachment'], 'image', 'mimes:jpg,jpeg,png', 'extensions:jpg,jpeg,png', 'max:'.$uploads['image']['max_kb'], "dimensions:max_width={$max},max_height={$max}");
+            array_push($rules['attachment'], 'image', 'mimes:jpg,jpeg,png', 'extensions:jpg,jpeg,png', 'max:'.$limits->uploadKb($request->user(), 'image'), "dimensions:max_width={$max},max_height={$max}");
         }
 
         $validated = $request->validate($rules, [

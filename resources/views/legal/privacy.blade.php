@@ -11,6 +11,8 @@
         <li><strong>Devices and security</strong>: sign-in times and method, IP address, browser or phone model and app version, notification tokens (Firebase or browser push), and the devices you trust for two-step verification.</li>
         <li><strong>Settings</strong>: privacy choices, blocked people, muted, pinned, archived and locked chats, wallpapers, tones and similar preferences.</li>
         <li><strong>Reports</strong>: when you report someone, the report and the recent messages you include.</li>
+        <li><strong>Ads</strong>: to choose which ads you see we use the country of your own number, what you do in the app (for example whether you have a business profile or make calls), your device type, time zone and language, how often you open the app, the gender and date of birth you set in your profile, and — only while you allow the location permission on your phone — your approximate area (to about a kilometre). We never use your contacts, your messages or your exact position for ads.</li>
+        <li><strong>Payments, coins and referrals</strong>: if you buy coins or a plan we store what you bought, the amount, the payment method and its reference from the provider (Google Play, Stripe, PayPal, or the transaction id and screenshot you upload for a manual transfer). Card numbers never reach us. Your coin balance, every coin movement, your promotions with their view and tap counts, and who invited whom (with a keyed hash of the connection used at sign-up, to prevent abuse) are kept with your account.</li>
     </ul>
 
     <h2>Why we use it</h2>
@@ -32,7 +34,8 @@
     <h2>How long we keep it</h2>
     <ul>
         <li>Messages and files stay until they are deleted: "Delete for everyone", clearing or deleting chats, disappearing messages (after the time chosen), view once media (after it is opened) or deleting your account. When nobody can see a file any more, it is removed.</li>
-        <li>Status updates: 24 hours. Chat backups you make: 7 days. Sign-in history: 180 days.</li>
+        <li>Status updates: 24 hours. Chat backups you make: 7 days. Sign-in history: 180 days. Screenshots uploaded for manual payments: 90 days after the payment is settled.</li>
+        <li>Payment records are kept for accounting after you delete your account, without your name or number attached.</li>
         <li>When you delete your account, your profile, chats, messages, files, status updates and settings are deleted. Messages you sent in groups of other people are removed too. Server backups made for disaster recovery may keep copies until they are replaced or deleted.</li>
     </ul>
 

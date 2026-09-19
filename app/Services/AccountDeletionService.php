@@ -46,6 +46,14 @@ class AccountDeletionService
         $avatar = $user->profile_image;
 
         $this->presence->markOffline($user);
+
+        // Paid features (Y2): reverse a fresh referral reward, stop running promotions (refunding
+        // the unused share to a wallet that is about to go), and keep payments for accounting
+        // without the person's identity. Wallets, the ledger and referrals cascade with the row.
+        app(ReferralService::class)->voidForDeletedAccount($user);
+        app(PromotionService::class)->stopAllFor($user, 'owner_deleted');
+        app(PaymentService::class)->anonymiseFor($user);
+
         $this->leaveCommunities($user);
         $this->leaveGroupsAndChannels($user);
         Conversation::query()->where('type', Conversation::TYPE_BROADCAST)->where('created_by', $id)->get()

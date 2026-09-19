@@ -131,6 +131,7 @@ public class MainActivity extends BridgeActivity {
         splashScreen.setKeepOnScreenCondition(() -> !contentReady);
 
         registerPlugin(NativeAppPlugin.class);
+        registerPlugin(BillingPlugin.class);
         super.onCreate(savedInstanceState);
         current = new WeakReference<>(this);
         handleCallIntent(getIntent());

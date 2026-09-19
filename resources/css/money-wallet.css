@@ -1,1 +1,118 @@
-/* Paid features (Y2): wallet — styles of this slice live here. */
+/* Paid features (Y2): wallet, refer & earn and the verified badge — styles of this slice live here. */
+
+/* ---- Verified tick (chat lists, headers, profile, admin) ---------------------------------- */
+.verified-badge {
+    display: inline-flex;
+    align-items: center;
+    vertical-align: -0.15em;
+    margin-inline-start: 0.3em;
+    color: var(--c-primary, #1b8f5a);
+    flex: none;
+}
+.verified-badge svg { width: 1em; height: 1em; fill: currentColor; }
+.verified-badge svg path { stroke: var(--c-surface, #fff); }
+.verified-hint { display: block; margin-top: 0.15rem; font-size: 0.8rem; color: var(--c-muted); }
+.auth-invited { display: flex; align-items: center; justify-content: center; gap: 0.4rem; margin: 0 0 0.25rem; }
+.auth-invited svg { width: 1.1em; height: 1.1em; }
+
+/* ---- Wallet -------------------------------------------------------------------------------- */
+.wallet-hero { display: flex; flex-direction: column; align-items: center; gap: 0.15rem; padding: 1.5rem var(--wa-pad) 1rem; text-align: center; }
+.wallet-hero-label { font-size: 0.85rem; color: var(--c-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.wallet-balance { display: flex; align-items: center; gap: 0.35rem; font-size: 2.6rem; font-weight: 600; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.wallet-balance svg { width: 1.6rem; height: 1.6rem; color: #d99a00; }
+.wallet-hero-note { margin: 0.35rem 0 0; font-size: 0.82rem; color: var(--c-muted); }
+.wallet-frozen { display: inline-flex; align-items: center; gap: 0.35rem; margin-top: 0.5rem; padding: 0.3rem 0.7rem; border-radius: 999px; font-size: 0.82rem; color: var(--c-danger, #c62828); background: color-mix(in srgb, var(--c-danger, #c62828) 12%, transparent); }
+
+.wallet-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; padding: 0 var(--wa-pad) 0.75rem; }
+.wallet-tile { display: flex; flex-direction: column; gap: 0.15rem; padding: 0.9rem 1rem; border-radius: 16px; background: var(--c-surface-2); }
+.wallet-tile-label { font-size: 0.82rem; color: var(--c-muted); }
+.wallet-tile-value { font-size: 1.35rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.wallet-tile-sub { font-size: 0.78rem; color: var(--c-subtle); }
+.wallet-tile .btn { margin-top: 0.5rem; align-self: flex-start; }
+
+.wallet-pending { display: flex; gap: 0.75rem; align-items: flex-start; margin: 0.25rem var(--wa-pad) 0.5rem; padding: 0.85rem 1rem; border-radius: 14px; background: color-mix(in srgb, var(--c-warning, #e6a100) 14%, transparent); }
+.wallet-pending > svg { flex: none; width: 1.3rem; height: 1.3rem; margin-top: 0.1rem; color: var(--c-warning, #b47a00); }
+.wallet-pending.is-rejected { background: color-mix(in srgb, var(--c-danger, #c62828) 12%, transparent); }
+.wallet-pending.is-rejected > svg { color: var(--c-danger, #c62828); }
+.wallet-pending-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.9rem; }
+.wallet-pending-title { font-weight: 500; }
+.wallet-pending-text { color: var(--c-muted); font-size: 0.84rem; line-height: 1.45; }
+.wallet-pending-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.35rem; }
+.wallet-instructions { margin: 0.35rem 0 0; padding: 0.6rem 0.75rem; border-radius: 10px; background: var(--c-surface); font-size: 0.86rem; white-space: pre-line; }
+.wallet-instructions strong { display: block; margin-bottom: 0.15rem; }
+.wallet-proof-form { display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.5rem; }
+.wallet-proof-form .form-control { font-size: 0.92rem; }
+
+.wallet-packs { display: grid; grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr)); gap: 0.75rem; padding: 0.25rem var(--wa-pad) 0.75rem; }
+.wallet-pack {
+    display: flex; flex-direction: column; align-items: center; gap: 0.2rem; padding: 1rem 0.75rem;
+    border: 1px solid var(--c-border); border-radius: 16px; background: var(--c-surface); color: inherit; font: inherit; cursor: pointer; text-align: center;
+}
+.wallet-pack:hover, .wallet-pack:focus-visible { border-color: var(--c-primary); background: var(--c-primary-soft, var(--c-surface-2)); }
+.wallet-pack:disabled { opacity: 0.6; cursor: default; }
+.wallet-pack-coins { font-size: 1.35rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.wallet-pack-bonus { padding: 0.05rem 0.5rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600; color: var(--c-on-fab, #fff); background: var(--c-primary); }
+.wallet-pack-price { margin-top: 0.3rem; font-size: 0.95rem; color: var(--c-primary-text); font-weight: 500; }
+.wallet-pack-name { font-size: 0.8rem; color: var(--c-muted); }
+.wallet-empty { padding: 0.5rem var(--wa-pad) 0.9rem; font-size: 0.9rem; color: var(--c-muted); }
+
+.wallet-methods { display: flex; flex-direction: column; gap: 0.5rem; padding: 0.35rem var(--wa-pad) 0.75rem; }
+.wallet-method {
+    display: flex; align-items: center; gap: 0.75rem; padding: 0.8rem 1rem; border: 1px solid var(--c-border); border-radius: 14px;
+    background: var(--c-surface); color: inherit; font: inherit; text-align: start; cursor: pointer;
+}
+.wallet-method:hover, .wallet-method:focus-visible { border-color: var(--c-primary); }
+.wallet-method:disabled { opacity: 0.6; cursor: wait; }
+.wallet-method svg { flex: none; width: 1.4rem; height: 1.4rem; color: var(--c-icon); }
+.wallet-method-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.1rem; }
+.wallet-method-title { font-weight: 500; }
+.wallet-method-text { font-size: 0.82rem; color: var(--c-muted); }
+.wallet-sheet-title { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.6rem var(--wa-pad) 0.25rem; font-weight: 500; }
+
+.wallet-history { display: flex; flex-direction: column; }
+.wallet-txn { display: flex; align-items: center; gap: 0.85rem; padding: 0.7rem var(--wa-pad); }
+.wallet-txn + .wallet-txn { border-top: 1px solid var(--c-border); }
+.wallet-txn-icon { flex: none; display: grid; place-items: center; width: 2.4rem; height: 2.4rem; border-radius: 999px; background: var(--c-surface-2); color: var(--c-icon); }
+.wallet-txn-icon svg { width: 1.2rem; height: 1.2rem; }
+.wallet-txn-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.1rem; }
+.wallet-txn-title { font-size: 0.98rem; }
+.wallet-txn-meta { font-size: 0.8rem; color: var(--c-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wallet-txn-amount { flex: none; font-weight: 600; font-variant-numeric: tabular-nums; }
+.wallet-txn-amount.is-credit { color: var(--c-success, #1b8f5a); }
+.wallet-txn-amount.is-debit { color: var(--c-danger, #c62828); }
+.wallet-more { display: flex; justify-content: center; padding: 0.5rem var(--wa-pad) 0.75rem; }
+.wallet-error { display: flex; flex-direction: column; align-items: center; gap: 0.6rem; padding: 1.5rem var(--wa-pad); text-align: center; color: var(--c-muted); }
+.wallet-links { display: flex; flex-wrap: wrap; gap: 1rem; padding: 0.5rem var(--wa-pad) 0.75rem; font-size: 0.82rem; }
+.wallet-links a { color: var(--c-primary-text); }
+.wallet-chip { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.15rem 0.6rem; border-radius: 999px; font-size: 0.85rem; font-weight: 500; background: var(--c-surface-2); }
+.wallet-chip svg { width: 1em; height: 1em; color: #d99a00; }
+
+/* ---- Refer & earn -------------------------------------------------------------------------- */
+.refer-hero { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; padding: 1.5rem var(--wa-pad) 1rem; text-align: center; }
+.refer-hero > svg { width: 2.6rem; height: 2.6rem; color: var(--c-primary); }
+.refer-hero-title { margin: 0; font-size: 1.15rem; font-weight: 500; }
+.refer-hero-text { margin: 0; max-width: 28rem; font-size: 0.9rem; line-height: 1.5; color: var(--c-muted); }
+.refer-code { display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-top: 0.5rem; padding: 0.6rem 1.1rem; border: 1px dashed var(--c-primary); border-radius: 14px; font-size: 1.5rem; font-weight: 600; letter-spacing: 0.18em; font-variant-numeric: tabular-nums; }
+.refer-link { display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem var(--wa-pad) 0.25rem; padding: 0.55rem 0.8rem; border-radius: 12px; background: var(--c-surface-2); font-size: 0.86rem; }
+.refer-link code { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: inherit; }
+.refer-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.6rem; padding: 0.5rem var(--wa-pad) 0.75rem; }
+.refer-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.6rem; padding: 0.25rem var(--wa-pad) 0.75rem; }
+.refer-stat { display: flex; flex-direction: column; align-items: center; gap: 0.1rem; padding: 0.8rem 0.5rem; border-radius: 14px; background: var(--c-surface-2); text-align: center; }
+.refer-stat-value { font-size: 1.35rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.refer-stat-label { font-size: 0.78rem; color: var(--c-muted); }
+.refer-status { flex: none; padding: 0.1rem 0.55rem; border-radius: 999px; font-size: 0.75rem; font-weight: 500; background: var(--c-surface-2); color: var(--c-muted); }
+.refer-status.is-rewarded { color: var(--c-success, #1b8f5a); background: color-mix(in srgb, var(--c-success, #1b8f5a) 14%, transparent); }
+.refer-status.is-void { color: var(--c-danger, #c62828); background: color-mix(in srgb, var(--c-danger, #c62828) 12%, transparent); }
+
+/* ---- Admin: person → Money tab, referrals ------------------------------------------------- */
+.admin-money-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 0.75rem; margin-bottom: 0.75rem; }
+.admin-money-stat { padding: 0.75rem 0.9rem; border-radius: 12px; background: var(--c-surface-2); }
+.admin-money-stat-label { display: block; font-size: 0.78rem; color: var(--c-muted); }
+.admin-money-stat-value { display: block; font-size: 1.3rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.admin-money-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.6rem; margin-top: 0.75rem; }
+.admin-money-form .form-group { flex: 1 1 8rem; margin: 0; }
+.admin-money-form .form-group.is-wide { flex: 2 1 14rem; }
+.admin-money-inline { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.admin-ledger-amount.is-credit { color: var(--c-success, #1b8f5a); }
+.admin-ledger-amount.is-debit { color: var(--c-danger, #c62828); }
+.admin-ip-hash { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.78rem; color: var(--c-muted); }

@@ -30,11 +30,15 @@ class GroupService
         private readonly MessageService $messages,
         private readonly ImageService $images,
         private readonly ContactService $contacts,
+        private readonly LimitService $limits,
     ) {}
 
-    public function maxMembers(): int
+    /** Most people in a group. A paid plan (Y2) of the group's creator raises it, never lowers it. */
+    public function maxMembers(?User $for = null): int
     {
-        return max(3, (int) config('chat.groups.max_members', 256));
+        $base = max(3, (int) config('chat.groups.max_members', 256));
+
+        return $for ? max($base, $this->limits->groupMembers($for)) : $base;
     }
 
     /* ------------------------------------------------------------------ */
@@ -53,8 +57,8 @@ class GroupService
             throw new HttpException(422, 'Add at least one person to the group.');
         }
 
-        if ($people->count() + 1 > $this->maxMembers()) {
-            throw new HttpException(422, "A group can have up to {$this->maxMembers()} people.");
+        if ($people->count() + 1 > $this->maxMembers($creator)) {
+            throw new HttpException(422, "A group can have up to {$this->maxMembers($creator)} people.");
         }
 
         $avatarPath = $avatar ? $this->storeAvatar($avatar) : null;
@@ -107,8 +111,10 @@ class GroupService
             throw new HttpException(422, 'These people are already in the group or cannot be added.');
         }
 
-        if ($current->count() + $people->count() > $this->maxMembers()) {
-            throw new HttpException(422, "A group can have up to {$this->maxMembers()} people.");
+        // The creator's plan sets the group's size, whoever adds people.
+        $max = $this->maxMembers($group->creator);
+        if ($current->count() + $people->count() > $max) {
+            throw new HttpException(422, "A group can have up to {$max} people.");
         }
 
         $this->join($group, $people, $by);
@@ -364,7 +370,7 @@ class GroupService
             return $group;
         }
 
-        if ($group->activeMembers()->count() >= $this->maxMembers()) {
+        if ($group->activeMembers()->count() >= $this->maxMembers($group->creator)) {
             throw new HttpException(422, 'This group is full.');
         }
 
@@ -428,7 +434,7 @@ class GroupService
             'my_role' => $active ? $mine->role : null,
             'can_send' => $active && (! $group->only_admins_send || $admin),
             'can_edit_info' => $active && (! $group->only_admins_edit || $admin),
-            'max_members' => $this->maxMembers(),
+            'max_members' => $this->maxMembers($group->creator),
             // Part of a community (G10).
             'community' => $group->community_id ? [
                 'id' => (int) $group->community_id,

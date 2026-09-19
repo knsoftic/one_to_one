@@ -19,6 +19,10 @@ class RegisterRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $this->normalizeProfileInput();
+        // A code typed in lower case still matches (codes are upper-case letters and digits).
+        if (is_string($this->input('ref'))) {
+            $this->merge(['ref' => strtoupper(trim($this->input('ref'))) ?: null]);
+        }
     }
 
     public function rules(): array
@@ -34,6 +38,8 @@ class RegisterRequest extends FormRequest
             'phone' => $this->phoneRules(),
             'password' => ['required', 'string', Password::defaults()],
             'profile_image' => $this->avatarRules(),
+            // Refer & earn (Y2): the inviter's code from /r/{code}.
+            'ref' => ['nullable', 'string', 'size:8', 'regex:/^[A-Z2-9]{8}$/'],
         ];
     }
 

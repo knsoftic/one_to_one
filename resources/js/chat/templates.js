@@ -12,6 +12,17 @@ import { speedLabel, voiceSpeed } from './voice';
 import { labelDots } from './business';
 
 /* ------------------------------------------------------------------ */
+/* Names                                                               */
+/* ------------------------------------------------------------------ */
+
+/** Y2: a person's name with the verified tick after it (only when the payload says so). */
+export function nameWithBadge(user, name = user?.name) {
+    const text = html`${name ?? ''}`;
+    if (!user?.verified) return text;
+    return `${text}<span class="verified-badge" title="Verified" aria-label="Verified">${icon('badge-check')}</span>`;
+}
+
+/* ------------------------------------------------------------------ */
 /* Avatars                                                             */
 /* ------------------------------------------------------------------ */
 
@@ -98,7 +109,7 @@ export function conversationItem(conversation, { active = false, typing = false,
                 ${raw(avatar(user, 'md', { status: !isGroup && !user.is_group }))}
                 <span class="conversation-body">
                     <span class="conversation-row">
-                        <span class="conversation-name">${user.name ?? 'Unknown user'}</span>
+                        <span class="conversation-name">${raw(nameWithBadge(user, user.name ?? 'Unknown user'))}</span>
                         <span class="conversation-time">${last ? formatListTime(last.created_at) : ''}</span>
                     </span>
                     <span class="conversation-row">
@@ -173,7 +184,7 @@ export function searchResultItem(user) {
         <button type="button" class="conversation-item" data-start-user-id="${user.id}">
             ${raw(avatar(user, 'md'))}
             <span class="conversation-body">
-                <span class="conversation-name">${user.name}</span>
+                <span class="conversation-name">${raw(nameWithBadge(user))}</span>
                 <span class="search-result-meta">@${user.username}</span>
             </span>
             ${raw(icon('message-square-plus', 'text-subtle'))}
@@ -232,7 +243,7 @@ export function contactItem(contact, user = contact.user) {
         <button type="button" class="conversation-item contact-item" data-start-user-id="${user.id}">
             ${raw(avatar(user, 'md'))}
             <span class="conversation-body">
-                <span class="conversation-name">${contact.name}</span>
+                <span class="conversation-name">${raw(nameWithBadge(user, contact.name))}</span>
                 <span class="search-result-meta">${secondary}</span>
             </span>
         </button>
@@ -257,7 +268,7 @@ export function chatHeaderUser(user) {
     return html`
         ${raw(avatar(user, 'md', { status: !user.is_group }))}
         <div class="chat-header-info">
-            <div class="chat-header-name">${user.name}</div>
+            <div class="chat-header-name">${raw(nameWithBadge(user))}</div>
             <div class="chat-header-status" data-chat-status></div>
         </div>
     `;
@@ -1006,7 +1017,7 @@ export function conversationIntro(user) {
     return html`
         <div class="conversation-intro" data-conversation-intro>
             ${raw(avatar(user, 'xl'))}
-            <div class="conversation-intro-name">${user.name}</div>
+            <div class="conversation-intro-name">${raw(nameWithBadge(user))}</div>
             <div class="conversation-intro-meta">@${user.username}</div>
             <p class="conversation-intro-text">No messages yet. Say hello and start the conversation.</p>
             <button type="button" class="btn btn-secondary btn-sm" data-action="say-hi">👋 Say hi</button>

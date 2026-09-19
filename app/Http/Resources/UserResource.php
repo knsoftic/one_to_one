@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Models\User;
+use App\Services\BadgeService;
 use App\Services\PrivacyService;
 use App\Support\ChatPreferences;
 use Illuminate\Http\Request;
@@ -31,6 +32,8 @@ class UserResource extends JsonResource
             'avatar_url' => $privacy->canSeePhoto($this->resource, $viewer) ? $this->avatar_url : null,
             'initials' => $this->initials,
             'avatar_hue' => $this->avatar_hue,
+            // Y2: the verified tick (coins, admin or the active plan).
+            'verified' => app(BadgeService::class)->isVerified($this->resource),
             'is_online' => $presence['is_online'],
             'last_seen' => $presence['last_seen'],
             'about' => $privacy->canSeeAbout($this->resource, $viewer) ? $this->about : null,

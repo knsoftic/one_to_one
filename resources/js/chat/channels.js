@@ -2,6 +2,7 @@ import { debounce, errorMessage, html, raw } from '../lib/dom';
 import { icon } from '../lib/icons';
 import { confirmDialog } from '../lib/modal';
 import { toast } from '../lib/toast';
+import { promoteLink } from './ads';
 import { formatListTime } from './format';
 import * as T from './templates';
 
@@ -451,6 +452,7 @@ export class Channels {
                 <section class="group-info-section">
                     ${raw(channel.link ? html`<button type="button" class="group-info-action" data-channel-share>${raw(icon('share-2'))} Share channel link</button>` : '')}
                     ${raw(channel.is_admin ? html`<button type="button" class="group-info-action" data-channel-edit>${raw(icon('pencil'))} Edit channel</button>` : '')}
+                    ${raw(channel.is_admin && promoteLink('channel', conversation.id) ? html`<a class="group-info-action" href="${promoteLink('channel', conversation.id)}" data-channel-promote>${raw(icon('megaphone'))} Promote channel</a>` : '')}
                     <p class="channel-privacy">${raw(icon('shield-off', 'icon-xs'))} Followers can't see each other, and updates show the channel's name, not the admin's.</p>
                 </section>
                 <section class="group-info-section group-info-danger">

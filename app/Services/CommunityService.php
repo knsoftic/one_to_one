@@ -137,6 +137,8 @@ class CommunityService
             $this->groups->endByModerator($announcement, $by);
         }
         $announcement->forceFill(['community_id' => null, 'is_announcement' => false])->save();
+        // A promoted community (Y2) stops showing and the unused coins come back.
+        app(PromotionService::class)->stopForTarget('community', (int) $community->getKey(), 'target_gone');
         $community->delete();
     }
 

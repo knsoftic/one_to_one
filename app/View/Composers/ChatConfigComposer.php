@@ -205,6 +205,8 @@ class ChatConfigComposer
             'communityInvite' => $view->getData()['communityInvite'] ?? null,
             // Opened from a channel link (G11).
             'channelInvite' => $view->getData()['channelInvite'] ?? null,
+            // Opened from a promoted card's web link (promotions.go, Y2): the same opener as a tap.
+            'openTarget' => $view->getData()['openTarget'] ?? null,
             // Opened from a linked-device QR code (P10).
             'linkDevice' => $view->getData()['linkDevice'] ?? null,
             // Opened from someone's profile QR code (A4).

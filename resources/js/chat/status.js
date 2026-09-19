@@ -2,6 +2,7 @@ import { errorMessage, html, raw } from '../lib/dom';
 import { icon } from '../lib/icons';
 import { confirmDialog } from '../lib/modal';
 import { toast } from '../lib/toast';
+import { promoteLink } from './ads';
 import { formatDateTime } from './format';
 import { callablePeople, pickPeople } from './people-picker';
 import * as T from './templates';
@@ -357,6 +358,9 @@ export class Statuses {
                     </span>
                     <button type="button" class="btn-icon" data-viewer-pause aria-label="Pause">${raw(icon('pause'))}</button>
                     ${raw(status.type === 'video' ? html`<button type="button" class="btn-icon" data-viewer-sound aria-label="${this.muted ? 'Sound on' : 'Mute'}">${raw(icon(this.muted ? 'volume-x' : 'volume-2'))}</button>` : '')}
+                    ${raw(mine && promoteLink('status', status.id)
+                        ? html`<a class="btn-icon" href="${promoteLink('status', status.id)}" data-viewer-promote aria-label="Promote status" title="Promote">${raw(icon('megaphone'))}</a>`
+                        : '')}
                     ${raw(mine
                         ? html`<button type="button" class="btn-icon" data-viewer-delete aria-label="Delete status" title="Delete">${raw(icon('trash-2'))}</button>`
                         : html`<button type="button" class="btn-icon" data-viewer-mute aria-label="${person.muted ? 'Unmute' : 'Mute'} ${name}" title="${person.muted ? 'Unmute' : 'Mute'}">${raw(icon(person.muted ? 'bell' : 'bell-off'))}</button>`)}

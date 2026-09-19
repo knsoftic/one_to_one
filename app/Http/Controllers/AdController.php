@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\AdCampaign;
 use App\Services\AdService;
 use App\Services\AdTargetingService;
+use App\Services\PromotionService;
 use App\Support\AdPlacement;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -20,6 +21,7 @@ class AdController extends Controller
     public function __construct(
         private readonly AdService $ads,
         private readonly AdTargetingService $targeting,
+        private readonly PromotionService $promotions,
     ) {}
 
     /**
@@ -75,12 +77,30 @@ class AdController extends Controller
     /** Records the tap and sends the person on to the advertiser (opened in the browser by the app). */
     public function click(Request $request, AdCampaign $campaign): RedirectResponse
     {
-        abort_unless($campaign->isLive(), 404);
+        // A tap on the last served card of a promotion that just finished still counts (Y2).
+        abort_unless($campaign->acceptsTap(), 404);
 
         $placement = (string) $request->query('placement', 'chat_list');
         $this->ads->recordClick($campaign, $request->user(), $placement);
 
         return redirect()->away($campaign->target_url);
+    }
+
+    /**
+     * A tap inside the app (Y2): records the click and answers with what to open — a promoted
+     * status, channel, community or business opens in-app; anything else is just a URL.
+     */
+    public function tap(Request $request, AdCampaign $campaign): JsonResponse
+    {
+        abort_unless($campaign->acceptsTap(), 404);
+
+        $placement = (string) $request->input('placement', 'chat_list');
+        $this->ads->recordClick($campaign, $request->user(), $placement);
+
+        return response()->json([
+            'open' => $this->promotions->openPayload($campaign, $request->user()),
+            'url' => $campaign->target_url,
+        ]);
     }
 
     /**

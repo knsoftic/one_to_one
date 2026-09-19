@@ -1,7 +1,9 @@
 import axios from '../bootstrap';
 import { confirmDialog } from '../lib/modal';
+import { toast } from '../lib/toast';
 import { checkAndroidUpdate } from '../ui/app-update';
 import { AppLock } from './app-lock';
+import { onPurchaseUpdated, recoverPurchases } from './billing';
 import { requestStartupPermissions } from './permissions';
 import { App, NativeApp, SystemBars } from './plugins';
 import { watchSystemBars } from './system-bars';
@@ -41,6 +43,14 @@ export function initNativeApp(config) {
     appConfig = config ?? {};
     document.documentElement.classList.add('is-native-app');
 
+    // The installed build number: Wallet / Premium (Y2) ask for an update below the admin's minimum.
+    Promise.resolve()
+        .then(() => NativeApp.getInfo())
+        .then((info) => {
+            appConfig.native = { build: Number(info?.build ?? 0), version: info?.version ?? null };
+        })
+        .catch(() => {});
+
     // Status and navigation bar icons that stay visible on every screen (and the fix for app 1.1).
     watchSystemBars({ SystemBars, NativeApp }).catch(() => {});
 
@@ -61,6 +71,7 @@ export function initNativeApp(config) {
     if (appConfig.user && document.querySelector('[data-chat-app]')) {
         trackActiveConversation();
         bindCalls();
+        bindPlayBilling();
         setUpChatPage().catch((error) => console.warn('App setup incomplete:', error?.message ?? error));
     }
 
@@ -224,6 +235,30 @@ function bindCalls() {
     NativeApp.addListener('callAction', ({ action }) => {
         if (action === 'hangup') window.Chat?.calls?.hangUp();
     });
+}
+
+/**
+ * Google Play purchases (Y2): deliver anything Play still holds from an earlier session (the app
+ * was killed or offline between paying and the server's confirmation), once per open, and again
+ * whenever a pending purchase (cash at a store) goes through.
+ */
+function bindPlayBilling() {
+    if (!appConfig.paid?.play?.enabled || !appConfig.routes?.payPlayVerify) return;
+
+    const verifyUrl = appConfig.routes.payPlayVerify;
+    const recover = () =>
+        recoverPurchases({ verifyUrl })
+            .then((results) => {
+                const delivered = results.filter((row) => row.status === 'fulfilled');
+                if (!delivered.length) return;
+                // Let the open Wallet / Premium screen refresh its balance.
+                document.dispatchEvent(new CustomEvent('billing:recovered', { detail: { results, wallet: delivered.at(-1).wallet } }));
+                toast(delivered.length === 1 ? delivered[0].message : 'Your Google Play purchases were delivered.', { type: 'success' });
+            })
+            .catch(() => {});
+
+    recover();
+    onPurchaseUpdated(recover);
 }
 
 /** Tell the app which chat is on screen: its messages don't need a phone notification. */

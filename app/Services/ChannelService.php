@@ -112,6 +112,8 @@ class ChannelService
             $this->images->deleteAvatar($channel->avatar);
         }
 
+        // A promoted channel (Y2) stops showing and the unused coins come back.
+        app(PromotionService::class)->stopForTarget('conversation', (int) $channel->getKey(), 'target_gone');
         $channel->delete();
     }
 

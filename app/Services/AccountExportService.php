@@ -2,14 +2,19 @@
 
 namespace App\Services;
 
+use App\Models\AdCampaign;
 use App\Models\Call;
 use App\Models\ChatList;
+use App\Models\CoinTransaction;
 use App\Models\Contact;
 use App\Models\Conversation;
 use App\Models\ConversationMember;
 use App\Models\Message;
+use App\Models\Payment;
+use App\Models\Referral;
 use App\Models\StarredMessage;
 use App\Models\Status;
+use App\Models\Subscription;
 use App\Models\User;
 use App\Models\UserReport;
 use Illuminate\Http\Request;
@@ -122,6 +127,28 @@ class AccountExportService
                 'status_updates_now' => Status::query()->where('user_id', $id)->active()->count(),
                 'saved_stickers' => $user->stickers()->count(),
                 'reports_sent' => UserReport::query()->where('reporter_id', $id)->count(),
+            ],
+            // Paid features (Y2): coins, payments, referrals and promotions — never proof images or provider payloads.
+            'money' => [
+                'wallet' => app(CoinService::class)->summary($user),
+                'coin_history' => CoinTransaction::query()->where('user_id', $id)->orderByDesc('id')->limit(500)->get()
+                    ->map(fn (CoinTransaction $row) => ['type' => $row->label(), 'coins' => $row->amount, 'note' => $row->note, 'at' => $this->date($row->created_at)])
+                    ->all(),
+                'payments' => Payment::query()->where('user_id', $id)->orderByDesc('id')->get()
+                    ->map(fn (Payment $p) => ['item' => $p->itemLabel(), 'amount' => $p->amount_minor / 100, 'currency' => $p->currency, 'method' => Payment::GATEWAYS[$p->gateway] ?? $p->gateway, 'status' => $p->status, 'at' => $this->date($p->created_at)])
+                    ->all(),
+                'subscriptions' => Subscription::query()->where('user_id', $id)->with('plan:id,name')->orderByDesc('id')->get()
+                    ->map(fn (Subscription $s) => ['plan' => $s->plan?->name, 'status' => $s->status, 'from' => $this->date($s->starts_at), 'until' => $this->date($s->ends_at)])
+                    ->all(),
+                'referrals' => [
+                    'invited_by_me' => Referral::query()->where('referrer_id', $id)->with('referred:id,name')->orderByDesc('id')->get()
+                        ->map(fn (Referral $r) => ['name' => $r->referred?->name, 'status' => $r->status, 'coins' => $r->referrer_coins, 'at' => $this->date($r->rewarded_at ?? $r->created_at)])
+                        ->all(),
+                    'i_was_invited' => $user->referred_by !== null,
+                ],
+                'promotions' => AdCampaign::query()->where('owner_id', $id)->orderByDesc('id')->get()
+                    ->map(fn (AdCampaign $c) => ['kind' => $c->kind, 'title' => $c->title, 'status' => $c->status, 'coins' => $c->coins_spent, 'refunded' => $c->coins_refunded, 'views' => $c->impressions, 'taps' => $c->clicks, 'at' => $this->date($c->created_at)])
+                    ->all(),
             ],
             'devices' => [
                 'signed_in' => $this->sessions->list($user, $request)

@@ -2,6 +2,7 @@ import { errorMessage, html, raw } from '../lib/dom';
 import { icon } from '../lib/icons';
 import { confirmDialog } from '../lib/modal';
 import { toast } from '../lib/toast';
+import { promoteLink } from './ads';
 import * as T from './templates';
 
 /**
@@ -185,6 +186,7 @@ export class Communities {
                     <button type="button" class="group-info-action" data-community-link-group>${raw(icon('link-2'))} Add existing groups</button>
                     <button type="button" class="group-info-action" data-community-invite>${raw(icon('qr-code'))} Invite via link or QR code</button>
                     <button type="button" class="group-info-action" data-community-edit>${raw(icon('pencil'))} Edit community</button>
+                    ${raw(promoteLink('community', item.id) ? html`<a class="group-info-action" href="${promoteLink('community', item.id)}" data-community-promote>${raw(icon('megaphone'))} Promote community</a>` : '')}
                 </div>` : '')}
             ${raw(mine.length ? html`<div class="sidebar-section-title">Groups you're in</div>${raw(mine.map((g) => groupRow(g, true)).join(''))}` : '')}
             ${raw(others.length ? html`<div class="sidebar-section-title">Groups you can join</div>${raw(others.map((g) => groupRow(g, false)).join(''))}` : '')}

@@ -38,6 +38,7 @@ mobile/
         ├── CallActionReceiver.java        # Decline / Hang up buttons
         ├── AvatarLoader.java              # round sender photo or initials
         ├── NativeAppPlugin.java           # contacts, notification settings, battery exemption
+        ├── BillingPlugin.java             # Google Play Billing: coins / plans bought in the app (docs/PLAY-BILLING.md)
         ├── ChatNotificationService.java   # fallback background connection (WebSocket + polling)
         ├── MessageNotifier.java           # WhatsApp-style notifications, Reply / Mark as read, shortcuts
         ├── NotificationSettings.java      # stored connection details
